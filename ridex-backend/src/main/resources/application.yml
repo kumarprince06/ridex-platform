@@ -1,1 +1,17 @@
-spring.application.name=ridex-backend
+spring:
+  application:
+    name: ridex-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ridex_platform
+    username: ridex_app
+    password: ${RIDEX_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true

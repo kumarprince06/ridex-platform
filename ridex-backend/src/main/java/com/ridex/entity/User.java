@@ -4,6 +4,7 @@ package com.ridex.entity;
 import java.time.LocalDateTime;
 
 import com.ridex.enums.UserStatus;
+import com.ridex.util.UlidGenerator;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -62,6 +63,9 @@ public class User {
 
     @PrePersist
     protected void onCreate() {
+        if (id == null) {
+            id = UlidGenerator.generateUlid();
+        }
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;

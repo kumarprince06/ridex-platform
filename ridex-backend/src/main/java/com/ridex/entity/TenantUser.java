@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.ridex.enums.TenantUserRole;
 import com.ridex.enums.TenantUserStatus;
+import com.ridex.util.UlidGenerator;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -75,6 +76,10 @@ public class TenantUser {
 
     @PrePersist
     private void prePersist() {
+        if (id == null) {
+            id = UlidGenerator.generateUlid();
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
         if (joinedAt == null) {

@@ -2,7 +2,7 @@ package com.ridex.dto.response;
 
 import java.time.LocalDateTime;
 
-import com.ridex.tenant.TenantLifecycleStatus;
+import com.ridex.enums.TenantLifecycleStatus;
 
 public class TenantResponse {
     private String id;

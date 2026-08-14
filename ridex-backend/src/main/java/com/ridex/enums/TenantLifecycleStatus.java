@@ -1,4 +1,4 @@
-package com.ridex.tenant;
+package com.ridex.enums;
 
 public enum TenantLifecycleStatus {
     

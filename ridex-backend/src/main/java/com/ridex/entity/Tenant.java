@@ -2,7 +2,7 @@ package com.ridex.entity;
 
 import java.time.LocalDateTime;
 
-import com.ridex.tenant.TenantLifecycleStatus;
+import com.ridex.enums.TenantLifecycleStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

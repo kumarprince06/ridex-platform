@@ -25,12 +25,6 @@ public class Tenant {
     @Column(name = "id", nullable =  false, length = 26, updatable = false)
     private String id;
 
-    @Column(name = "business_name", nullable = false, length = 255)
-    private String businessName;
-
-    @Column(name = "business_email", nullable = false, length = 255, unique = true)
-    private String businessEmail;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "lifecycle_status", nullable = false, length = 50)
     private TenantLifecycleStatus lifecycleStatus;

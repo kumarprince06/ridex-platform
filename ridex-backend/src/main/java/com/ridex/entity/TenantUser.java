@@ -1,6 +1,6 @@
 package com.ridex.entity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import com.ridex.enums.TenantUserRole;
 import com.ridex.enums.TenantUserStatus;
@@ -66,13 +66,13 @@ public class TenantUser {
     private TenantUserStatus status;
 
     @Column(name = "joined_at", nullable = false, updatable = false)
-    private LocalDateTime joinedAt;
+    private Instant joinedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     private void prePersist() {
@@ -80,7 +80,7 @@ public class TenantUser {
             id = UlidGenerator.generateUlid();
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         if (joinedAt == null) {
             joinedAt = now;
@@ -92,7 +92,7 @@ public class TenantUser {
 
     @PreUpdate
     private void preUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now();
     }
 
 }

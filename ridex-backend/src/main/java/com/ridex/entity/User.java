@@ -1,7 +1,7 @@
 package com.ridex.entity;
 
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import com.ridex.enums.UserStatus;
 import com.ridex.util.UlidGenerator;
@@ -50,30 +50,30 @@ public class User {
     private UserStatus status;
 
     @Column(name = "email_verified_at")
-    private LocalDateTime emailVerifiedAt;
+    private Instant emailVerifiedAt;
 
     @Column(name = "last_login_at")
-    private LocalDateTime lastLoginAt;
+    private Instant lastLoginAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     protected void onCreate() {
         if (id == null) {
             id = UlidGenerator.generateUlid();
         }
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
 }

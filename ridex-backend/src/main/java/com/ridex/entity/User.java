@@ -32,16 +32,16 @@ public class User {
     @Column(name = "email", nullable = false, length = 255)
     private String email;
 
-    @Column(name = "phone", nullable = false, length = 30)
+    @Column(name = "phone", length = 30)
     private String phone;
 
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(name = "first_name", nullable = false, length = 255)
+    @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
-    @Column(name = "last_name", length = 255)
+    @Column(name = "last_name", length = 100)
     private String lastName;
 
     @Enumerated(EnumType.STRING)

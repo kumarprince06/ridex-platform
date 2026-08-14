@@ -22,7 +22,7 @@ import lombok.Setter;
 public class Tenant {
 
     @Id
-    @Column(name = "id", nullable =  false, length = 20, updatable = false)
+    @Column(name = "id", nullable =  false, length = 26, updatable = false)
     private String id;
 
     @Column(name = "business_name", nullable = false, length = 255)

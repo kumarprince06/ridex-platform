@@ -4,8 +4,6 @@ import java.time.LocalDateTime;
 
 import com.ridex.enums.TenantUserRole;
 import com.ridex.enums.TenantUserStatus;
-import com.ridex.enums.UserStatus;
-
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -20,7 +18,13 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(
     name = "tenant_users", 
@@ -84,71 +88,6 @@ public class TenantUser {
     @PreUpdate
     private void preUpdate() {
         updatedAt = LocalDateTime.now();
-    }
-
-    // Getters and Setters
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public Tenant getTenant() {
-        return tenant;
-    }
-
-    public void setTenant(Tenant tenant) {
-        this.tenant = tenant;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
-    public TenantUserRole getRole() {
-        return role;
-    }
-
-    public void setRole(TenantUserRole role) {
-        this.role = role;
-    }
-
-    public TenantUserStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(TenantUserStatus status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getJoinedAt() {
-        return joinedAt;
-    }
-
-    public void setJoinedAt(LocalDateTime joinedAt) {
-        this.joinedAt = joinedAt;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 
 }

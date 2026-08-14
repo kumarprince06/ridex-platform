@@ -20,3 +20,16 @@ spring:
 
   flyway:
     enabled: true
+
+  # Local development points at Mailpit, which accepts any sender and delivers nothing onward,
+  # so a wrong address can never reach a real person. Split this into a prod profile when a
+  # second environment exists - a placeholder prod block nobody runs would only rot.
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false

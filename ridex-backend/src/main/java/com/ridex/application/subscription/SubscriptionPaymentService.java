@@ -34,6 +34,7 @@ public class SubscriptionPaymentService {
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final PaymentGatewayRegistry paymentGatewayRegistry;
     private final TenantAccessService tenantAccessService;
+    private final InvoiceService invoiceService;
 
     @Transactional(readOnly = true)
     public List<SubscriptionPayment> getPaymentsForTenant(String tenantId) {
@@ -75,12 +76,24 @@ public class SubscriptionPaymentService {
     }
 
     @Transactional
-    public SubscriptionPayment markPaymentAsPaid(String paymentId) {
+    public SubscriptionPayment markPaymentAsPaid(String tenantId, String paymentId) {
+        tenantAccessService.requireTenantAccess(tenantId);
+
         SubscriptionPayment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found: " + paymentId));
 
+        if (payment.getTenant() == null || !tenantId.equals(payment.getTenant().getId())) {
+            throw new IllegalStateException("Payment does not belong to the tenant");
+        }
+
+        if (payment.getStatus() == SubscriptionPaymentStatus.PAID) {
+            return payment;
+        }
+
         payment.setStatus(SubscriptionPaymentStatus.PAID);
         payment.setCompletedAt(Instant.now());
-        return paymentRepository.save(payment);
+        SubscriptionPayment savedPayment = paymentRepository.save(payment);
+        invoiceService.generateInvoiceForPayment(savedPayment.getId());
+        return savedPayment;
     }
 }

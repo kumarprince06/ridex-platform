@@ -39,4 +39,12 @@ public class SubscriptionPaymentController {
             @Valid @RequestBody CreatePaymentSessionRequest request) {
         return subscriptionPaymentService.createPaymentSession(tenantId, subscriptionId, request.paymentProvider());
     }
+
+    @PostMapping("/{tenantId}/payments/{paymentId}/complete")
+    @ResponseStatus(HttpStatus.OK)
+    public SubscriptionPayment completePayment(
+            @PathVariable String tenantId,
+            @PathVariable String paymentId) {
+        return subscriptionPaymentService.markPaymentAsPaid(tenantId, paymentId);
+    }
 }

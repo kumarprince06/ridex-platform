@@ -21,6 +21,12 @@ spring:
   flyway:
     enabled: true
 
+app:
+  jwt:
+    secret: ${RIDEX_JWT_SECRET:change-me-please-very-long-secret-key}
+    access-expiration-ms: 3600000
+    refresh-expiration-ms: 604800000
+
   # Local development points at Mailpit, which accepts any sender and delivers nothing onward,
   # so a wrong address can never reach a real person. Split this into a prod profile when a
   # second environment exists - a placeholder prod block nobody runs would only rot.

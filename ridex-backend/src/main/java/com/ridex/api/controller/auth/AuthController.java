@@ -7,6 +7,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ridex.api.dto.auth.LoginRequest;
+import com.ridex.api.dto.auth.LoginResponse;
+import com.ridex.api.dto.auth.RefreshTokenRequest;
+import com.ridex.api.dto.auth.RefreshTokenResponse;
 import com.ridex.api.dto.auth.RegisterRequest;
 import com.ridex.api.dto.auth.RegisterResponse;
 import com.ridex.application.auth.AuthService;
@@ -30,6 +34,18 @@ public class AuthController {
     public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
         return new RegisterResponse("Registration received. Check your email to verify your account.");
+    }
+
+    @PostMapping("/login")
+    @ResponseStatus(HttpStatus.OK)
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
+    }
+
+    @PostMapping("/refresh")
+    @ResponseStatus(HttpStatus.OK)
+    public RefreshTokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request);
     }
 
 }

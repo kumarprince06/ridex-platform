@@ -13,7 +13,7 @@ public interface TenantUserRepository extends JpaRepository<TenantUser, String> 
     Optional<TenantUser> findByTenantIdAndUserId(String tenantId, String userId);
 
     List<TenantUser> findByTenantId(String tenantId);
-
+    Optional<TenantUser> findFirstByUserIdOrderByJoinedAtDesc(String userId);
     boolean existsByTenantIdAndUserId(String tenantId, String userId);
     
 }

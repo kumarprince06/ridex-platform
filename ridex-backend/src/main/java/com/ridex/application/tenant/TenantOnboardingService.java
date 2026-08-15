@@ -29,9 +29,12 @@ public class TenantOnboardingService {
     private final TenantBusinessProfileRepository tenantBusinessProfileRepository;
     private final TenantUserRepository tenantUserRepository;
     private final UserRepository userRepository;
+    private final TenantAccessService tenantAccessService;
 
     @Transactional
     public TenantResponse completeOnboarding(String tenantId, CreateTenantRequest request) {
+        tenantAccessService.requireTenantAccess(tenantId);
+
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
 

@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ridex.api.dto.tenant.CreateTenantMemberRequest;
 import com.ridex.api.dto.tenant.CreateTenantRequest;
 import com.ridex.api.dto.tenant.TenantResponse;
+import com.ridex.application.tenant.TenantMemberService;
 import com.ridex.application.tenant.TenantOnboardingService;
 
 import jakarta.validation.Valid;
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class TenantController {
 
     private final TenantOnboardingService tenantOnboardingService;
+    private final TenantMemberService tenantMemberService;
 
     @PostMapping("/{tenantId}/complete-onboarding")
     @ResponseStatus(HttpStatus.OK)
@@ -28,5 +31,13 @@ public class TenantController {
             @PathVariable String tenantId,
             @Valid @RequestBody CreateTenantRequest request) {
         return tenantOnboardingService.completeOnboarding(tenantId, request);
+    }
+
+    @PostMapping("/{tenantId}/members")
+    @ResponseStatus(HttpStatus.CREATED)
+    public String createMember(
+            @PathVariable String tenantId,
+            @Valid @RequestBody CreateTenantMemberRequest request) {
+        return tenantMemberService.createMember(tenantId, request);
     }
 }

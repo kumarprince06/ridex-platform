@@ -28,9 +28,12 @@ public class TenantMemberService {
     private final UserRepository userRepository;
     private final TenantUserRepository tenantUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TenantAccessService tenantAccessService;
 
     @Transactional
     public String createMember(String tenantId, CreateTenantMemberRequest request) {
+        tenantAccessService.requireTenantAccess(tenantId);
+
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
 

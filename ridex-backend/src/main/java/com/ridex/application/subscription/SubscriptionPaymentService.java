@@ -3,7 +3,10 @@ package com.ridex.application.subscription;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -95,5 +98,62 @@ public class SubscriptionPaymentService {
         SubscriptionPayment savedPayment = paymentRepository.save(payment);
         invoiceService.generateInvoiceForPayment(savedPayment.getId());
         return savedPayment;
+    }
+
+    @Transactional
+    public SubscriptionPayment handleWebhook(String providerName, String payload, String signature) {
+        PaymentProviderType providerType = PaymentProviderType.valueOf(providerName.trim().toUpperCase());
+        PaymentGateway gateway = paymentGatewayRegistry.getGateway(providerType);
+
+        if (!gateway.verifyWebhookSignature(payload, signature)) {
+            throw new AccessDeniedException("Invalid payment webhook signature");
+        }
+
+        String providerPaymentId = extractProviderPaymentId(payload);
+        if (providerPaymentId == null || providerPaymentId.isBlank()) {
+            throw new IllegalArgumentException("Webhook payload missing provider payment identifier");
+        }
+
+        SubscriptionPayment payment = paymentRepository.findByProviderPaymentId(providerPaymentId)
+                .orElseThrow(() -> new EntityNotFoundException("Payment not found for provider id: " + providerPaymentId));
+
+        String normalizedPayload = payload.toLowerCase();
+        if (normalizedPayload.contains("failed") || normalizedPayload.contains("declined") || normalizedPayload.contains("canceled")) {
+            payment.setStatus(SubscriptionPaymentStatus.FAILED);
+            payment.setCompletedAt(Instant.now());
+            payment.setFailureReason("Provider reported failure for webhook event");
+            return paymentRepository.save(payment);
+        }
+
+        payment.setStatus(SubscriptionPaymentStatus.PAID);
+        payment.setCompletedAt(Instant.now());
+        if (payment.getPaymentProvider() == null) {
+            payment.setPaymentProvider(providerType);
+        }
+
+        SubscriptionPayment savedPayment = paymentRepository.save(payment);
+        invoiceService.generateInvoiceForPayment(savedPayment.getId());
+        return savedPayment;
+    }
+
+    private String extractProviderPaymentId(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return null;
+        }
+
+        Pattern[] patterns = new Pattern[] {
+                Pattern.compile("(?:providerPaymentId|provider_payment_id|paymentId|payment_id|checkoutSessionId|session_id)\\s*[:=]\\s*\\\"?([A-Za-z0-9_-]+)\\\"?", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("(?:providerPaymentId|provider_payment_id|paymentId|payment_id|checkoutSessionId|session_id)\\s*[:=]\\s*'([A-Za-z0-9_-]+)'", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("(?:providerPaymentId|provider_payment_id|paymentId|payment_id|checkoutSessionId|session_id)\\s*[:=]\\s*([A-Za-z0-9_-]+)", Pattern.CASE_INSENSITIVE)
+        };
+
+        for (Pattern pattern : patterns) {
+            Matcher matcher = pattern.matcher(payload);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
+
+        return null;
     }
 }

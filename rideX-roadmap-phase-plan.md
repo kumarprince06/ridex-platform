@@ -67,15 +67,20 @@ Make the platform monetizable and tenant-ready for production usage.
 - Tenant subscription records
 - Generic payment provider abstraction
 - Public and secret key configuration per tenant
+- Payment transaction storage and reconciliation
 - Payment intent / checkout flow
 - Payment status and webhook handling
 - Subscription activation logic
+- Invoice generation for tenant and customer billing
+- Invoice status tracking and document storage
 
 ### Acceptance Criteria
 - Tenant can select a plan
 - Payment can be captured through a generic provider interface
-- Successful payment activates the tenant or plan
+- Successful payment is saved with provider metadata and status
 - Failed payment is tracked and handled cleanly
+- Invoice is generated for each successful payment record
+- Tenant billing can be audited from payment + invoice records
 
 ### Status
 Planned
@@ -254,10 +259,11 @@ The correct sequence is:
 1. Core backend
 2. Tenant onboarding
 3. Subscriptions and payments
-4. Super admin
-5. Tenant admin
-6. Rider app
-7. Driver app
+4. Invoicing and billing docs
+5. Super admin
+6. Tenant admin
+7. Rider app
+8. Driver app
 8. Notifications
 9. Launch polish
 

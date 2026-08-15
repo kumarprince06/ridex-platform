@@ -64,6 +64,13 @@ public class Invoice {
     )
     private SubscriptionPayment payment;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "payment_transaction_id",
+        foreignKey = @ForeignKey(name = "fk_invoices_payment_transaction")
+    )
+    private PaymentTransaction paymentTransaction;
+
     @Column(name = "issue_date", nullable = false)
     private Instant issueDate;
 

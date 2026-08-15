@@ -10,9 +10,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.domain.subscription.Invoice;
 import com.ridex.domain.subscription.InvoiceStatus;
+import com.ridex.domain.subscription.PaymentTransaction;
+import com.ridex.domain.subscription.PaymentTransactionStatus;
 import com.ridex.domain.subscription.SubscriptionPayment;
 import com.ridex.domain.subscription.SubscriptionPaymentStatus;
 import com.ridex.infrastructure.persistence.jpa.repository.InvoiceRepository;
+import com.ridex.infrastructure.persistence.jpa.repository.PaymentTransactionRepository;
 import com.ridex.infrastructure.persistence.jpa.repository.SubscriptionPaymentRepository;
 import com.ridex.shared.util.UlidGenerator;
 
@@ -24,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 public class InvoiceService {
 
     private final SubscriptionPaymentRepository paymentRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
     private final InvoiceRepository invoiceRepository;
 
     @Transactional
@@ -54,10 +58,46 @@ public class InvoiceService {
                 });
     }
 
+    @Transactional
+    public Invoice generateInvoiceForRidePayment(String paymentTransactionId) {
+        return generateInvoiceForGenericTransaction(paymentTransactionId, "ride");
+    }
+
+    @Transactional
+    public Invoice generateInvoiceForDriverPayout(String paymentTransactionId) {
+        return generateInvoiceForGenericTransaction(paymentTransactionId, "driver-payout");
+    }
+
     @Transactional(readOnly = true)
     public Invoice getInvoiceByPaymentId(String paymentId) {
         return invoiceRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Invoice not found for payment: " + paymentId));
+    }
+
+    private Invoice generateInvoiceForGenericTransaction(String paymentTransactionId, String invoiceType) {
+        PaymentTransaction paymentTransaction = paymentTransactionRepository.findById(paymentTransactionId)
+                .orElseThrow(() -> new EntityNotFoundException("Payment transaction not found: " + paymentTransactionId));
+
+        if (paymentTransaction.getStatus() != PaymentTransactionStatus.PAID) {
+            throw new IllegalStateException("Invoice can only be generated for a successful transaction");
+        }
+
+        return invoiceRepository.findByPaymentId(paymentTransactionId)
+                .orElseGet(() -> {
+                    Invoice invoice = new Invoice();
+                    invoice.setId(UlidGenerator.generateUlid());
+                    invoice.setInvoiceNumber(generateInvoiceNumber());
+                    invoice.setTenant(paymentTransaction.getTenant());
+                    invoice.setPaymentTransaction(paymentTransaction);
+                    invoice.setIssueDate(Instant.now());
+                    invoice.setDueDate(Instant.now().plus(7, ChronoUnit.DAYS));
+                    invoice.setTotalAmount(paymentTransaction.getAmount());
+                    invoice.setTaxAmount(BigDecimal.ZERO);
+                    invoice.setDiscountAmount(BigDecimal.ZERO);
+                    invoice.setCurrencyCode(paymentTransaction.getCurrencyCode());
+                    invoice.setStatus(InvoiceStatus.PAID);
+                    return invoiceRepository.save(invoice);
+                });
     }
 
     private String generateInvoiceNumber() {

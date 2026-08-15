@@ -12,6 +12,8 @@ public record InvoiceResponse(
         String tenantId,
         String subscriptionId,
         String paymentId,
+        String paymentTransactionId,
+        String invoiceType,
         Instant issueDate,
         Instant dueDate,
         BigDecimal totalAmount,
@@ -28,6 +30,9 @@ public record InvoiceResponse(
                 invoice.getTenant() != null ? invoice.getTenant().getId() : null,
                 invoice.getSubscription() != null ? invoice.getSubscription().getId() : null,
                 invoice.getPayment() != null ? invoice.getPayment().getId() : null,
+                invoice.getPaymentTransaction() != null ? invoice.getPaymentTransaction().getId() : null,
+                invoice.getPayment() != null && invoice.getPayment().getSubscription() != null ? "subscription" :
+                        (invoice.getPaymentTransaction() != null ? invoice.getPaymentTransaction().getTransactionType().name() : "transaction"),
                 invoice.getIssueDate(),
                 invoice.getDueDate(),
                 invoice.getTotalAmount(),

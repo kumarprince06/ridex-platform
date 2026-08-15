@@ -60,30 +60,39 @@ Planned
 ## Phase 3: Subscription and Payment Foundation
 
 ### Goal
-Make the platform monetizable and tenant-ready for production usage.
+Make the platform monetizable and tenant-ready for production usage while supporting the full financial lifecycle of a mobility business.
 
 ### Deliverables
 - Subscription plan model
 - Tenant subscription records
-- Generic payment provider abstraction
-- Public and secret key configuration per tenant
+- Generic payment provider abstraction for multiple gateways
+- Public and secret key configuration per tenant and payment use case
+- Platform subscription payment flow for RideX super admin billing
+- Ride fare payment flow for tenant-specific trip billing
+- Driver payout / settlement flow for tenant-to-driver payments
 - Payment transaction storage and reconciliation
 - Payment intent / checkout flow
 - Payment status and webhook handling
 - Subscription activation logic
-- Invoice generation for tenant and customer billing
+- Invoice generation for platform subscription billing
+- Invoice generation for ride fare billing
+- Invoice or settlement record generation for driver payouts
 - Invoice status tracking and document storage
+- Audit trail for all financial records
 
 ### Acceptance Criteria
-- Tenant can select a plan
-- Payment can be captured through a generic provider interface
-- Successful payment is saved with provider metadata and status
+- Tenant can select and pay for a platform plan
+- Payment can be captured through a generic provider interface regardless of gateway
+- Successful platform payment is saved with provider metadata and status
+- Ride payment can be captured for a trip or booking in a tenant-specific flow
+- Driver settlement payout is tracked separately from platform subscription billing
+- Invoice is generated for each successful billable event: subscription, ride, and payout settlement
 - Failed payment is tracked and handled cleanly
-- Invoice is generated for each successful payment record
-- Tenant billing can be audited from payment + invoice records
+- Tenant billing and platform revenue can be audited from payment + invoice records
+- Driver payouts can be reconciled from trip payment and settlement records
 
 ### Status
-Planned
+In Progress
 
 ---
 

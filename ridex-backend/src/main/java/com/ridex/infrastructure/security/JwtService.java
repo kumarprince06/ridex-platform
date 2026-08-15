@@ -9,6 +9,7 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
@@ -33,6 +34,14 @@ public class JwtService {
 
     public String generateRefreshToken(String userId, String email, String role, String tenantId) {
         return buildToken(userId, email, role, tenantId, refreshExpirationMs, "refresh");
+    }
+
+    public Claims parseClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(signingKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     private String buildToken(String userId, String email, String role, String tenantId, long expirationMs,

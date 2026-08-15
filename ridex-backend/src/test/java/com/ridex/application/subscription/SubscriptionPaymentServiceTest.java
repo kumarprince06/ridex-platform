@@ -64,7 +64,7 @@ class SubscriptionPaymentServiceTest {
         when(paymentRepository.findById(paymentId)).thenReturn(Optional.of(payment));
         when(invoiceService.generateInvoiceForPayment(paymentId)).thenReturn(new Invoice());
 
-        SubscriptionPayment result = subscriptionPaymentService.markPaymentAsPaid(paymentId);
+        SubscriptionPayment result = subscriptionPaymentService.markPaymentAsPaid("tenant_123", paymentId);
 
         assertThat(result.getStatus()).isEqualTo(SubscriptionPaymentStatus.PAID);
         assertThat(result.getCompletedAt()).isNotNull();

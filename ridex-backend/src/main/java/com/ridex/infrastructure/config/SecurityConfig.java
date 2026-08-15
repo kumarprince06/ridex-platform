@@ -28,6 +28,7 @@ public class SecurityConfig {
                 .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()
                 // Matched top to bottom, first match wins, so the open paths come before anyRequest.
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/tenants/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated());
 

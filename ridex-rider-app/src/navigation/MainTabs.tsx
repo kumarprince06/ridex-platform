@@ -22,6 +22,7 @@ export function MainTabs() {
   // The gesture bar sits inside the tab bar's own bounds, so a fixed height buries the labels
   // underneath it. Lift the bar by the inset and grow it to match.
   const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 16);
 
   return (
     <Tab.Navigator
@@ -33,10 +34,11 @@ export function MainTabs() {
         tabBarStyle: {
           backgroundColor: colors.bg,
           borderTopColor: colors.border,
-          // Minimum keeps a comfortable bar on devices with no gesture bar at all.
-          height: 62 + insets.bottom,
+          // The floor matters as much as the inset: some Android devices report bottom = 0 while
+          // still drawing a gesture bar over the app, which buries the labels underneath it.
+          height: 60 + bottomInset,
           paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom, 8),
+          paddingBottom: bottomInset,
         },
         tabBarLabelStyle: {
           ...type.caption,

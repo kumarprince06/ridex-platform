@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    # The context test boots the real application, so Flyway runs V1 against this instance.
+    # A migration that does not apply cleanly fails the build here rather than on someone's laptop.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: ridex_platform
+          POSTGRES_USER: ridex_app
+          POSTGRES_PASSWORD: ridex_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ridex_app -d ridex_platform"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      RIDEX_APP_PASSWORD: ridex_ci
+      RIDEX_JWT_SECRET: ci-only-secret-key-long-enough-for-hmac-sha256-signing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Build and test
+        working-directory: ridex-backend
+        run: ./mvnw --batch-mode verify

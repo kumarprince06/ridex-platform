@@ -1,0 +1,20 @@
+target/
+build/
+!.mvn/wrapper/maven-wrapper.jar
+
+.idea/
+*.iml
+.settings/
+.classpath
+.project
+
+# .vscode/settings.json is committed on purpose - it is one shared Java build setting.
+.vscode/*
+!.vscode/settings.json
+
+.env
+.env.*
+!.env.example
+*.log
+
+.DS_Store

@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ridex_platform
+      POSTGRES_USER: ridex_app
+      POSTGRES_PASSWORD: ${RIDEX_APP_PASSWORD:-ridex_local}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ridex_app -d ridex_platform"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Catches every outbound mail locally and delivers none of it onward, so a wrong
+  # address in development can never reach a real person. UI on :8025.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  pgdata:

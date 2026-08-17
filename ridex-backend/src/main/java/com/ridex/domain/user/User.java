@@ -24,8 +24,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Identity and credentials. Role-specific data belongs to the matching profile, because one
- * account may act as more than one role.
+ * Identity and the facts that hold regardless of role: credentials, contact details, name.
+ * Role-specific data - a driver's onboarding state and rating, a rider's saved image - belongs to
+ * the matching profile, because one account may own both.
  */
 @Entity
 @Table(name = "users", uniqueConstraints = {
@@ -48,6 +49,14 @@ public class User {
 
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
+
+    // Identity-level, not per-profile: one person has one name whether they are riding or driving.
+    // Nullable - not collected at registration, gathered during profile setup.
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
 
     /**
      * Eager because every login and every token refresh needs the full set to decide what the

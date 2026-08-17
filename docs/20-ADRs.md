@@ -3,7 +3,17 @@
 ## ADR-001: B2C instead of multi-tenant SaaS
 Decision: RideX is one consumer mobility platform. Businesses/fleets are platform entities.
 
-Reason: avoids unnecessary tenant isolation complexity and matches the intended Uber/Ola/inDrive-style product.
+Reason: the multi-tenant model broke down at registration. A rider or driver signs up from a
+public app with no tenant context, but every tenant-scoped table needs a `tenant_id` at insert
+time. Resolving the tenant *after* identity meant either inventing a placeholder tenant per
+signup or asking consumers which business they belong to, and neither is a real consumer
+product. The tenant boundary and the identity boundary were in direct conflict.
+
+Also avoids unnecessary tenant isolation complexity and matches the intended Uber/Ola/inDrive
+style product.
+
+Consequence: the tenant/subscription/settlement layer built before this decision is removed
+rather than adapted. See `docs/21-Gap-Tasks.md`.
 
 ## ADR-002: Modular monolith first
 Decision: One Spring Boot deployable with strict domain modules.

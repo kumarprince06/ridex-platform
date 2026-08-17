@@ -1,6 +1,5 @@
 package com.ridex.application.subscription;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -20,7 +19,6 @@ import com.ridex.domain.tenant.Tenant;
 import com.ridex.infrastructure.payment.PaymentGateway;
 import com.ridex.infrastructure.payment.PaymentGatewayRegistry;
 import com.ridex.infrastructure.persistence.jpa.repository.SubscriptionPaymentRepository;
-import com.ridex.infrastructure.persistence.jpa.repository.SubscriptionPlanRepository;
 import com.ridex.infrastructure.persistence.jpa.repository.TenantRepository;
 import com.ridex.infrastructure.persistence.jpa.repository.TenantSubscriptionRepository;
 
@@ -34,7 +32,6 @@ public class SubscriptionPaymentService {
     private final TenantRepository tenantRepository;
     private final TenantSubscriptionRepository tenantSubscriptionRepository;
     private final SubscriptionPaymentRepository paymentRepository;
-    private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final PaymentGatewayRegistry paymentGatewayRegistry;
     private final TenantAccessService tenantAccessService;
     private final InvoiceService invoiceService;

@@ -3,7 +3,6 @@ package com.ridex.application.auth;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;

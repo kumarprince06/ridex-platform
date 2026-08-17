@@ -1,5 +1,6 @@
 package com.ridex.api.controller.auth;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +16,7 @@ import com.ridex.api.dto.auth.RegisterRequest;
 import com.ridex.api.dto.auth.RegisterResponse;
 import com.ridex.application.auth.AuthService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -38,14 +40,30 @@ public class AuthController {
 
     @PostMapping("/login")
     @ResponseStatus(HttpStatus.OK)
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        return authService.login(
+                request,
+                httpRequest.getHeader(HttpHeaders.USER_AGENT),
+                clientIp(httpRequest));
     }
 
     @PostMapping("/refresh")
     @ResponseStatus(HttpStatus.OK)
     public RefreshTokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return authService.refresh(request);
+    }
+
+    /**
+     * ponytail: trusts X-Forwarded-For's first hop. Correct only behind a proxy that overwrites the
+     * header - a client can otherwise set it freely. Swap for Spring's ForwardedHeaderFilter with a
+     * trusted-proxy list once the deployment topology is fixed.
+     */
+    private String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded == null || forwarded.isBlank()) {
+            return request.getRemoteAddr();
+        }
+        return forwarded.split(",")[0].trim();
     }
 
 }

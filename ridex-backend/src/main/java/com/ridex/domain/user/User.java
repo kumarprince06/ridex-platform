@@ -1,14 +1,21 @@
 package com.ridex.domain.user;
 
 import java.time.Instant;
+import java.util.EnumSet;
+import java.util.Set;
 
 import com.ridex.shared.util.UlidGenerator;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -16,9 +23,14 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * Identity and credentials. Role-specific data belongs to the matching profile, because one
+ * account may act as more than one role.
+ */
 @Entity
 @Table(name = "users", uniqueConstraints = {
-    @UniqueConstraint(columnNames = "email", name = "uk_users_email")
+    @UniqueConstraint(columnNames = "email", name = "uk_users_email"),
+    @UniqueConstraint(columnNames = "phone", name = "uk_users_phone")
 })
 @Getter
 @Setter
@@ -37,12 +49,19 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    // Nullable since V13: not collected at registration, gathered during onboarding.
-    @Column(name = "first_name", length = 100)
-    private String firstName;
-
-    @Column(name = "last_name", length = 100)
-    private String lastName;
+    /**
+     * Eager because every login and every token refresh needs the full set to decide what the
+     * caller may act as. It is at most a handful of rows.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "user_roles",
+        joinColumns = @JoinColumn(
+            name = "user_id",
+            foreignKey = @ForeignKey(name = "fk_user_roles_user")))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 30)
+    private Set<UserRole> roles = EnumSet.noneOf(UserRole.class);
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)

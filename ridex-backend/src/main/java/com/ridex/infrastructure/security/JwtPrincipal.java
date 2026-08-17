@@ -1,8 +1,13 @@
 package com.ridex.infrastructure.security;
 
+import java.util.Set;
+
+import com.ridex.domain.user.AppContext;
+import com.ridex.domain.user.UserRole;
+
 public record JwtPrincipal(
         String userId,
         String email,
-        String tenantId,
-        String role) {
+        Set<UserRole> roles,
+        AppContext app) {
 }

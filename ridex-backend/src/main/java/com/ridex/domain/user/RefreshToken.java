@@ -43,8 +43,23 @@ public class RefreshToken {
     )
     private User user;
 
-    @Column(name = "token_hash", nullable = false, length = 255, updatable = false)
+    // Not updatable = false: refresh rotates the hash in place rather than issuing a new row, so
+    // one row stays one device session for its whole life.
+    @Column(name = "token_hash", nullable = false, length = 255)
     private String tokenHash;
+
+    /**
+     * Device fingerprint, captured at login. A live row is a live session, so this is what
+     * FR-AUTH-007 lists and revokes - a separate user_sessions table would hold the same rows.
+     */
+    @Column(name = "user_agent", length = 255)
+    private String userAgent;
+
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
+
+    @Column(name = "last_used_at")
+    private Instant lastUsedAt;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;

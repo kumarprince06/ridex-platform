@@ -6,6 +6,8 @@ import com.ridex.shared.util.UlidGenerator;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
@@ -19,22 +21,23 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Only the hash of a verification token is ever stored. The raw token exists in the outbound email
- * and nowhere else, so a leaked row cannot be used to verify an account.
+ * Single-use, expiring, user-scoped token. Covers email verification and password reset, which
+ * differ only in intent - hence one table with a purpose rather than two identical ones.
+ *
+ * <p>Only the hash is ever stored. The raw token exists in the outbound email and nowhere else, so
+ * a leaked row cannot be redeemed.
  */
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
 @Table(
-    name = "email_verification_tokens",
+    name = "user_tokens",
     uniqueConstraints = {
-        @UniqueConstraint(
-            columnNames = "token_hash",
-            name = "uk_email_verification_token")
+        @UniqueConstraint(columnNames = "token_hash", name = "uk_user_tokens_token_hash")
     }
 )
-public class EmailVerificationToken {
+public class UserToken {
 
     @Id
     @Column(name = "id", nullable = false, length = 26, updatable = false)
@@ -45,9 +48,13 @@ public class EmailVerificationToken {
         name = "user_id",
         nullable = false,
         updatable = false,
-        foreignKey = @ForeignKey(name = "fk_email_verification_user")
+        foreignKey = @ForeignKey(name = "fk_user_tokens_user")
     )
     private User user;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose", nullable = false, length = 30, updatable = false)
+    private TokenPurpose purpose;
 
     @Column(name = "token_hash", nullable = false, length = 255, updatable = false)
     private String tokenHash;
@@ -55,14 +62,17 @@ public class EmailVerificationToken {
     @Column(name = "expires_at", nullable = false, updatable = false)
     private Instant expiresAt;
 
-    /** Stamped when the token is redeemed. Non-null means it is spent and cannot be reused. */
-    @Column(name = "verified_at")
-    private Instant verifiedAt;
+    /** Stamped on redemption. Non-null means spent and unusable again. */
+    @Column(name = "consumed_at")
+    private Instant consumedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    // No updated_at column on this table, so there is no @PreUpdate.
+    public boolean isRedeemable(Instant now) {
+        return consumedAt == null && expiresAt.isAfter(now);
+    }
+
     @PrePersist
     protected void onCreate() {
         if (id == null) {
@@ -70,5 +80,4 @@ public class EmailVerificationToken {
         }
         this.createdAt = Instant.now();
     }
-
 }

@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "RideX",
+    "slug": "ridex-rider-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "ridex",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0F1A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ridex.rider"
+    },
+    "android": {
+      "package": "com.ridex.rider",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F1A"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

@@ -12,11 +12,20 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ridex.rider"
+      "bundleIdentifier": "com.ridex.rider",
+      "config": {
+        "googleMapsApiKey": "AIzaSyB7WJvf4jDgXugNxOkJGQK0Z-1QJ_xlikE"
+      }
     },
     "android": {
       "package": "com.ridex.rider",
-      "adaptiveIcon": {
+      "versionCode": 1,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyB7WJvf4jDgXugNxOkJGQK0Z-1QJ_xlikE"
+        }
+      },
+        "adaptiveIcon": {
         "backgroundColor": "#0B0F1A"
       }
     },

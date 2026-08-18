@@ -1,30 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = {
-  /** Dashed line from the pickup pin to the destination pin. */
   showRoute?: boolean;
-  /** Driver puck position along that line, 0 at pickup and 1 at the destination. */
   driverAt?: number;
   driverLabel?: string;
-  /** The lone "You are here" dot, used before a destination is chosen. */
   showUserDot?: boolean;
   pickupLabel?: string;
   destinationLabel?: string;
   style?: ViewStyle;
 };
 
-/*
- * Stand-in for the map across the whole booking flow. Real tiles arrive with the maps provider;
- * until then a ruled grid plus pins reads as a map without react-native-maps or an API key.
- *
- * Pin positions are percentages of this container, so the same component works whether it is the
- * full screen or a 180pt strip on Trip Details.
- */
-const PICKUP = { left: '26%', top: '68%' } as const;
-const DESTINATION = { left: '62%', top: '22%' } as const;
+const PICKUP_COORD = { latitude: 12.9716, longitude: 77.5946 };
+const DESTINATION_COORD = { latitude: 12.9848, longitude: 77.5914 };
+const USER_COORD = { latitude: 12.9729, longitude: 77.5933 };
 
 export function MapCanvas({
   showRoute = false,
@@ -35,73 +27,76 @@ export function MapCanvas({
   destinationLabel = 'Destination',
   style,
 }: Props) {
+  const driverCoord =
+    driverAt === undefined
+      ? undefined
+      : {
+          latitude: PICKUP_COORD.latitude + (DESTINATION_COORD.latitude - PICKUP_COORD.latitude) * driverAt,
+          longitude: PICKUP_COORD.longitude + (DESTINATION_COORD.longitude - PICKUP_COORD.longitude) * driverAt,
+        };
+
   return (
     <View style={[styles.map, style]}>
-      {Array.from({ length: 5 }).map((_, index) => (
-        <View key={`h${index}`} style={[styles.gridLine, { top: `${(index + 1) * 16}%` }]} />
-      ))}
-      {Array.from({ length: 4 }).map((_, index) => (
-        <View key={`v${index}`} style={[styles.gridV, { left: `${(index + 1) * 20}%` }]} />
-      ))}
+      <MapView
+        provider={PROVIDER_GOOGLE}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={{
+          ...PICKUP_COORD,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }}
+        showsCompass={false}
+        showsTraffic={false}
+        mapType="standard"
+      >
+        {showRoute ? (
+          <Polyline
+            coordinates={[PICKUP_COORD, DESTINATION_COORD]}
+            strokeColor={colors.primary}
+            strokeWidth={4}
+            lineDashPattern={[8, 8]}
+          />
+        ) : null}
 
-      {/* Park block, purely so the grid does not read as graph paper. */}
-      <View style={styles.park} />
+        {showUserDot ? (
+          <Marker coordinate={USER_COORD}>
+            <View style={styles.userMarker} />
+          </Marker>
+        ) : null}
 
-      {showRoute ? <View style={styles.route} /> : null}
+        {showRoute ? (
+          <>
+            <Marker coordinate={PICKUP_COORD}>
+              <View style={styles.pickupMarker}>
+                <View style={styles.pickupCore} />
+              </View>
+            </Marker>
 
-      {showUserDot ? (
-        <View style={[styles.pinWrap, PICKUP]}>
-          <View style={styles.halo} />
-          <View style={styles.userDot} />
-          <Label text="You are here" />
-        </View>
-      ) : null}
+            <Marker coordinate={DESTINATION_COORD}>
+              <View style={styles.destMarker}>
+                <Ionicons name="location" size={14} color="#2B1A05" />
+              </View>
+            </Marker>
+          </>
+        ) : null}
 
+        {driverCoord ? (
+          <Marker coordinate={driverCoord}>
+            <View style={styles.driverPuck}>
+              <Ionicons name="car" size={12} color={colors.onPrimary} />
+            </View>
+          </Marker>
+        ) : null}
+      </MapView>
+
+      {showUserDot ? <View style={styles.userBadge}><Text style={styles.badgeText}>You are here</Text></View> : null}
       {showRoute ? (
         <>
-          <View style={[styles.pinWrap, PICKUP]}>
-            <View style={styles.halo} />
-            <View style={styles.pickupRing}>
-              <View style={styles.pickupCore} />
-            </View>
-            <Label text={pickupLabel} />
-          </View>
-
-          <View style={[styles.pinWrap, DESTINATION]}>
-            <View style={styles.destPin}>
-              <Ionicons name="location" size={15} color="#2B1A05" />
-            </View>
-            <Label text={destinationLabel} tone="amber" />
-          </View>
+          <View style={[styles.badge, styles.badgeMint]}><Text style={styles.badgeText}>{pickupLabel}</Text></View>
+          <View style={[styles.badge, styles.badgeAmber]}><Text style={[styles.badgeText, styles.badgeTextAmber]}>{destinationLabel}</Text></View>
         </>
       ) : null}
-
-      {driverAt !== undefined ? (
-        <View
-          style={[
-            styles.pinWrap,
-            // Linear interpolation between the two pin positions. Good enough for a straight
-            // dashed route; a real polyline replaces this with the provider's geometry.
-            {
-              left: `${26 + (62 - 26) * driverAt}%`,
-              top: `${68 - (68 - 22) * driverAt}%`,
-            },
-          ]}
-        >
-          <View style={styles.driverPuck}>
-            <Ionicons name="car" size={13} color={colors.onPrimary} />
-          </View>
-          {driverLabel ? <Label text={driverLabel} /> : null}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function Label({ text, tone = 'mint' }: { text: string; tone?: 'mint' | 'amber' }) {
-  return (
-    <View style={[styles.label, tone === 'amber' && styles.labelAmber]}>
-      <Text style={[styles.labelText, tone === 'amber' && styles.labelTextAmber]}>{text}</Text>
+      {driverLabel && driverCoord ? <View style={[styles.badge, styles.badgeMint]}><Text style={styles.badgeText}>{driverLabel}</Text></View> : null}
     </View>
   );
 }
@@ -112,67 +107,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#0E1524',
     overflow: 'hidden',
   },
-  gridLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  gridV: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  park: {
-    position: 'absolute',
-    left: '40%',
-    top: '38%',
-    width: '22%',
-    height: '18%',
-    backgroundColor: 'rgba(46, 231, 199, 0.05)',
-  },
-  /*
-   * The route is one rotated View with a dashed top border, not a real polyline. React Native has
-   * no line primitive without react-native-svg, and a straight dash conveys the path well enough
-   * for a static pass.
-   */
-  route: {
-    position: 'absolute',
-    left: '22%',
-    top: '46%',
-    width: '46%',
-    borderTopWidth: 3,
-    borderStyle: 'dashed',
-    borderColor: colors.primary,
-    transform: [{ rotate: '-52deg' }],
-  },
-  pinWrap: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  halo: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(46, 231, 199, 0.12)',
-    top: -22,
-  },
-  userDot: {
+  userMarker: {
     width: 16,
     height: 16,
-    borderRadius: radius.pill,
+    borderRadius: 8,
     backgroundColor: colors.primary,
     borderWidth: 3,
     borderColor: colors.primarySurface,
   },
-  pickupRing: {
-    width: 26,
-    height: 26,
-    borderRadius: radius.pill,
+  pickupMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.primarySurface,
     borderWidth: 2,
     borderColor: colors.primary,
@@ -180,43 +126,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pickupCore: {
-    width: 9,
-    height: 9,
-    borderRadius: radius.pill,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: colors.primary,
   },
-  destPin: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
+  destMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: colors.amber,
     alignItems: 'center',
     justifyContent: 'center',
   },
   driverPuck: {
-    width: 26,
-    height: 26,
-    borderRadius: radius.pill,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: {
-    marginTop: 5,
+  badge: {
+    position: 'absolute',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: radius.sm,
     backgroundColor: colors.primarySurface,
+    top: 18,
+    left: 18,
   },
-  labelAmber: {
+  badgeMint: {
+    backgroundColor: colors.primarySurface,
+  },
+  badgeAmber: {
     backgroundColor: colors.amberSurface,
+    left: 'auto',
+    right: 18,
   },
-  labelText: {
+  badgeText: {
     ...type.caption,
     fontSize: 9,
     color: colors.primary,
   },
-  labelTextAmber: {
+  badgeTextAmber: {
     color: colors.amber,
   },
+  userBadge: {
+    position: 'absolute',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primarySurface,
+    top: 18,
+    right: 18,
+  },
 });
+

@@ -33,7 +33,7 @@ export function SplashScreen({ navigation }: Props) {
       </View>
 
       <Text style={styles.name}>RideX</Text>
-      <Text style={styles.tagline}>URBAN MOTION</Text>
+      <Text style={styles.tagline}>Go anywhere, anytime</Text>
 
       <View style={styles.dots}>
         {Array.from({ length: DOTS }).map((_, index) => (

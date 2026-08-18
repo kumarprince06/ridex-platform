@@ -1,12 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { RootStackParamList } from '../navigation/types';
-import { colors, radius, spacing, type } from '../theme';
+import { colors, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
@@ -32,9 +31,7 @@ export function WelcomeScreen({ navigation }: Props) {
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.brandRow}>
-          <View style={styles.brandMark}>
-            <Ionicons name="navigate" size={17} color={colors.onPrimary} />
-          </View>
+          <Image source={require('../../assets/logo-mark.png')} style={styles.brandMark} />
           <Text style={styles.brandName}>RideX</Text>
         </View>
 
@@ -83,12 +80,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   brandMark: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 38,
+    height: 28,
+    resizeMode: 'contain',
   },
   brandName: {
     ...type.title,

@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -30,9 +29,7 @@ export function SplashScreen({ navigation }: Props) {
   return (
     <View style={styles.root}>
       <View style={styles.glow}>
-        <View style={styles.mark}>
-          <Ionicons name="navigate" size={34} color={colors.onPrimary} />
-        </View>
+        <Image source={require('../../assets/logo-mark.png')} style={styles.mark} />
       </View>
 
       <Text style={styles.name}>RideX</Text>
@@ -66,14 +63,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mark: {
-    width: 84,
-    height: 84,
-    // Squircle rather than a circle, matching the app-icon shape in the mockup.
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ rotate: '10deg' }],
+    // The app icon's RX mark, at its own 853:633 aspect.
+    width: 108,
+    height: 80,
+    resizeMode: 'contain',
   },
   name: {
     ...type.hero,

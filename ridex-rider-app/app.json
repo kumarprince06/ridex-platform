@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "ridex",
+    "icon": "./assets/icon.png",
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#0B0F1A"
@@ -25,8 +26,10 @@
           "apiKey": "AIzaSyB7WJvf4jDgXugNxOkJGQK0Z-1QJ_xlikE"
         }
       },
-        "adaptiveIcon": {
-        "backgroundColor": "#0B0F1A"
+      "icon": "./assets/icon.png",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F1A",
+        "foregroundImage": "./assets/icon-foreground.png"
       }
     },
     "plugins": [

@@ -23,6 +23,7 @@ import { RatingsScreen } from '../screens/RatingsScreen';
 import { RejectedScreen } from '../screens/RejectedScreen';
 import { RideOfferScreen } from '../screens/RideOfferScreen';
 import { SafetyScreen } from '../screens/SafetyScreen';
+import { ScanPickupScreen } from '../screens/ScanPickupScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SignInScreen } from '../screens/SignInScreen';
 import { SplashScreen } from '../screens/SplashScreen';
@@ -97,6 +98,7 @@ export function RootNavigator() {
         <Stack.Screen name="RateRider" component={RateRiderScreen} />
         <Stack.Screen name="CancelTrip" component={CancelTripScreen} />
         <Stack.Screen name="Safety" component={SafetyScreen} />
+        <Stack.Screen name="ScanPickup" component={ScanPickupScreen} options={{ presentation: 'fullScreenModal' }} />
 
         <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
         <Stack.Screen name="Payouts" component={PayoutsScreen} />

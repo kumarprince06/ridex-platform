@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { RiderBar } from '../components/RiderBar';
 import { SwipeAction } from '../components/SwipeAction';
@@ -22,6 +23,8 @@ const CODE_LENGTH = 4;
 export function ArrivedAtPickupScreen({ navigation }: Props) {
   const [waited, setWaited] = useState(0);
   const [code, setCode] = useState('');
+  const [scannedCode, setScannedCode] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setWaited((prev) => prev + 1), 1000);
@@ -30,7 +33,16 @@ export function ArrivedAtPickupScreen({ navigation }: Props) {
 
   const minutes = String(Math.floor(waited / 60)).padStart(2, '0');
   const seconds = String(waited % 60).padStart(2, '0');
-  const verified = code.length === CODE_LENGTH;
+  // Either path verifies: the QR the rider's app shows, or the code they read out.
+  const verified = scannedCode !== null || code.length === CODE_LENGTH;
+
+  const start = () => {
+    if (!verified) {
+      setError('Scan the rider\'s QR or enter their 4-digit code first.');
+      return;
+    }
+    navigation.replace('TripInProgress');
+  };
 
   return (
     <View style={styles.root}>
@@ -51,20 +63,49 @@ export function ArrivedAtPickupScreen({ navigation }: Props) {
 
         <RiderBar name={OFFER.rider} rating={OFFER.riderRating} note="Meeting you outside" />
 
-        <TextField
-          label={`Pickup code (${CODE_LENGTH} digits)`}
-          value={code}
-          onChangeText={(next) => setCode(next.replace(/[^0-9]/g, '').slice(0, CODE_LENGTH))}
-          placeholder="0000"
-          keyboardType="number-pad"
-          icon="keypad"
-        />
+        {scannedCode ? (
+          <View style={styles.verified}>
+            <Ionicons name="qr-code" size={17} color={colors.success} />
+            <Text style={styles.verifiedText}>Rider confirmed by QR</Text>
+          </View>
+        ) : (
+          <>
+            <Button
+              label="Scan rider's QR"
+              variant="secondary"
+              onPress={() =>
+                navigation.navigate('ScanPickup', {
+                  onScanned: (value: string) => {
+                    setScannedCode(value);
+                    setError(null);
+                  },
+                })
+              }
+            />
 
-        <SwipeAction
-          label={verified ? 'Swipe to start trip' : 'Enter the code to start'}
-          icon="play"
-          onComplete={() => (verified ? navigation.replace('TripInProgress') : undefined)}
-        />
+            <View style={styles.orRow}>
+              <View style={styles.rule} />
+              <Text style={styles.orLabel}>OR</Text>
+              <View style={styles.rule} />
+            </View>
+
+            <TextField
+              label={`Pickup code (${CODE_LENGTH} digits)`}
+              value={code}
+              onChangeText={(next) => {
+                setCode(next.replace(/[^0-9]/g, '').slice(0, CODE_LENGTH));
+                setError(null);
+              }}
+              placeholder="Any 4 digits in this build"
+              keyboardType="number-pad"
+              icon="keypad"
+            />
+          </>
+        )}
+
+        <SwipeAction label="Swipe to start trip" icon="play" onComplete={start} />
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable
           accessibilityRole="button"
@@ -122,6 +163,40 @@ const styles = StyleSheet.create({
   waitNote: {
     ...type.caption,
     color: colors.textMuted,
+  },
+  verified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.successSurface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  verifiedText: {
+    ...type.label,
+    color: colors.success,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginVertical: -spacing.sm,
+  },
+  rule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  orLabel: {
+    ...type.caption,
+    fontSize: 11,
+    color: colors.textFaint,
+  },
+  error: {
+    ...type.caption,
+    color: colors.danger,
+    textAlign: 'center',
+    marginTop: -spacing.sm,
   },
   cancel: {
     alignItems: 'center',

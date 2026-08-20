@@ -4,11 +4,20 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
+import { PickupPass } from '../components/PickupPass';
 import { Sheet } from '../components/Sheet';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverArrived'>;
+
+/**
+ * Stand-ins for the pickup pass. Both come from the server with the trip (T11): the QR payload is
+ * a signed, single-use token, and the code is issued alongside it. Nothing about either is
+ * derived on the device.
+ */
+const PICKUP_CODE = '4821';
+const PICKUP_PAYLOAD = 'ridex://pickup/RX-9241?code=4821';
 
 export function DriverArrivedScreen({ navigation, route }: Props) {
   const { destination } = route.params;
@@ -28,6 +37,8 @@ export function DriverArrivedScreen({ navigation, route }: Props) {
             <Text style={styles.bannerBody}>Please head to the pickup point</Text>
           </View>
         </View>
+
+        <PickupPass payload={PICKUP_PAYLOAD} code={PICKUP_CODE} />
 
         <View style={styles.vehicle}>
           <Ionicons name="car" size={22} color="#E0785A" />

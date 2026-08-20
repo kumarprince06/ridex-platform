@@ -53,6 +53,11 @@ export type RootStackParamList = {
   RateRider: undefined;
   CancelTrip: undefined;
   Safety: undefined;
+  /**
+   * The callback is a param because the scanner is a pushed screen, not a modal the caller
+   * renders - the result has to come back to whoever opened it.
+   */
+  ScanPickup: { onScanned?: (value: string) => void } | undefined;
 
   // Pushed from the tabs.
   TripDetails: { tripId: string };

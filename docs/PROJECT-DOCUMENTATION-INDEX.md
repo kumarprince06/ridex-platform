@@ -25,6 +25,8 @@ This package is the initial product/engineering blueprint for rebuilding RideX a
 19. 18-Future-Project-Ideas.md
 20. 19-Technology-Stack.md
 21. 20-ADRs.md
+22. 21-Gap-Tasks.md
+23. 22-Partner-App-Design.md
 
 ## Important
 

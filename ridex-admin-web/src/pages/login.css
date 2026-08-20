@@ -1,0 +1,72 @@
+.login {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: var(--bg);
+}
+.login-card {
+  width: min(560px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: var(--space-6);
+}
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 15px;
+  margin-bottom: var(--space-5);
+}
+.login-title {
+  font-size: 22px;
+  font-weight: 600;
+}
+.login-sub {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: var(--space-2);
+}
+.role-list {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+.role {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+.role:hover {
+  border-color: var(--primary-strong);
+  background: var(--primary-surface);
+}
+.role-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.role-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.role-count {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.role-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.role-perms {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}

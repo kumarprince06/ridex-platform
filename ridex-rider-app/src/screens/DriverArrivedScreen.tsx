@@ -67,11 +67,6 @@ export function DriverArrivedScreen({ navigation, route }: Props) {
             <Ionicons name="call" size={15} color={colors.primary} />
             <Text style={styles.callText}>Call Driver</Text>
           </Pressable>
-
-          <Pressable accessibilityRole="button" style={styles.call}>
-            <Ionicons name="chatbubble-ellipses" size={15} color={colors.primary} />
-            <Text style={styles.callText}>Message</Text>
-          </Pressable>
         </View>
 
         <Text style={styles.waiting}>

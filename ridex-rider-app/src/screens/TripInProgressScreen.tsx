@@ -80,10 +80,6 @@ export function TripInProgressScreen({ navigation, route }: Props) {
           <View style={styles.actionChip}>
             <Ionicons name="call" size={16} color={colors.text} />
           </View>
-
-          <View style={styles.actionChip}>
-            <Ionicons name="chatbubble-ellipses" size={16} color={colors.text} />
-          </View>
         </View>
       </Sheet>
     </View>

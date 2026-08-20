@@ -72,20 +72,6 @@ export function DriverApproachingScreen({ navigation, route }: Props) {
             <Ionicons name="call" size={15} color={colors.primary} />
             <Text style={styles.callText}>Call</Text>
           </Pressable>
-
-          <Pressable accessibilityRole="button" style={styles.call}>
-            <Ionicons name="chatbubble-ellipses" size={15} color={colors.primary} />
-            <Text style={styles.callText}>Message</Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('CancelRide')}
-            style={styles.call}
-          >
-            <Ionicons name="close" size={15} color={colors.danger} />
-            <Text style={[styles.callText, styles.cancelText]}>Cancel</Text>
-          </Pressable>
         </View>
       </Sheet>
     </View>
@@ -189,8 +175,5 @@ const styles = StyleSheet.create({
     ...type.button,
     fontSize: 15,
     color: colors.primary,
-  },
-  cancelText: {
-    color: colors.danger,
   },
 });

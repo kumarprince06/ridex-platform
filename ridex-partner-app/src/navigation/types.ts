@@ -52,6 +52,7 @@ export type RootStackParamList = {
   TripCompleted: undefined;
   RateRider: undefined;
   CancelTrip: undefined;
+  Safety: undefined;
 
   // Pushed from the tabs.
   TripDetails: { tripId: string };

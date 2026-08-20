@@ -46,6 +46,7 @@ export function AccountScreen({ navigation }: Props) {
       <Row icon="person" title="Edit profile" onPress={() => navigation.navigate('EditProfile')} />
       <Row icon="notifications" title="Notifications" onPress={() => navigation.navigate('Notifications')} />
       <Row icon="settings" title="Settings" onPress={() => navigation.navigate('Settings')} />
+      <Row icon="shield-checkmark" title="Safety" subtitle="Emergency, trip sharing, incident reports" onPress={() => navigation.navigate('Safety')} />
       <Row icon="help-buoy" title="Help and support" onPress={() => navigation.navigate('HelpSupport')} />
       <Row
         icon="log-out"

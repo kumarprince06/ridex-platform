@@ -8,22 +8,26 @@ Every screen holds local state and navigates on tap.
 ```bash
 cd ridex-rider-app
 npm install
-npx expo start
+npm run android      # or: npm run ios
 ```
 
-Scan the QR with **Expo Go** on your phone. No Android Studio or Xcode needed.
-
-Press `a` for an Android emulator or `i` for an iOS simulator if you have them installed.
+`react-native-maps` needs the native project, so Expo Go will not run this app — `npm run android`
+builds and installs it on a connected device. The `android/` and `ios/` folders are generated and
+git-ignored; delete them and they rebuild.
 
 ```bash
+npm run device       # metro over adb reverse, for an already-installed build
 npm run typecheck    # tsc --noEmit
 ```
 
 ## Pinning
 
-Expo **SDK 51** and React Native **0.74.5**, chosen because the project runs on Node 18.19.1.
-SDK 54 and newer require Node 20+. If you upgrade Node, upgrade the SDK in the same change —
-mixing a new Node with an old SDK is fine, but the reverse is not.
+Expo **SDK 54** and React Native **0.81.5**, which need Node 20+. `.nvmrc` pins Node 22 — the
+system Node on this machine is 18, and Metro fails on it with `configs.toReversed is not a
+function`, so run through nvm.
+
+`ridex-partner-app` is pinned to the same versions. Both apps upgrade together: a shared design
+system spread across two SDK versions drifts within a release.
 
 ## Layout
 
@@ -33,8 +37,9 @@ src/
 ├── theme.ts             all colours, spacing, radii and type scale
 ├── navigation/
 │   ├── types.ts         route map and params
-│   └── RootNavigator.tsx
-├── components/          Button, TextField, Screen, StepProgress
+│   ├── RootNavigator.tsx
+│   └── MainTabs.tsx     Home · Rides · Wallet · Profile
+├── components/          Button, TextField, Screen, MapCanvas, StepProgress
 └── screens/             one file per screen
 ```
 
@@ -60,13 +65,11 @@ These are placeholders, not finished work. Each names what replaces it.
 
 | Screen | Stand-in | Replace with |
 |---|---|---|
-| Welcome | Gradient behind the hero | `ImageBackground` once the city photograph exists |
-| Home | Ruled grid as the map | `react-native-maps` in the location phase |
-| Home | Bottom tab bar is presentational | A real tab navigator once Rides/Wallet/Profile exist |
 | ProfileSetup | Avatar is initials, camera chip is inert | `expo-image-picker` plus object storage |
 | PersonalDetails | Date of birth is a text field | `@react-native-community/datetimepicker` |
 | SignIn | Google and Apple buttons are inert | OAuth, if it stays in scope |
 | VerifyOtp | Countdown starts at 42s and resets locally | Server-issued expiry |
+| Home, booking flow | Map renders real Google Maps, but pins and routes are fixed coordinates | Live location and server routes (T8) |
 
 ## Wiring it to the backend
 

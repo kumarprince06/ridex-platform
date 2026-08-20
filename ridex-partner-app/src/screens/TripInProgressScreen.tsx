@@ -38,7 +38,12 @@ export function TripInProgressScreen({ navigation }: Props) {
           <Text style={styles.etaLabel}>to {OFFER.dropoff}</Text>
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Safety options" style={styles.safety}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Safety options"
+          onPress={() => navigation.navigate('Safety')}
+          style={styles.safety}
+        >
           <Ionicons name="shield-checkmark" size={20} color={colors.danger} />
         </Pressable>
       </SafeAreaView>

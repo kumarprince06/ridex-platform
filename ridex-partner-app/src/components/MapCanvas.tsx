@@ -32,7 +32,9 @@ type Props = {
  * file. MapLibre keeps the map working out of the box for whoever clones the repo. Swapping back
  * to Google, or to any paid tile host, is a change to this one file per app.
  */
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
+// Positron over Liberty/Bright: a muted, near-greyscale basemap. The bright style fights a dark
+// UI for attention, and the mint route line has to be the loudest thing on the screen.
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
 
 /**
  * Mock trip geometry, offset from wherever the device actually is rather than pinned to a fixed

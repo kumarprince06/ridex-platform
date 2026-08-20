@@ -37,7 +37,9 @@ export function DriveScreen({ navigation }: Props) {
       <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
         <View style={styles.topRow}>
           <View style={styles.brandRow}>
-            <Image source={require('../../assets/logo-mark.png')} style={styles.brandMark} />
+            <View style={styles.brandChip}>
+              <Image source={require('../../assets/logo-mark.png')} style={styles.brandMark} />
+            </View>
             <DutyPill online={online} />
           </View>
 
@@ -130,9 +132,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  // The map behind this is light, and the mark is white and mint - without a dark ground it
+  // disappears into the tiles.
+  brandChip: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   brandMark: {
-    width: 34,
-    height: 34,
+    width: 30,
+    height: 30,
     resizeMode: 'contain',
   },
   rings: {

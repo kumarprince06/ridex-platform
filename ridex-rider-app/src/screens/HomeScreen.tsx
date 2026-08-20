@@ -25,7 +25,9 @@ export function HomeScreen({ navigation }: Props) {
 
       <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
         <View style={styles.locationRow}>
-          <Image source={require('../../assets/logo-mark.png')} style={styles.brandMark} />
+          <View style={styles.brandChip}>
+            <Image source={require('../../assets/logo-mark.png')} style={styles.brandMark} />
+          </View>
           <View style={styles.locationText}>
             <Text style={styles.locationLabel}>Current Location</Text>
             <Text style={styles.locationValue}>Midtown, New York</Text>
@@ -112,9 +114,21 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingTop: spacing.sm,
   },
+  // The map behind this is light, and the mark is white and mint - without a dark ground it
+  // disappears into the tiles.
+  brandChip: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   brandMark: {
-    width: 38,
-    height: 38,
+    width: 30,
+    height: 30,
     resizeMode: 'contain',
   },
   locationText: {

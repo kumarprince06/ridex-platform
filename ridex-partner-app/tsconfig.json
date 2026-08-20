@@ -1,0 +1,22 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    // Both of these are also set by expo/tsconfig.base. The CLI resolves that extends fine, but an
+    // editor opened at the monorepo root may not, and then every .tsx file reports
+    // "Cannot use JSX unless the '--jsx' flag is provided". Stating it locally costs nothing.
+    "jsx": "react-native",
+
+    // expo/tsconfig.base still says "node", which resolves to node10 and is deprecated - newer
+    // editor TypeScript versions flag it, and TS 7.0 drops it. "bundler" is the accurate
+    // description of Metro anyway: it reads package.json "exports" the way node10 never did.
+    // Requires module to be esnext or preserve.
+    "moduleResolution": "bundler",
+    "module": "esnext",
+
+    "strict": true
+  },
+  // Without this, allowJs globs babel.config.js into the program and the editor has to guess at
+  // the project's boundaries.
+  "include": ["App.tsx", "src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "babel.config.js"]
+}

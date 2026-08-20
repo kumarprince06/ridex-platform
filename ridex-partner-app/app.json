@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "RideX Partner",
+    "slug": "ridex-partner-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "ridexpartner",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0F1A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ridex.partner",
+      "config": {
+        "googleMapsApiKey": "AIzaSyB7WJvf4jDgXugNxOkJGQK0Z-1QJ_xlikE"
+      }
+    },
+    "android": {
+      "package": "com.ridex.partner",
+      "versionCode": 1,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyB7WJvf4jDgXugNxOkJGQK0Z-1QJ_xlikE"
+        }
+      },
+      "icon": "./assets/icon.png",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F1A",
+        "foregroundImage": "./assets/icon-foreground.png"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

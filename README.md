@@ -42,7 +42,7 @@ Do not reintroduce `tenant_id` into the schema.
 | Backend API | [ridex-backend/](ridex-backend/) | Phase 0 — auth and profile schema |
 | Rider mobile app | [ridex-rider-app/](ridex-rider-app/) | Static UI, not wired to the API |
 | Driver mobile app | [ridex-partner-app/](ridex-partner-app/) | Static UI, not wired to the API |
-| Admin / operations web | — | Not started |
+| Admin / operations web | — | Design specified in [docs/23](docs/23-Admin-Panel-Design.md), not built |
 
 One repository on purpose. The API contract is shared, so a backend change and its client update
 belong in the same commit; splitting them into separate repos only lets them drift.

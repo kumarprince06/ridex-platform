@@ -27,6 +27,7 @@ This package is the initial product/engineering blueprint for rebuilding RideX a
 21. 20-ADRs.md
 22. 21-Gap-Tasks.md
 23. 22-Partner-App-Design.md
+24. 23-Admin-Panel-Design.md
 
 ## Important
 

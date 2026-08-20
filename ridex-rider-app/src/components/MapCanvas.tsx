@@ -1,7 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import {
+  Camera,
+  GeoJSONSource,
+  Layer,
+  Map,
+  UserLocation,
+  ViewAnnotation,
+} from '@maplibre/maplibre-react-native';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 
+import { FALLBACK_CENTER, LngLat, useCurrentLocation } from '../lib/location';
+import { fetchRoute } from '../lib/routes';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = {
@@ -11,12 +21,27 @@ type Props = {
   showUserDot?: boolean;
   pickupLabel?: string;
   destinationLabel?: string;
+  /** A real searched place, when the rider picked one. Overrides the mock dropoff offset. */
+  destinationCoord?: [number, number];
   style?: ViewStyle;
 };
 
-const PICKUP_COORD = { latitude: 12.9716, longitude: 77.5946 };
-const DESTINATION_COORD = { latitude: 12.9848, longitude: 77.5914 };
-const USER_COORD = { latitude: 12.9729, longitude: 77.5933 };
+/**
+ * MapLibre against OpenFreeMap's public tiles: no API key, no billing account, no per-load cost.
+ *
+ * Google's mobile SDK renders free too, but it needs a key restricted per package and a billing
+ * account behind it - the moment this project is handed to someone else, that is their card on
+ * file. MapLibre keeps the map working out of the box for whoever clones the repo. Swapping back
+ * to Google, or to any paid tile host, is a change to this one file per app.
+ */
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
+
+/**
+ * Mock trip geometry, offset from wherever the device actually is rather than pinned to a fixed
+ * city: a map that opens on Bengaluru while the driver stands in another country reads as broken.
+ * Real pickup and dropoff coordinates arrive with the offer (T10).
+ */
+const DESTINATION_OFFSET: [number, number] = [-0.006, 0.011];
 
 export function MapCanvas({
   showRoute = false,
@@ -25,78 +50,154 @@ export function MapCanvas({
   showUserDot = false,
   pickupLabel = 'Pickup',
   destinationLabel = 'Destination',
+  destinationCoord,
   style,
 }: Props) {
-  const driverCoord =
+  const { coord } = useCurrentLocation();
+  const here = coord ?? FALLBACK_CENTER;
+
+  // The rider's pickup is where the rider is, not an offset from it.
+  const PICKUP: [number, number] = here;
+  const DESTINATION: [number, number] = destinationCoord ?? [
+    here[0] + DESTINATION_OFFSET[0],
+    here[1] + DESTINATION_OFFSET[1],
+  ];
+
+  // Road geometry when the router answers, the straight line between the pins until then. The
+  // map must draw something the moment it mounts - a blank map while a request is in flight looks
+  // like a broken map.
+  const [road, setRoad] = useState<LngLat[] | null>(null);
+
+  useEffect(() => {
+    if (!showRoute) {
+      return;
+    }
+
+    const controller = new AbortController();
+    fetchRoute(PICKUP, DESTINATION, controller.signal)
+      .then((route) => setRoad(route?.coordinates ?? null))
+      .catch(() => setRoad(null));
+
+    return () => controller.abort();
+  }, [showRoute, PICKUP[0], PICKUP[1], DESTINATION[0], DESTINATION[1]]);
+
+  const line = road ?? [PICKUP, DESTINATION];
+
+  const driver: [number, number] | undefined =
     driverAt === undefined
       ? undefined
-      : {
-          latitude: PICKUP_COORD.latitude + (DESTINATION_COORD.latitude - PICKUP_COORD.latitude) * driverAt,
-          longitude: PICKUP_COORD.longitude + (DESTINATION_COORD.longitude - PICKUP_COORD.longitude) * driverAt,
-        };
+      : line[Math.min(line.length - 1, Math.max(0, Math.round((line.length - 1) * driverAt)))];
 
   return (
     <View style={[styles.map, style]}>
-      <MapView
-        provider={PROVIDER_GOOGLE}
+      <Map
         style={StyleSheet.absoluteFillObject}
-        initialRegion={{
-          ...PICKUP_COORD,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }}
-        showsCompass={false}
-        showsTraffic={false}
-        mapType="standard"
+        mapStyle={STYLE_URL}
+        attribution
+        logo={false}
+        compass={false}
+        // North stays up. A rotated or tilted map is disorienting when the sheet, labels and
+        // markers are all laid out square to the screen.
+        touchRotate={false}
+        touchPitch={false}
       >
+        <Camera
+          // key, so the camera re-mounts and recentres once the device position arrives instead
+          // of staying on the fallback centre it opened with.
+          key={coord ? 'located' : 'fallback'}
+          initialViewState={{
+            center: showRoute ? midpoint(PICKUP, DESTINATION) : here,
+            zoom: showRoute ? 12.5 : 14.5,
+          }}
+        />
+
         {showRoute ? (
-          <Polyline
-            coordinates={[PICKUP_COORD, DESTINATION_COORD]}
-            strokeColor={colors.primary}
-            strokeWidth={4}
-            lineDashPattern={[8, 8]}
-          />
+          <GeoJSONSource
+            id="route"
+            data={{
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: line },
+            }}
+          >
+            <Layer
+              id="route-line"
+              type="line"
+              layout={{ 'line-cap': 'round' }}
+              paint={{
+                'line-color': colors.primary,
+                'line-width': 5,
+                // Dashed only while it is still the straight-line stand-in; a real road route
+                // draws solid, so the difference is visible rather than silent.
+                ...(road ? {} : { 'line-dasharray': [2, 2] }),
+              }}
+            />
+          </GeoJSONSource>
         ) : null}
 
         {showUserDot ? (
-          <Marker coordinate={USER_COORD}>
-            <View style={styles.userMarker} />
-          </Marker>
+          coord ? (
+            <UserLocation />
+          ) : (
+            <ViewAnnotation lngLat={here}>
+              <View style={styles.userMarker} />
+            </ViewAnnotation>
+          )
         ) : null}
 
         {showRoute ? (
           <>
-            <Marker coordinate={PICKUP_COORD}>
+            <ViewAnnotation lngLat={PICKUP}>
               <View style={styles.pickupMarker}>
                 <View style={styles.pickupCore} />
               </View>
-            </Marker>
+            </ViewAnnotation>
 
-            <Marker coordinate={DESTINATION_COORD}>
+            <ViewAnnotation lngLat={DESTINATION}>
               <View style={styles.destMarker}>
                 <Ionicons name="location" size={14} color="#2B1A05" />
               </View>
-            </Marker>
+            </ViewAnnotation>
           </>
         ) : null}
 
-        {driverCoord ? (
-          <Marker coordinate={driverCoord}>
-            <View style={styles.driverPuck}>
-              <Ionicons name="car" size={12} color={colors.onPrimary} />
+        {driver ? (
+          <ViewAnnotation lngLat={driver}>
+            <View style={styles.driverMarker}>
+              <Ionicons name="car-sport" size={15} color={colors.onPrimary} />
             </View>
-          </Marker>
+          </ViewAnnotation>
         ) : null}
-      </MapView>
+      </Map>
 
-      {showUserDot ? <View style={styles.userBadge}><Text style={styles.badgeText}>You are here</Text></View> : null}
       {showRoute ? (
-        <>
-          <View style={[styles.badge, styles.badgeMint]}><Text style={styles.badgeText}>{pickupLabel}</Text></View>
-          <View style={[styles.badge, styles.badgeAmber]}><Text style={[styles.badgeText, styles.badgeTextAmber]}>{destinationLabel}</Text></View>
-        </>
+        <View style={styles.labels} pointerEvents="none">
+          <Label icon="ellipse" text={pickupLabel} tint={colors.primary} />
+          <Label icon="location" text={destinationLabel} tint={colors.amber} />
+        </View>
       ) : null}
-      {driverLabel && driverCoord ? <View style={[styles.badge, styles.badgeMint]}><Text style={styles.badgeText}>{driverLabel}</Text></View> : null}
+
+      {driverLabel ? (
+        <View style={styles.driverPill} pointerEvents="none">
+          <Text style={styles.driverPillLabel}>{driverLabel}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Keeps both ends of the route on screen without asking MapLibre to fit bounds. */
+function midpoint(a: [number, number], b: [number, number]): [number, number] {
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+}
+
+function Label({ icon, text, tint }: { icon: 'ellipse' | 'location'; text: string; tint: string }) {
+  return (
+    <View style={styles.label}>
+      <Ionicons name={icon} size={11} color={tint} />
+      <Text style={styles.labelText} numberOfLines={1}>
+        {text}
+      </Text>
     </View>
   );
 }
@@ -104,8 +205,7 @@ export function MapCanvas({
 const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0E1524',
-    overflow: 'hidden',
+    backgroundColor: colors.surface,
   },
   userMarker: {
     width: 16,
@@ -113,73 +213,77 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.primary,
     borderWidth: 3,
-    borderColor: colors.primarySurface,
+    borderColor: colors.bg,
   },
   pickupMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primarySurface,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.bg,
     borderWidth: 2,
     borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pickupCore: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: colors.primary,
   },
   destMarker: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.amber,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  driverPuck: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  driverMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.bg,
   },
-  badge: {
+  labels: {
     position: 'absolute',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.primarySurface,
-    top: 18,
-    left: 18,
+    left: spacing.lg,
+    right: spacing.lg,
+    top: spacing.xxl + spacing.lg,
+    gap: spacing.sm,
   },
-  badgeMint: {
-    backgroundColor: colors.primarySurface,
+  label: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    maxWidth: '80%',
+    backgroundColor: colors.overlay,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
   },
-  badgeAmber: {
-    backgroundColor: colors.amberSurface,
-    left: 'auto',
-    right: 18,
-  },
-  badgeText: {
+  labelText: {
     ...type.caption,
-    fontSize: 9,
-    color: colors.primary,
+    color: colors.text,
   },
-  badgeTextAmber: {
-    color: colors.amber,
-  },
-  userBadge: {
+  driverPill: {
     position: 'absolute',
-    paddingHorizontal: spacing.sm,
+    alignSelf: 'center',
+    top: '45%',
+    backgroundColor: colors.bg,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
     paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.primarySurface,
-    top: 18,
-    right: 18,
+  },
+  driverPillLabel: {
+    ...type.caption,
+    color: colors.text,
   },
 });
-

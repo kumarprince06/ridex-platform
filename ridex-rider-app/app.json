@@ -13,19 +13,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ridex.rider",
-      "config": {
-        "googleMapsApiKey": "AIzaSyB7WJvf4jDgXugNxOkJGQK0Z-1QJ_xlikE"
-      }
+      "bundleIdentifier": "com.ridex.rider"
     },
     "android": {
       "package": "com.ridex.rider",
       "versionCode": 1,
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyB7WJvf4jDgXugNxOkJGQK0Z-1QJ_xlikE"
-        }
-      },
       "icon": "./assets/icon.png",
       "adaptiveIcon": {
         "backgroundColor": "#0B0F1A",
@@ -33,7 +25,14 @@
       }
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RideX uses your location to set your pickup point and show your ride on the map."
+        }
+      ]
     ]
   }
 }

@@ -32,7 +32,8 @@
         {
           "locationWhenInUsePermission": "RideX uses your location to set your pickup point and show your ride on the map."
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }

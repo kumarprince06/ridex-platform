@@ -38,7 +38,8 @@
         {
           "cameraPermission": "RideX Partner uses the camera to scan the rider's pickup QR code."
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }

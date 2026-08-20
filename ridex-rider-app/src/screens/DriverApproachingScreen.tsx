@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '../components/Avatar';
-import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { Sheet } from '../components/Sheet';
 import { DRIVER } from '../data/mock';
@@ -13,8 +13,18 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverApproaching'>;
 
+/** How long the mock driver takes to cover the last minute. Replaced by the trip status socket (T11). */
+const ARRIVAL_MS = 6000;
+
 export function DriverApproachingScreen({ navigation, route }: Props) {
   const { destination } = route.params;
+
+  // The rider does not decide that the driver has arrived - the driver does, and the server says
+  // so. This timer stands in for that message until the socket exists.
+  useEffect(() => {
+    const timer = setTimeout(() => navigation.replace('DriverArrived', { destination }), ARRIVAL_MS);
+    return () => clearTimeout(timer);
+  }, [navigation, destination]);
 
   return (
     <View style={styles.root}>
@@ -63,11 +73,19 @@ export function DriverApproachingScreen({ navigation, route }: Props) {
             <Text style={styles.callText}>Call</Text>
           </Pressable>
 
-          <Button
-            label="Arrived →"
-            onPress={() => navigation.navigate('DriverArrived', { destination })}
-            style={styles.arrived}
-          />
+          <Pressable accessibilityRole="button" style={styles.call}>
+            <Ionicons name="chatbubble-ellipses" size={15} color={colors.primary} />
+            <Text style={styles.callText}>Message</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('CancelRide')}
+            style={styles.call}
+          >
+            <Ionicons name="close" size={15} color={colors.danger} />
+            <Text style={[styles.callText, styles.cancelText]}>Cancel</Text>
+          </Pressable>
         </View>
       </Sheet>
     </View>
@@ -172,8 +190,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.primary,
   },
-  arrived: {
-    flex: 1.3,
-    borderRadius: radius.pill,
+  cancelText: {
+    color: colors.danger,
   },
 });

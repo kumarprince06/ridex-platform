@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { PickupPass } from '../components/PickupPass';
 import { Sheet } from '../components/Sheet';
@@ -19,8 +19,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DriverArrived'>;
 const PICKUP_CODE = '4821';
 const PICKUP_PAYLOAD = 'ridex://pickup/RX-9241?code=4821';
 
+/** Stands in for the driver scanning the pass and the server starting the trip (T11). */
+const START_MS = 9000;
+
 export function DriverArrivedScreen({ navigation, route }: Props) {
   const { destination } = route.params;
+
+  useEffect(() => {
+    const timer = setTimeout(() => navigation.replace('TripInProgress', { destination }), START_MS);
+    return () => clearTimeout(timer);
+  }, [navigation, destination]);
 
   return (
     <View style={styles.root}>
@@ -60,12 +68,15 @@ export function DriverArrivedScreen({ navigation, route }: Props) {
             <Text style={styles.callText}>Call Driver</Text>
           </Pressable>
 
-          <Button
-            label="Start Trip"
-            onPress={() => navigation.navigate('TripInProgress', { destination })}
-            style={styles.start}
-          />
+          <Pressable accessibilityRole="button" style={styles.call}>
+            <Ionicons name="chatbubble-ellipses" size={15} color={colors.primary} />
+            <Text style={styles.callText}>Message</Text>
+          </Pressable>
         </View>
+
+        <Text style={styles.waiting}>
+          The trip starts once your driver scans the code above.
+        </Text>
       </Sheet>
     </View>
   );
@@ -170,8 +181,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.primary,
   },
-  start: {
-    flex: 1,
-    borderRadius: radius.pill,
+  waiting: {
+    ...type.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
 });

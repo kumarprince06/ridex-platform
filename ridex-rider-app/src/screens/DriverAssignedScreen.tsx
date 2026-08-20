@@ -96,7 +96,7 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
           </Pressable>
 
           <Button
-            label="Track Driver →"
+            label="Track your driver"
             onPress={() => navigation.navigate('DriverApproaching', { destination })}
             style={styles.track}
           />

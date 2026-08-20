@@ -14,8 +14,16 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripInProgress'>;
 
+/** Stands in for the driver completing the trip (T11). The rider never ends their own trip. */
+const COMPLETE_MS = 12000;
+
 export function TripInProgressScreen({ navigation, route }: Props) {
   const { destination } = route.params;
+
+  useEffect(() => {
+    const timer = setTimeout(() => navigation.replace('RideCompleted', { destination }), COMPLETE_MS);
+    return () => clearTimeout(timer);
+  }, [navigation, destination]);
   const [seconds, setSeconds] = useState(7 * 60 + 23);
 
   useEffect(() => {
@@ -73,15 +81,9 @@ export function TripInProgressScreen({ navigation, route }: Props) {
             <Ionicons name="call" size={16} color={colors.text} />
           </View>
 
-          {/* Completes the trip. In the real flow this arrives from the driver app, not the rider. */}
-          <Pressable
-            onPress={() => navigation.replace('RideCompleted', { destination })}
-            accessibilityRole="button"
-            accessibilityLabel="Complete trip"
-            style={styles.finishChip}
-          >
-            <Ionicons name="checkmark" size={18} color={colors.onPrimary} />
-          </Pressable>
+          <View style={styles.actionChip}>
+            <Ionicons name="chatbubble-ellipses" size={16} color={colors.text} />
+          </View>
         </View>
       </Sheet>
     </View>
@@ -191,14 +193,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  finishChip: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

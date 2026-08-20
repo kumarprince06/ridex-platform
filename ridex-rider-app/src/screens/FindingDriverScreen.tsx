@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MapCanvas } from '../components/MapCanvas';
+import { PulseRings } from '../components/PulseRings';
 import { Sheet } from '../components/Sheet';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -43,7 +44,7 @@ export function FindingDriverScreen({ navigation, route }: Props) {
       <MapCanvas showUserDot />
 
       <Sheet>
-        <View style={[styles.pulse, found && styles.pulseFound]}>
+        <PulseRings active={!found} size={84} colour={colors.primary} style={styles.rings}>
           <View style={[styles.pulseInner, found && styles.pulseInnerFound]}>
             <Ionicons
               name={found ? 'checkmark' : 'search'}
@@ -51,7 +52,7 @@ export function FindingDriverScreen({ navigation, route }: Props) {
               color={colors.onPrimary}
             />
           </View>
-        </View>
+        </PulseRings>
 
         <Text style={styles.title}>{found ? 'Driver Found!' : 'Finding your driver...'}</Text>
 
@@ -88,19 +89,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  pulse: {
-    alignSelf: 'center',
-    width: 92,
-    height: 92,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(46, 231, 199, 0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  rings: {
+    marginBottom: spacing.sm,
   },
   // Success shifts to a deeper green, distinct from the brand mint used while searching.
-  pulseFound: {
-    backgroundColor: 'rgba(35, 197, 130, 0.16)',
-  },
   pulseInner: {
     width: 62,
     height: 62,

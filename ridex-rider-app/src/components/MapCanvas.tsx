@@ -127,9 +127,6 @@ export function MapCanvas({
               paint={{
                 'line-color': colors.primary,
                 'line-width': 5,
-                // Dashed only while it is still the straight-line stand-in; a real road route
-                // draws solid, so the difference is visible rather than silent.
-                ...(road ? {} : { 'line-dasharray': [2, 2] }),
               }}
             />
           </GeoJSONSource>

@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DutyPill, DutyToggle } from '../components/DutyToggle';
 import { EarningsBar } from '../components/EarningsBar';
 import { MapCanvas } from '../components/MapCanvas';
+import { PulseRings } from '../components/PulseRings';
 import { StatusBanner } from '../components/StatusBanner';
 import { EARNINGS } from '../data/mock';
 import { TabScreenProps } from '../navigation/types';
@@ -35,7 +36,10 @@ export function DriveScreen({ navigation }: Props) {
 
       <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
         <View style={styles.topRow}>
-          <DutyPill online={online} />
+          <View style={styles.brandRow}>
+            <Image source={require('../../assets/logo-mark.png')} style={styles.brandMark} />
+            <DutyPill online={online} />
+          </View>
 
           <Pressable
             onPress={() => navigation.navigate('Notifications')}
@@ -57,7 +61,10 @@ export function DriveScreen({ navigation }: Props) {
         {online ? (
           <View style={styles.onlineBlock}>
             <View style={styles.searching}>
-              <View style={styles.pulse} />
+              <PulseRings size={34} spread={2.2} colour={colors.online} style={styles.rings}>
+                <View style={styles.pulse} />
+              </PulseRings>
+
               <View style={styles.searchingText}>
                 <Text style={styles.searchingTitle}>Looking for rides nearby</Text>
                 <Text style={styles.searchingNote}>Midtown · demand is high until 8 PM</Text>
@@ -117,6 +124,19 @@ const styles = StyleSheet.create({
     top: 0,
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brandMark: {
+    width: 34,
+    height: 34,
+    resizeMode: 'contain',
+  },
+  rings: {
+    marginLeft: -spacing.sm,
   },
   topRow: {
     flexDirection: 'row',

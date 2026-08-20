@@ -9,8 +9,13 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { primeLocation } from './src/lib/location';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
+
+// Ask for location while the fonts are still loading, so the first map opens on the device's
+// own position instead of the fallback centre.
+void primeLocation();
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({

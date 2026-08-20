@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import { Animated, LayoutChangeEvent, PanResponder, StyleSheet, Text, View } from 'react-native';
 
-import { colors, IconName, radius, spacing, type } from '../theme';
+import { colors, IconName, radius, type } from '../theme';
 
 type Props = {
   label: string;
@@ -26,38 +26,65 @@ const PADDING = 4;
 export function SwipeAction({ label, onComplete, icon = 'arrow-forward', danger = false }: Props) {
   const [width, setWidth] = useState(0);
   const x = useRef(new Animated.Value(0)).current;
+  const track = useRef<View>(null);
   const travel = Math.max(0, width - KNOB - PADDING * 2);
 
-  // PanResponder is created once, so it reads the live travel distance off a ref rather than
-  // closing over a stale value from first render.
+  // PanResponder is created once, so it reads live values off refs rather than closing over the
+  // ones from first render.
   const travelRef = useRef(0);
   travelRef.current = travel;
+  const originRef = useRef(0);
+  const positionRef = useRef(0);
   const doneRef = useRef(false);
+
+  const settle = () => {
+    Animated.spring(x, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
+    positionRef.current = 0;
+  };
 
   const responder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 4,
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gesture) => {
-        x.setValue(Math.max(0, Math.min(travelRef.current, gesture.dx)));
-      },
-      onPanResponderRelease: (_, gesture) => {
+        // Track the finger's absolute position, not its delta: the swipe has to work when it
+        // starts anywhere along the track, not only on the knob.
         const limit = travelRef.current;
-        if (gesture.dx >= limit * 0.9 && !doneRef.current) {
+        const next = Math.max(0, Math.min(limit, gesture.moveX - originRef.current - KNOB / 2));
+        positionRef.current = next;
+        x.setValue(next);
+      },
+      onPanResponderRelease: () => {
+        const limit = travelRef.current;
+        if (limit > 0 && positionRef.current >= limit * 0.85 && !doneRef.current) {
           doneRef.current = true;
           Animated.timing(x, { toValue: limit, duration: 90, useNativeDriver: false }).start(() => {
-            onComplete();
+            onCompleteRef.current();
             // Reset behind the navigation, so a screen that stays mounted is usable again.
             x.setValue(0);
+            positionRef.current = 0;
             doneRef.current = false;
           });
           return;
         }
-        Animated.spring(x, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
+        settle();
       },
+      onPanResponderTerminate: settle,
     }),
   ).current;
 
-  const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
+  // The handler can change between renders; the responder must call the current one.
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  const onLayout = (event: LayoutChangeEvent) => {
+    setWidth(event.nativeEvent.layout.width);
+    // Where the track sits on screen, so an absolute touch can be turned into a knob position.
+    track.current?.measureInWindow((pageX) => {
+      originRef.current = pageX + PADDING;
+    });
+  };
+
   const fillWidth = Animated.add(x, KNOB + PADDING);
   const labelOpacity = travel
     ? x.interpolate({ inputRange: [0, travel], outputRange: [1, 0.15], extrapolate: 'clamp' })
@@ -65,7 +92,9 @@ export function SwipeAction({ label, onComplete, icon = 'arrow-forward', danger 
 
   return (
     <View
+      ref={track}
       onLayout={onLayout}
+      {...responder.panHandlers}
       style={[styles.track, danger ? styles.trackDanger : styles.trackPrimary]}
       accessibilityRole="adjustable"
       accessibilityLabel={label}
@@ -74,18 +103,17 @@ export function SwipeAction({ label, onComplete, icon = 'arrow-forward', danger 
       onAccessibilityAction={onComplete}
     >
       <Animated.View
-        style={[
-          styles.fill,
-          { width: fillWidth },
-          danger ? styles.fillDanger : styles.fillPrimary,
-        ]}
+        style={[styles.fill, { width: fillWidth }, danger ? styles.fillDanger : styles.fillPrimary]}
       />
 
       <Animated.Text style={[styles.label, { opacity: labelOpacity }]}>{label}</Animated.Text>
 
       <Animated.View
-        {...responder.panHandlers}
-        style={[styles.knob, danger ? styles.knobDanger : styles.knobPrimary, { transform: [{ translateX: x }] }]}
+        style={[
+          styles.knob,
+          danger ? styles.knobDanger : styles.knobPrimary,
+          { transform: [{ translateX: x }] },
+        ]}
       >
         <Ionicons name={icon} size={22} color={danger ? colors.text : colors.onPrimary} />
       </Animated.View>
@@ -140,8 +168,5 @@ const styles = StyleSheet.create({
   },
   knobDanger: {
     backgroundColor: colors.danger,
-  },
-  paddingSpacer: {
-    width: spacing.xs,
   },
 });

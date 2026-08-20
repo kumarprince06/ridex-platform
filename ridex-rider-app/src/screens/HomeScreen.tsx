@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MapCanvas } from '../components/MapCanvas';
@@ -25,9 +25,7 @@ export function HomeScreen({ navigation }: Props) {
 
       <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
         <View style={styles.locationRow}>
-          <View style={styles.brandMark}>
-            <Ionicons name="navigate" size={18} color={colors.onPrimary} />
-          </View>
+          <Image source={require('../../assets/logo-mark.png')} style={styles.brandMark} />
           <View style={styles.locationText}>
             <Text style={styles.locationLabel}>Current Location</Text>
             <Text style={styles.locationValue}>Midtown, New York</Text>
@@ -117,10 +115,7 @@ const styles = StyleSheet.create({
   brandMark: {
     width: 38,
     height: 38,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    resizeMode: 'contain',
   },
   locationText: {
     flex: 1,

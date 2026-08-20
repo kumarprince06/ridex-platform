@@ -35,7 +35,7 @@ export type RootStackParamList = {
 
   // Booking flow, in the order a rider walks it.
   SearchDestination: undefined;
-  RoutePreview: { destination: string };
+  RoutePreview: { destination: string; destinationCoord?: [number, number] };
   ChooseRide: { destination: string };
   FareEstimate: { destination: string; tierId: string };
   FindingDriver: { destination: string };

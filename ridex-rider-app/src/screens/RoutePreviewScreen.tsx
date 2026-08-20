@@ -13,11 +13,11 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'RoutePreview'>;
 
 export function RoutePreviewScreen({ navigation, route }: Props) {
-  const { destination } = route.params;
+  const { destination, destinationCoord } = route.params;
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute />
+      <MapCanvas showRoute destinationCoord={destinationCoord} destinationLabel={destination} />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <View style={styles.headerRow}>

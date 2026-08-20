@@ -1,19 +1,79 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RECENT_PLACES, SAVED_PLACES } from '../data/mock';
+import { FALLBACK_CENTER, LngLat, useCurrentLocation } from '../lib/location';
+import { Place, searchPlaces } from '../lib/places';
 import { RootStackParamList } from '../navigation/types';
 import { colors, IconName, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SearchDestination'>;
 
+/** Long enough that a fast typist does not fire a request per keystroke, short enough to feel live. */
+const DEBOUNCE_MS = 350;
+
 export function SearchDestinationScreen({ navigation }: Props) {
   const [destination, setDestination] = useState('');
+  const [results, setResults] = useState<Place[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const { coord } = useCurrentLocation();
+  const near = coord ?? FALLBACK_CENTER;
 
-  const choose = (name: string) => navigation.navigate('RoutePreview', { destination: name });
+  // One in-flight request at a time: an older, slower response must not overwrite a newer one.
+  const inFlight = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const query = destination.trim();
+    if (query.length < 3) {
+      setResults([]);
+      setSearching(false);
+      setFailed(false);
+      return;
+    }
+
+    setSearching(true);
+    const timer = setTimeout(() => {
+      inFlight.current?.abort();
+      const controller = new AbortController();
+      inFlight.current = controller;
+
+      searchPlaces(query, near, controller.signal)
+        .then((found) => {
+          setResults(found);
+          setFailed(false);
+        })
+        .catch((error: unknown) => {
+          if ((error as Error)?.name !== 'AbortError') {
+            setFailed(true);
+          }
+        })
+        .finally(() => {
+          if (inFlight.current === controller) {
+            setSearching(false);
+          }
+        });
+    }, DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+    // near is a fresh array each render; its contents are what matter.
+  }, [destination, near[0], near[1]]);
+
+  useEffect(() => () => inFlight.current?.abort(), []);
+
+  const choose = (name: string, coordinate?: LngLat) =>
+    navigation.navigate('RoutePreview', { destination: name, destinationCoord: coordinate });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -41,7 +101,10 @@ export function SearchDestinationScreen({ navigation }: Props) {
               placeholder="Where to?"
               placeholderTextColor={colors.textFaint}
               autoFocus
-              onSubmitEditing={() => choose(destination.trim() || 'Grand Central Terminal')}
+              onSubmitEditing={() => {
+                const first = results[0];
+                choose(first?.name ?? (destination.trim() || 'Grand Central Terminal'), first?.coord);
+              }}
               returnKeyType="search"
               style={styles.input}
             />
@@ -54,6 +117,41 @@ export function SearchDestinationScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {destination.trim().length >= 3 ? (
+          <>
+            <SectionHeader title="RESULTS" action={searching ? '' : `${results.length}`} />
+
+            {searching && results.length === 0 ? (
+              <View style={styles.status}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={styles.statusText}>Searching…</Text>
+              </View>
+            ) : null}
+
+            {failed ? (
+              <Text style={styles.statusText}>
+                Could not reach the place search. Check your connection and try again.
+              </Text>
+            ) : null}
+
+            {!searching && !failed && results.length === 0 ? (
+              <Text style={styles.statusText}>Nothing found for “{destination.trim()}”.</Text>
+            ) : null}
+
+            {results.map((place) => (
+              <PlaceRow
+                key={place.id}
+                icon="location"
+                tone={colors.primary}
+                name={place.name}
+                address={place.detail}
+                chevron
+                onPress={() => choose(place.name, place.coord)}
+              />
+            ))}
+          </>
+        ) : null}
+
         <SectionHeader title="SAVED PLACES" action="Manage" />
         {SAVED_PLACES.map((place) => (
           <PlaceRow key={place.name} {...place} onPress={() => choose(place.name)} />
@@ -113,6 +211,17 @@ function PlaceRow({
 }
 
 const styles = StyleSheet.create({
+  status: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  statusText: {
+    ...type.caption,
+    color: colors.textMuted,
+    paddingVertical: spacing.sm,
+  },
   safe: {
     flex: 1,
     backgroundColor: colors.bg,

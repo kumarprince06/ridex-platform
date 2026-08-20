@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { RiderBar } from '../components/RiderBar';
+import { SwipeAction } from '../components/SwipeAction';
 import { OFFER } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -36,7 +37,18 @@ export function NavigateToPickupScreen({ navigation }: Props) {
         </View>
 
         {/* Turn-by-turn is a handoff to the phone's map app, not a second navigation stack. */}
-        <Button label="Open navigation" onPress={() => navigation.navigate('ArrivedAtPickup')} />
+        <Button label="Open navigation" variant="secondary" />
+
+        {/*
+          Arriving is a claim the driver makes, and it is what tells the rider to come out - the
+          app cannot infer it from a coordinate. Swipe, not tap: it starts the rider's waiting
+          timer and the cancellation window, and it cannot be undone.
+        */}
+        <SwipeAction
+          label="Swipe when you arrive"
+          icon="flag"
+          onComplete={() => navigation.replace('ArrivedAtPickup')}
+        />
 
         <Pressable
           accessibilityRole="button"

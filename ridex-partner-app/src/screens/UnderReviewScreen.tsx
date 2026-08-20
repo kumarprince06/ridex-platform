@@ -26,9 +26,14 @@ export function UnderReviewScreen({ navigation }: Props) {
     <Screen
       footer={
         <View style={styles.actions}>
-          {/* Stand-in for the status poll: tapping simulates approval landing. */}
-          <Button label="Check status" onPress={() => navigation.replace('Approved')} />
-          <Button label="Contact support" variant="secondary" />
+          {/*
+            Stand-in for the status poll. The three buttons are the three terminal states of the
+            onboarding machine - every one of them has to be reachable, or the two outcomes that
+            need the most care are the two nobody ever sees.
+          */}
+          <Button label="Approved" onPress={() => navigation.replace('Approved')} />
+          <Button label="Rejected" variant="secondary" onPress={() => navigation.replace('Rejected')} />
+          <Button label="Suspended" variant="secondary" onPress={() => navigation.replace('Suspended')} />
         </View>
       }
     >

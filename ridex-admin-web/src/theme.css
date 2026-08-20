@@ -1,0 +1,108 @@
+/*
+ * The same design values as the two mobile apps, as CSS custom properties, plus the tokens a
+ * dense table UI needs and a phone does not. Two products that look like one: a screen that
+ * hardcodes a hex has drifted from the design - fix the token, not the screen.
+ *
+ * The console defaults to light because it is read for hours at a desk under office lighting,
+ * where the apps' near-black ground is the wrong choice. The brand colours are unchanged.
+ */
+:root {
+  /* Brand, identical to ridex-*-app/src/theme.ts */
+  --primary: #2ee7c7;
+  --primary-strong: #12a68c;
+  --on-primary: #04241e;
+  --primary-surface: #e6fbf6;
+  --danger: #d62b4e;
+  --danger-surface: #fdecef;
+  --warning: #b26a12;
+  --warning-surface: #fdf3e4;
+  --success: #12805a;
+  --success-surface: #e7f7f0;
+  --info: #2563c9;
+  --info-surface: #eaf1fd;
+
+  /* Console surfaces */
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-alt: #eef1f6;
+  --border: #dde3ec;
+  --border-strong: #c3ccdb;
+
+  --text: #101828;
+  --text-muted: #5b6779;
+  --text-faint: #8a94a6;
+
+  /* Table-specific: a row needs its own hover, stripe and header ground. */
+  --row-hover: #f2f6fb;
+  --row-selected: #e6fbf6;
+  --thead-bg: #f7f9fc;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow: 0 8px 24px rgba(16, 24, 40, 0.1);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --sidebar-width: 236px;
+  --topbar-height: 60px;
+
+  --font: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'SFMono-Regular', 'JetBrains Mono', Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Focus is never removed, only restyled: an ops tool is used with a keyboard all day. */
+:focus-visible {
+  outline: 2px solid var(--primary-strong);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}

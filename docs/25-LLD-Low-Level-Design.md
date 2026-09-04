@@ -8,32 +8,43 @@ Marked **built** where the code exists today. Everything else is the shape to bu
 
 ---
 
-## 1. Layer contract
+## 1. Package contract
 
-| Layer | May depend on | Holds | Never holds |
-|---|---|---|---|
-| `api` | application, shared | Controllers, request/response DTOs, validation annotations | Business rules, entities in signatures |
-| `application` | domain, infrastructure interfaces | Use cases, `@Transactional` boundaries, orchestration | HTTP types, SQL |
-| `domain` | nothing framework-shaped | Entities, enums, state machines, invariants | Spring MVC, payment/mail SDKs |
-| `infrastructure` | domain | JPA repositories, security, provider clients | Business decisions |
-| `shared` | nothing | ULIDs, hashing, `ProblemDetail` handling | Anything used by only one module |
+Package by feature. One folder per module, layers inside it.
 
-**Entities never cross the `api` boundary.** A controller returns a DTO. An entity returned directly
-leaks column names into a public contract and turns a rename into a client release.
+| Package | Holds | Never holds |
+|---|---|---|
+| `<feature>/` | Controller, service, repository for that feature | Another feature's internals |
+| `<feature>/dto/` | Request and response records (immutable, validated) | Entities |
+| `<feature>/domain/` | Entities, enums, state machines, invariants | Spring, HTTP types, provider SDKs |
+| `platform/` | Security, JWT, error handling, correlation IDs | Business decisions |
+| `shared/` | Primitives used by more than one feature | Anything with a single caller |
+
+Three rules, all enforced by `PackageStructureTest` (ArchUnit) so a violation fails the build:
+
+1. **Nothing in `**/domain/**` imports Spring.** JPA annotations are the accepted exception — the
+   entities *are* the domain model, and a second set of mapping classes would be two models to
+   keep in step. Everything else stays out, so fare maths and state machines test in milliseconds.
+2. **`domain/` never imports `dto/` or `platform/`.** Dependencies point inward.
+3. **A feature never reaches another feature's `domain/`.** Cross-feature access goes through that
+   feature's service, which is what keeps the modules separable later.
+
+**Entities never cross into a DTO's place in a response.** A controller returns a record. An
+entity returned directly leaks column names into a public contract and turns a rename into a
+client release.
 
 ### Naming
 
 ```
-api/controller/<module>/XController.java     RiderProfileController
-api/dto/<module>/XRequest.java               CreateRideRequest      (record)
-api/dto/<module>/XResponse.java              RideResponse           (record)
-application/<module>/XService.java           DispatchService
-domain/<module>/X.java                       Trip, TripStatus
-infrastructure/persistence/jpa/repository/   TripRepository
+<feature>/XController.java        auth/AuthController.java
+<feature>/XService.java           dispatch/DispatchService.java
+<feature>/XRepository.java        auth/UserRepository.java
+<feature>/dto/XRequest.java       auth/dto/LoginRequest.java      (record)
+<feature>/dto/XResponse.java      trip/dto/TripResponse.java      (record)
+<feature>/domain/X.java           trip/domain/Trip.java, TripStatus.java
 ```
 
-DTOs are records. They are immutable, they need no Lombok, and validation annotations sit on the
-components.
+DTOs are records: immutable, no Lombok needed, validation annotations on the components.
 
 ### Comment convention
 
@@ -44,20 +55,20 @@ One or two lines, above the thing, saying **why** — not what. The code says wh
 RefreshToken token = new RefreshToken();
 ```
 
-Not a paragraph, not a Javadoc block on every method. A comment earns its place when the code looks
-wrong until you know the reason. If it restates the line below it, delete it.
-
----
+Not a paragraph, not a Javadoc block on every method. A comment earns its place when the code
+looks wrong until you know the reason. If it restates the line below it, delete it.
 
 ## 2. Auth module — **built**
 
 ```
-api/controller/auth/AuthController
-api/dto/auth/{Register,Login,RefreshToken}{Request,Response}
-application/auth/AuthService
-domain/user/{User,UserRole,UserStatus,AppContext,RefreshToken,UserToken,TokenPurpose}
-infrastructure/security/{JwtService,JwtAuthenticationFilter,JwtPrincipal}
-infrastructure/persistence/jpa/repository/{User,RefreshToken,UserToken}Repository
+auth/AuthController
+auth/AuthService
+auth/{User,RefreshToken,UserToken}Repository
+auth/dto/{Register,Login,Logout,RefreshToken}{Request,Response}
+auth/domain/{User,UserRole,UserStatus,AppContext,RefreshToken,UserToken,TokenPurpose}
+auth/domain/EmailAlreadyExistsException
+platform/security/{JwtService,JwtAuthenticationFilter,JwtPrincipal,SecurityConfig,PasswordConfig}
+platform/error/GlobalExceptionHandler
 ```
 
 ### AuthService
@@ -240,7 +251,7 @@ refunds         payment_id, amount_minor, reason, status, provider_refund_id UK
 createPaymentIntent · confirmPayment · refundPayment · verifyWebhook · parseWebhook · getPayment
 ```
 
-Provider-neutral by design; implementations live in `infrastructure/payment/<provider>`.
+Provider-neutral by design; the port is `payment/PaymentProvider` and each implementation lives in `payment/<provider>/`.
 
 ### Webhook handling
 

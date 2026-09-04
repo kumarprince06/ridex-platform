@@ -52,19 +52,24 @@ belong in the same commit; splitting them into separate repos only lets them dri
 
 ## Architecture
 
-Modular layered, one deployable:
+Package by feature, one deployable:
 
 ```
 com.ridex
-├── api              HTTP/WebSocket controllers, request/response DTOs
-├── application      use cases and orchestration
-├── domain           entities, value objects, domain services, domain events
-├── infrastructure   JPA, Redis, payment, maps, storage, mail, security
-└── shared           cross-cutting primitives only
+├── auth/            AuthController, AuthService, repositories, dto/, domain/
+├── rider/           rider profile
+├── driver/          onboarding, documents
+├── vehicle/         vehicles
+├── maps/            MapsProvider port, dto/, domain/, google/
+├── platform/        security, error handling — cross-cutting, owned by no feature
+└── shared/          primitives used by more than one feature
 ```
 
-The domain must not depend on Spring MVC, mail SDKs, payment SDKs, or JPA details where
-avoidable. Application services depend on domain abstractions; infrastructure implements them.
+Each feature owns its controller, service, repository, DTOs and domain model. `<feature>/domain/`
+holds the entities and rules and imports no Spring, so fare maths and state machines test without
+booting a context. A feature reaches another through its service, never at its `domain/` classes.
+
+Enforced by `PackageStructureTest` (ArchUnit) — a violation fails the build.
 
 System-level design: [docs/24-HLD-High-Level-Design.md](docs/24-HLD-High-Level-Design.md).
 Class and table level: [docs/25-LLD-Low-Level-Design.md](docs/25-LLD-Low-Level-Design.md).

@@ -37,3 +37,51 @@ Payment, refund, earnings and payout records must remain auditable. Avoid destru
 
 ## ADR-008: UTC timestamps
 Persist instants in UTC. Convert for display at the edge.
+
+---
+
+## ADR-009 — Package by feature, not by layer
+
+**Date:** 2026-09-05 · **Status:** accepted
+
+### Context
+
+The backend was packaged `api / application / domain / infrastructure / shared`. Three problems
+showed up once there was enough code to judge it:
+
+- One feature was spread across four top-level folders, so adding an endpoint meant editing in
+  four places.
+- Module boundaries were invisible. Nothing in the tree said whether dispatch depended on pricing.
+- The dependency rule was violated anyway — `application` imported `api.dto`, and `api` imported
+  `infrastructure.maps` directly, skipping the application layer.
+
+RideX plans eighteen modules. Layer-first packaging ends with one `application/` folder holding
+sixty unrelated services.
+
+### Decision
+
+Package by feature: `auth/`, `driver/`, `trip/`, `payment/` and so on, each holding its own
+controller, service, repository, `dto/` and `domain/`. Cross-cutting concerns go in `platform/`;
+genuinely shared primitives in `shared/`.
+
+`<feature>/domain/` keeps the layer discipline that mattered: no Spring imports, so state machines
+and fare maths test without a context.
+
+Enforced by `PackageStructureTest` (ArchUnit) — the structure fails the build rather than relying
+on review.
+
+### Consequences
+
+- Adding or deleting a feature is one folder.
+- The tree is the module map; a cross-module dependency is visible as an import across folders.
+- Splitting a module into a service later is a folder move, not an archaeology exercise.
+- Cost: a 45-file repackaging, done while it was an hour's work. At Step 10 it would have been a
+  week and would not have happened.
+
+### Rejected
+
+- **`controller/service/repository/entity`** — the conventional Spring layout. Fine for CRUD, but
+  at eighteen modules it produces one folder of sixty services with no boundary between them.
+- **Keeping layer-first and only fixing the leaks** — cheaper today, but leaves each feature spread
+  across four folders and module boundaries unenforceable.
+

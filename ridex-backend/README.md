@@ -56,24 +56,32 @@ exists — a `prod` block nobody runs only rots.
 
 ```
 com.ridex
-├── api              controllers and request/response DTOs — HTTP shapes, no business rules
-├── application      use cases: transaction boundaries, orchestration across aggregates
-├── domain           entities, enums, state machines — the rules, framework-free
-├── infrastructure   JPA repositories, security, maps, mail, storage, payment providers
-└── shared           cross-cutting primitives only (ULIDs, hashing, error handling)
+├── auth/            AuthController, AuthService, repositories, dto/, domain/
+├── rider/           rider profile
+├── driver/          onboarding, documents
+├── vehicle/         vehicles
+├── maps/            MapsProvider port, dto/, domain/, google/
+├── platform/        security, error handling — cross-cutting, owned by no feature
+└── shared/          primitives used by more than one feature
 ```
 
-Dependencies point inward. `application` depends on domain abstractions; `infrastructure`
-implements them. The domain must not import Spring MVC, a payment SDK, a mail SDK, or JPA details
-where it can be avoided — the whole point is that a provider swap is an `infrastructure` change.
+Each feature owns everything it needs: controller, service, repository, DTOs and domain model.
+Adding an endpoint touches one folder, and deleting a feature is deleting one folder.
 
-`shared` is not a junk drawer. If something there is used by exactly one module, it belongs in that
-module.
+`<feature>/domain/` holds entities, enums and state machines and **imports no Spring**. That is
+what lets the fare engine and the trip state machine be unit-tested in milliseconds instead of
+booting a context — and those are the classes where a bug costs money.
 
-Full detail and the target module list: [docs/08-Backend-Architecture.md](../docs/08-Backend-Architecture.md).
-Class-level detail: [docs/25-LLD-Low-Level-Design.md](../docs/25-LLD-Low-Level-Design.md).
+`platform/` is cross-cutting and owned by no feature: security, JWT, error handling. `shared/` is
+for primitives genuinely used by more than one feature; if something there has one caller, it
+belongs with that caller.
 
----
+A feature reaches another feature through its **service**, never straight at its `domain/`
+classes. `PackageStructureTest` enforces all of this with ArchUnit, so a violation fails the build
+instead of waiting for someone to spot it in review.
+
+Detail: [docs/08-Backend-Architecture.md](../docs/08-Backend-Architecture.md) ·
+[docs/25-LLD-Low-Level-Design.md](../docs/25-LLD-Low-Level-Design.md).
 
 ## Authentication
 

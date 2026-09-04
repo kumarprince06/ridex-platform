@@ -18,6 +18,7 @@ export type Dashboard = {
   ridesCompletedToday: number;
   currency: string;
   grossFaresTodayMinor: number;
+  ridesByStatus: Record<string, number>;
 };
 
 export type OnboardingStatus =

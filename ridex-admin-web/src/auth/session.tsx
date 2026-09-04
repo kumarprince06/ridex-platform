@@ -11,6 +11,8 @@ export type Session = {
 };
 
 type SessionValue = {
+  /** False until the stored refresh token has been tried, so the app can hold the sign-in screen. */
+  ready: boolean;
   session: Session | null;
   permissions: Set<Permission>;
   can: (permission: Permission) => boolean;
@@ -22,6 +24,23 @@ const SessionContext = createContext<SessionValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // One attempt at restoring before anything renders, or a reload looks like a sign-out.
+    void authApi
+      .restore()
+      .then((response) => {
+        if (response) {
+          setSession({
+            userId: response.userId,
+            email: response.email,
+            roles: response.roles,
+          });
+        }
+      })
+      .finally(() => setReady(true));
+  }, []);
 
   useEffect(() => {
     // A failed refresh anywhere drops the operator once, rather than erroring on every open panel.
@@ -49,13 +68,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const permissions = expand(granted);
 
     return {
+      ready,
       session,
       permissions,
       can: (permission) => permissions.has(permission),
       signIn,
       signOut,
     };
-  }, [session, signIn, signOut]);
+  }, [ready, session, signIn, signOut]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

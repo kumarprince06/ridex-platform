@@ -185,6 +185,16 @@ public class TripService {
         // ponytail: cash only. A card gateway is another PaymentProvider, not a change here.
         paymentService.settleTrip(trip.getId(), ride.getDiscountMinor(), PaymentMethod.CASH);
 
+        // A driver referral is progress, not a payment: the referrer is paid only after the
+        // referred driver has done a run of real trips inside the window.
+        long referralPayout = pointsService.recordDriverTripForReferral(
+                trip.getDriver().getUser().getId());
+        if (referralPayout > 0) {
+            paymentService.payDriverReferral(
+                    pointsService.referrerOf(trip.getDriver().getUser().getId()),
+                    referralPayout, trip.getCurrency());
+        }
+
         // Points for the ride, and a pending referral settles here if this was the rider's first.
         // Awarding on completion rather than on signup means a referral pays for a rider, not for
         // an account somebody manufactured.

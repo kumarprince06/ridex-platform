@@ -42,6 +42,7 @@ public class PaymentService {
     private final LedgerService ledger;
     private final SettingsService settings;
     private final List<PaymentProvider> providers;
+    private final com.ridex.driver.DriverProfileRepository driverProfileRepository;
 
     /**
      * Settles a completed trip: one payment, one earnings record, and the ledger entries for both.
@@ -140,6 +141,30 @@ public class PaymentService {
                     Money.of(payment.getNetAmountMinor(), gross.currency()),
                     "CASH_COLLECTED", "TRIP", tripId, "driver-cash:" + tripId);
         }
+    }
+
+    /**
+     * Credits a qualified driver referral into the referrer's earnings.
+     *
+     * <p>Into the ledger rather than paid out on the spot: it settles with their next payout,
+     * which is what makes a clawback possible if the referred driver turns out to be fraudulent.
+     */
+    @Transactional
+    public void payDriverReferral(String referrerUserId, long amountMinor, String currencyCode) {
+        if (referrerUserId == null || amountMinor <= 0) {
+            return;
+        }
+
+        driverProfileRepository.findByUserId(referrerUserId).ifPresent(referrer -> {
+            Currency currency = Currency.getInstance(currencyCode);
+            ledger.credit(LedgerAccountType.DRIVER, referrer.getId(),
+                    Money.of(amountMinor, currency), "REFERRAL_REWARD", "REFERRAL",
+                    referrer.getId(), "driver-referral:" + referrer.getId() + ":" + referrerUserId);
+
+            ledger.debit(LedgerAccountType.PLATFORM, null, Money.of(amountMinor, currency),
+                    "REFERRAL_FUNDED", "REFERRAL", referrer.getId(),
+                    "platform-referral:" + referrer.getId() + ":" + referrerUserId);
+        });
     }
 
     @Transactional(readOnly = true)

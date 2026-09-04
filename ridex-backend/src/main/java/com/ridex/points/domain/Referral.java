@@ -36,6 +36,22 @@ public class Referral {
     @Column(name = "qualified_at")
     private Instant qualifiedAt;
 
+    // POINTS for a rider referrer, CASH for a driver. Decided by who refers, not who is referred.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reward_type", nullable = false, length = 10)
+    private ReferralRewardType rewardType = ReferralRewardType.POINTS;
+
+    /** Completed trips the referred driver has done so far. Counted, never inferred. */
+    @Column(name = "qualifying_trips", nullable = false)
+    private int qualifyingTrips;
+
+    /** Nothing pays after this. A dormant account must not qualify a year later. */
+    @Column(name = "qualify_by")
+    private Instant qualifyBy;
+
+    @Column(name = "void_reason", length = 255)
+    private String voidReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

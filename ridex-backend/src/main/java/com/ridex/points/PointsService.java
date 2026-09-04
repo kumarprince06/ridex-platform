@@ -1,6 +1,7 @@
 package com.ridex.points;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -10,9 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.User;
+import com.ridex.auth.domain.UserRole;
 import com.ridex.points.domain.PointEntry;
 import com.ridex.points.domain.PointReason;
 import com.ridex.points.domain.Referral;
+import com.ridex.points.domain.ReferralRewardType;
 import com.ridex.points.domain.ReferralStatus;
 import com.ridex.points.dto.PointEntryResponse;
 import com.ridex.points.dto.PointsBalanceResponse;
@@ -66,6 +69,19 @@ public class PointsService {
         return settings.getInt("points.per-currency-unit", 100);
     }
 
+    /** Deliberately high: a cash referral is the first thing anyone farms. */
+    private int driverQualifyingTrips() {
+        return settings.getInt("referrals.driver-qualifying-trips", 25);
+    }
+
+    private int driverQualifyingDays() {
+        return settings.getInt("referrals.driver-qualifying-days", 30);
+    }
+
+    private long driverRewardMinor() {
+        return settings.getInt("referrals.driver-reward-minor", 50000);
+    }
+
     @Transactional
     public PointsBalanceResponse balance(String userId) {
         User user = requireUser(userId);
@@ -109,10 +125,20 @@ public class PointsService {
             throw new ConflictException("This account has already used a referral code.");
         }
 
+        // The referrer's role decides the reward. A driver has no use for ride discounts, and a
+        // rider has no payout to receive cash into.
+        boolean referrerDrives = referrer.getRoles().contains(UserRole.DRIVER);
+
         Referral referral = new Referral();
         referral.setReferrerUserId(referrer.getId());
         referral.setRefereeUserId(refereeUserId);
         referral.setCode(code);
+        referral.setRewardType(referrerDrives ? ReferralRewardType.CASH : ReferralRewardType.POINTS);
+        if (referrerDrives) {
+            // Cash referrals get a deadline. Without one a dormant account qualifies a year later,
+            // long after whoever farmed it has been forgotten.
+            referral.setQualifyBy(Instant.now().plus(Duration.ofDays(driverQualifyingDays())));
+        }
         referralRepository.save(referral);
     }
 
@@ -128,7 +154,58 @@ public class PointsService {
 
         referralRepository.findByRefereeUserId(riderUserId)
                 .filter(referral -> referral.getStatus() == ReferralStatus.PENDING)
+                .filter(referral -> referral.getRewardType() == ReferralRewardType.POINTS)
                 .ifPresent(referral -> settle(referral, rideId));
+    }
+
+    /**
+     * Progress on a cash referral, counted when the referred driver finishes a trip.
+     *
+     * <p>The bar is a run of real trips inside a window, not a signup: a driver referral pays real
+     * money, and paying on signup buys accounts rather than drivers.
+     *
+     * @return the amount to pay the referrer, or zero if they have not qualified yet
+     */
+    @Transactional
+    public long recordDriverTripForReferral(String driverUserId) {
+        var maybeReferral = referralRepository.findByRefereeUserId(driverUserId)
+                .filter(referral -> referral.getStatus() == ReferralStatus.PENDING)
+                .filter(referral -> referral.getRewardType() == ReferralRewardType.CASH);
+
+        if (maybeReferral.isEmpty()) {
+            return 0;
+        }
+        Referral referral = maybeReferral.get();
+
+        Instant now = Instant.now();
+        if (referral.getQualifyBy() != null && referral.getQualifyBy().isBefore(now)) {
+            referral.setStatus(ReferralStatus.VOID);
+            referral.setVoidReason("Not enough trips within the qualifying window");
+            referralRepository.save(referral);
+            return 0;
+        }
+
+        referral.setQualifyingTrips(referral.getQualifyingTrips() + 1);
+
+        if (referral.getQualifyingTrips() < driverQualifyingTrips()) {
+            referralRepository.save(referral);
+            return 0;
+        }
+
+        referral.setStatus(ReferralStatus.REWARDED);
+        referral.setQualifiedAt(now);
+        referralRepository.save(referral);
+        log.info("Driver referral {} qualified after {} trips", referral.getId(),
+                referral.getQualifyingTrips());
+        return driverRewardMinor();
+    }
+
+    /** Who to pay, for a referral that just qualified. */
+    @Transactional(readOnly = true)
+    public String referrerOf(String refereeUserId) {
+        return referralRepository.findByRefereeUserId(refereeUserId)
+                .map(Referral::getReferrerUserId)
+                .orElse(null);
     }
 
     private void settle(Referral referral, String rideId) {

@@ -18,7 +18,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final String[] LIMITED_PREFIXES = {"/api/v1/auth/", "/api/v1/maps/"};
+    // Estimates are here because each one costs a billed maps call.
+    private static final String[] LIMITED_PREFIXES = {
+            "/api/v1/auth/", "/api/v1/maps/", "/api/v1/rides/estimate"};
 
     private final RateLimiter rateLimiter;
     private final int limit;

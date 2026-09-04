@@ -58,7 +58,16 @@ public class AdminQueryService {
                 rideRequestRepository.countByStatusInAndRequestedAtAfter(
                         List.of(RideStatus.COMPLETED), startOfToday),
                 "INR",
-                rideRequestRepository.grossFaresSince(startOfToday));
+                rideRequestRepository.grossFaresSince(startOfToday),
+                ridesByStatus());
+    }
+
+    private java.util.Map<String, Long> ridesByStatus() {
+        java.util.Map<String, Long> counts = new java.util.LinkedHashMap<>();
+        for (Object[] row : rideRequestRepository.countByStatus()) {
+            counts.put(((RideStatus) row[0]).name(), (Long) row[1]);
+        }
+        return counts;
     }
 
     @Transactional(readOnly = true)

@@ -32,6 +32,10 @@ public interface RideRequestRepository extends JpaRepository<RideRequest, String
 
     long countByRequestedAtAfter(Instant since);
 
+    // One query for the whole breakdown, rather than a count per status.
+    @Query("SELECT r.status, COUNT(r) FROM RideRequest r GROUP BY r.status")
+    List<Object[]> countByStatus();
+
     long countByStatusInAndRequestedAtAfter(java.util.Collection<RideStatus> statuses, Instant since);
 
     @Query("SELECT COALESCE(SUM(t.finalFareMinor), 0) FROM com.ridex.trip.domain.Trip t "

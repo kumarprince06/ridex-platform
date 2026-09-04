@@ -10,5 +10,8 @@ public record DashboardResponse(
         long ridesInProgress,
         long ridesCompletedToday,
         String currency,
-        long grossFaresTodayMinor) {
+        long grossFaresTodayMinor,
+        // Every status with at least one ride, so the console shows the real spread rather than a
+        // fixed list of states that may not exist yet.
+        java.util.Map<String, Long> ridesByStatus) {
 }

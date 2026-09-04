@@ -123,3 +123,116 @@ export function suspendDriver(driverId: string, reason: string) {
 export function formatMoney(amountMinor: number, currency: string): string {
   return `${currency} ${(amountMinor / 100).toFixed(2)}`;
 }
+
+export type PaymentStatus =
+  | 'CREATED' | 'REQUIRES_ACTION' | 'PROCESSING' | 'SUCCEEDED'
+  | 'FAILED' | 'CANCELLED' | 'REFUNDED' | 'PARTIALLY_REFUNDED';
+
+export type AdminPayment = {
+  id: string;
+  tripId: string;
+  riderEmail: string;
+  method: string;
+  status: PaymentStatus;
+  currency: string;
+  grossAmountMinor: number;
+  discountAmountMinor: number;
+  netAmountMinor: number;
+  createdAt: string;
+  paidAt: string | null;
+};
+
+export type Setting = {
+  key: string;
+  value: string;
+  label: string;
+  description: string | null;
+  valueType: string;
+  minValue: number | null;
+  maxValue: number | null;
+  updatedAt: string;
+};
+
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_REPLY' | 'RESOLVED' | 'CLOSED';
+
+export type TicketMessage = {
+  id: string;
+  authorRole: string;
+  fromSupport: boolean;
+  body: string;
+  internal: boolean;
+  createdAt: string;
+};
+
+export type Ticket = {
+  id: string;
+  category: string;
+  priority: string;
+  status: TicketStatus;
+  subject: string;
+  rideId: string | null;
+  raisedByRole: string;
+  raisedByEmail: string | null;
+  firstResponseAt: string | null;
+  resolvedAt: string | null;
+  resolution: string | null;
+  createdAt: string;
+  messages: TicketMessage[];
+};
+
+export function listPayments(status?: PaymentStatus, page = 0) {
+  const query = new URLSearchParams({ page: String(page) });
+  if (status) query.set('status', status);
+  return request<Page<AdminPayment>>(`/api/v1/admin/payments?${query}`);
+}
+
+export function listSettings() {
+  return request<Setting[]>('/api/v1/admin/settings');
+}
+
+/** Bounded server-side, so a typo cannot set a reward to a million. */
+export function updateSetting(key: string, value: string) {
+  return request<Setting>(`/api/v1/admin/settings/${key}`, { method: 'PUT', body: { value } });
+}
+
+export function listTickets(status?: TicketStatus, page = 0) {
+  const query = new URLSearchParams({ page: String(page) });
+  if (status) query.set('status', status);
+  return request<Page<Ticket>>(`/api/v1/admin/support/tickets?${query}`);
+}
+
+export function getTicket(ticketId: string) {
+  return request<Ticket>(`/api/v1/admin/support/tickets/${ticketId}`);
+}
+
+export function replyToTicket(ticketId: string, body: string, internal: boolean) {
+  return request<Ticket>(`/api/v1/admin/support/tickets/${ticketId}/messages`, {
+    method: 'POST',
+    body: { body, internal },
+  });
+}
+
+export function resolveTicket(ticketId: string, resolution: string) {
+  return request<Ticket>(`/api/v1/admin/support/tickets/${ticketId}/resolve`, {
+    method: 'POST',
+    body: { resolution },
+  });
+}
+
+export type DayPoint = {
+  date: string;
+  ridesRequested: number;
+  ridesCompleted: number;
+  grossMinor: number;
+};
+
+export type Analytics = {
+  currency: string;
+  days: DayPoint[];
+  ridesByStatus: { label: string; count: number }[];
+  paymentsByMethod: { label: string; count: number }[];
+};
+
+export function getAnalytics(days = 14) {
+  return request<Analytics>(`/api/v1/admin/analytics?days=${days}`);
+}

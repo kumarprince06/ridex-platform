@@ -1,50 +1,81 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Card, FilterTabs, humanState, PageHeader, Pill, Table, stateTone } from '../components/ui';
-import { Case, CASES } from '../data/mock';
+import { listTickets, type Ticket, type TicketStatus } from '../api/admin';
+import { useQuery } from '../api/useQuery';
+import { Card, humanState, PageHeader, Pill, Table, stateTone } from '../components/ui';
 
-const FILTERS = ['ALL', 'OPEN', 'PENDING', 'RESOLVED'] as const;
+const FILTERS: { label: string; value?: TicketStatus }[] = [
+  { label: 'All' },
+  { label: 'Open', value: 'OPEN' },
+  { label: 'In progress', value: 'IN_PROGRESS' },
+  { label: 'Awaiting reply', value: 'AWAITING_REPLY' },
+  { label: 'Resolved', value: 'RESOLVED' },
+];
 
-const PRIORITY_TONE = { Low: 'default', Normal: 'info', High: 'warning', Urgent: 'danger' } as const;
-
-/** FR-OPS-008. SLA age is a column because it is the thing that decides what to pick up next. */
+/** Urgent first, then oldest: a safety ticket must never wait behind a lost umbrella. */
 export function CasesPage() {
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('ALL');
-
-  const rows = filter === 'ALL' ? CASES : CASES.filter((item) => item.state === filter);
+  const [status, setStatus] = useState<TicketStatus | undefined>(undefined);
+  const { data, loading, error } = useQuery(() => listTickets(status), [status]);
 
   return (
     <>
-      <PageHeader title="Support cases" subtitle={`${CASES.filter((c) => c.state !== 'RESOLVED').length} open`} />
+      <PageHeader
+        title="Support"
+        subtitle={data ? `${data.totalItems} tickets` : loading ? 'Loading...' : ''}
+      />
 
-      <Card>
-        <div style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid var(--border)' }}>
-          <FilterTabs options={FILTERS} value={filter} onChange={setFilter} />
-        </div>
-
-        <Table<Case>
+      <Card
+        actions={
+          <span style={{ display: 'inline-flex', gap: 8 }}>
+            {FILTERS.map((filter) => (
+              <button
+                key={filter.label}
+                type="button"
+                className={status === filter.value ? 'chip chip-active' : 'chip'}
+                onClick={() => setStatus(filter.value)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </span>
+        }
+      >
+        <Table<Ticket>
           columns={[
-            { key: 'id', header: 'Case', render: (row) => <span className="mono">{row.id}</span> },
+            { key: 'priority', header: 'Priority', render: (row) => (
+              <Pill tone={row.priority === 'URGENT' ? 'danger' : row.priority === 'HIGH' ? 'warning' : 'default'}>
+                {humanState(row.priority)}
+              </Pill>
+            ) },
             { key: 'subject', header: 'Subject', render: (row) => (
               <>
                 <div className="cell-strong">{row.subject}</div>
-                <div className="cell-muted">{row.reporter} · {row.tripId}</div>
+                <div className="cell-muted">{humanState(row.category)}</div>
               </>
             ) },
-            { key: 'category', header: 'Category', render: (row) => row.category },
-            { key: 'priority', header: 'Priority', render: (row) => <Pill tone={PRIORITY_TONE[row.priority]}>{row.priority}</Pill> },
-            { key: 'age', header: 'Age', align: 'right', render: (row) => (
-              <span className={row.ageHours > 24 ? 'cell-strong' : undefined}>{row.ageHours}h</span>
+            { key: 'from', header: 'Raised by', render: (row) => (
+              <>
+                <div>{row.raisedByEmail ?? '—'}</div>
+                <div className="cell-muted">{humanState(row.raisedByRole)}</div>
+              </>
             ) },
-            { key: 'assignee', header: 'Assignee', render: (row) => (
-              <span className={row.assignee === 'Unassigned' ? 'cell-muted' : undefined}>{row.assignee}</span>
+            { key: 'status', header: 'Status', render: (row) => (
+              <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>
             ) },
-            { key: 'state', header: 'State', render: (row) => <Pill tone={stateTone(row.state)}>{humanState(row.state)}</Pill> },
+            { key: 'response', header: 'First reply', render: (row) =>
+              // The number an SLA is actually measured on.
+              row.firstResponseAt
+                ? <span className="cell-muted">{new Date(row.firstResponseAt).toLocaleString()}</span>
+                : <Pill tone="warning">Waiting</Pill> },
+            { key: 'created', header: 'Raised', render: (row) => (
+              <span className="cell-muted">{new Date(row.createdAt).toLocaleString()}</span>
+            ) },
           ]}
-          rows={rows}
+          rows={data?.items ?? []}
           onRowClick={(row) => navigate(`/cases/${row.id}`)}
+          empty={error ?? (loading ? 'Loading tickets...' : 'Nothing waiting.')}
         />
       </Card>
     </>

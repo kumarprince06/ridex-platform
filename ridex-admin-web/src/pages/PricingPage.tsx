@@ -1,75 +1,102 @@
 import { useState } from 'react';
 
-import { ConfirmWithReason } from '../components/ConfirmWithReason';
-import { Button, Card, PageHeader, Pill, Table } from '../components/ui';
-import { RIDE_TYPES, RideType, SURGE, SurgeWindow } from '../data/mock';
+import { listSettings, updateSetting, type Setting } from '../api/admin';
+import { ApiError } from '../api/problem';
+import { useQuery } from '../api/useQuery';
+import { Button, Card, PageHeader, Table } from '../components/ui';
 
-/** FR-OPS-005, FR-PLAT-001, FR-PLAT-002. Every change is versioned and attributed. */
+/**
+ * Platform values operations can change without a deploy.
+ *
+ * Every change is audited. These numbers decide what people earn and pay, so "who set the
+ * commission to 40% last Tuesday" has to be answerable.
+ */
 export function PricingPage() {
-  const [editing, setEditing] = useState<RideType | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { data, loading, error, refetch } = useQuery(() => listSettings(), []);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save(key: string) {
+    setBusy(true);
+    setSaveError(null);
+    try {
+      await updateSetting(key, draft);
+      setEditing(null);
+      refetch();
+    } catch (caught) {
+      // Bounds are enforced by the server, so "Maximum is 0.5" arrives from there.
+      setSaveError(caught instanceof ApiError ? caught.userMessage : 'Could not save.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <>
       <PageHeader
-        title="Pricing and ride types"
-        subtitle="Changes take effect on the next fare estimate, never on a trip already quoted"
+        title="Pricing and rewards"
+        subtitle="Changes take effect immediately and are recorded in the audit log"
       />
 
-      {notice ? (
-        <Card>
-          <strong>Recorded.</strong> <span className="cell-muted">{notice}</span>
-        </Card>
-      ) : null}
+      {saveError ? <p style={{ color: 'var(--danger)' }}>{saveError}</p> : null}
 
-      <Card title="Ride types">
-        <Table<RideType>
+      <Card>
+        <Table<Setting>
           columns={[
-            { key: 'name', header: 'Ride type', render: (row) => (
+            { key: 'label', header: 'Setting', render: (row) => (
               <>
-                <div className="cell-strong">{row.name}</div>
-                <div className="cell-muted mono">{row.id}</div>
+                <div className="cell-strong">{row.label}</div>
+                <div className="cell-muted">{row.description}</div>
               </>
             ) },
-            { key: 'seats', header: 'Seats', align: 'right', render: (row) => row.seats },
-            { key: 'base', header: 'Base', align: 'right', render: (row) => row.base },
-            { key: 'perKm', header: 'Per km', align: 'right', render: (row) => row.perKm },
-            { key: 'perMin', header: 'Per min', align: 'right', render: (row) => row.perMin },
-            { key: 'minFare', header: 'Minimum', align: 'right', render: (row) => row.minFare },
-            { key: 'cancelFee', header: 'Cancel fee', align: 'right', render: (row) => row.cancelFee },
-            { key: 'active', header: 'State', render: (row) => <Pill tone={row.active ? 'success' : 'default'}>{row.active ? 'Active' : 'Disabled'}</Pill> },
-            { key: 'edit', header: '', align: 'right', render: (row) => <Button onClick={() => setEditing(row)}>Edit</Button> },
+            { key: 'value', header: 'Value', align: 'right', render: (row) =>
+              editing === row.key ? (
+                <input
+                  className="field-input"
+                  style={{ width: 120, height: 32 }}
+                  value={draft}
+                  autoFocus
+                  onChange={(event) => setDraft(event.target.value)}
+                />
+              ) : (
+                <span className="cell-strong mono">{row.value}</span>
+              ) },
+            { key: 'range', header: 'Allowed', align: 'right', render: (row) =>
+              row.minValue != null || row.maxValue != null ? (
+                <span className="cell-muted">
+                  {row.minValue ?? '—'} to {row.maxValue ?? '—'}
+                </span>
+              ) : '—' },
+            { key: 'updated', header: 'Last changed', render: (row) => (
+              <span className="cell-muted">{new Date(row.updatedAt).toLocaleDateString()}</span>
+            ) },
+            { key: 'actions', header: '', align: 'right', render: (row) =>
+              editing === row.key ? (
+                <span style={{ display: 'inline-flex', gap: 8 }}>
+                  <Button variant="secondary" disabled={busy} onClick={() => void save(row.key)}>
+                    Save
+                  </Button>
+                  <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+                </span>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setEditing(row.key);
+                    setDraft(row.value);
+                    setSaveError(null);
+                  }}
+                >
+                  Change
+                </Button>
+              ) },
           ]}
-          rows={RIDE_TYPES}
+          rows={data ?? []}
+          empty={error ?? (loading ? 'Loading...' : 'No settings.')}
         />
       </Card>
-
-      <Card title="Surge windows">
-        <Table<SurgeWindow>
-          columns={[
-            { key: 'area', header: 'Area', render: (row) => row.area },
-            { key: 'days', header: 'Days', render: (row) => row.days },
-            { key: 'hours', header: 'Hours', render: (row) => row.hours },
-            { key: 'multiplier', header: 'Multiplier', align: 'right', render: (row) => <span className="cell-strong">{row.multiplier}</span> },
-            { key: 'active', header: 'State', render: (row) => <Pill tone={row.active ? 'success' : 'default'}>{row.active ? 'Active' : 'Off'}</Pill> },
-          ]}
-          rows={SURGE}
-        />
-      </Card>
-
-      {editing ? (
-        <ConfirmWithReason
-          title={`Change pricing for ${editing.name}?`}
-          body="Pricing changes are versioned. Trips already quoted keep the fare they were quoted, so nothing in flight moves."
-          confirmLabel="Save pricing"
-          presets={['Fuel cost adjustment approved by finance', 'Matching competitor pricing in this city', 'Correcting a data entry error']}
-          onCancel={() => setEditing(null)}
-          onConfirm={(reason) => {
-            setNotice(`Audit entry written against ride type ${editing.id}: “${reason}”`);
-            setEditing(null);
-          }}
-        />
-      ) : null}
     </>
   );
 }

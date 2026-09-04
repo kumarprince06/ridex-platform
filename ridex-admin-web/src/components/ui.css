@@ -442,3 +442,88 @@ button.stat-tile:focus-visible {
   box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.15);
   cursor: pointer;
 }
+
+/* --- charts --- */
+.chart {
+  position: relative;
+  padding: var(--space-4) var(--space-3) var(--space-2);
+}
+.chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+/* Recessive: hairline, solid, one step off the surface. Never dashed. */
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.chart-crosshair {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+/* Text wears text tokens, never the series colour. */
+.chart-tick {
+  fill: var(--text-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.chart-endlabel {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.chart-empty {
+  padding: var(--space-5);
+  color: var(--text-faint);
+  font-size: 13px;
+  text-align: center;
+}
+.chart-tooltip {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-3);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-4) var(--space-5);
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 64px;
+  align-items: center;
+  gap: var(--space-3);
+}
+.bar-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.bar-track {
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  /* Rounded at the data end, square at the baseline. */
+  border-radius: 0 4px 4px 0;
+}
+.bar-value {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

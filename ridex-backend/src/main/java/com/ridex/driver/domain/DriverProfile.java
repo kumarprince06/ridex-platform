@@ -61,6 +61,14 @@ public class DriverProfile {
     @Column(name = "rating_count", nullable = false)
     private int ratingCount;
 
+    // Whether the driver is accepting work. Redis holds the live position, which changes every
+    // few seconds; duty is a decision that must survive a Redis restart.
+    @Column(name = "on_duty", nullable = false)
+    private boolean onDuty;
+
+    @Column(name = "duty_changed_at")
+    private Instant dutyChangedAt;
+
     @Column(name = "profile_image_key", length = 255)
     private String profileImageKey;
 

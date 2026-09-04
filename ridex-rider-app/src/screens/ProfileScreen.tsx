@@ -6,6 +6,7 @@ import { Avatar } from '../components/Avatar';
 import { Row } from '../components/Row';
 import { SectionLabel } from '../components/SectionLabel';
 import { TabScreenProps } from '../navigation/types';
+import { useSession } from '../auth/session';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = TabScreenProps<'Profile'>;
@@ -17,6 +18,10 @@ const STATS = [
 ];
 
 export function ProfileScreen({ navigation }: Props) {
+  const { profile } = useSession();
+  // Falls back to the placeholder until the profile has loaded, or the header jumps on first paint.
+  const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Your account';
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -24,14 +29,14 @@ export function ProfileScreen({ navigation }: Props) {
 
         <View style={styles.identity}>
           <View>
-            <Avatar name="Alex Johnson" size={62} brand />
+            <Avatar name={fullName} size={62} brand />
             {/* Online pip, as in the mockup. */}
             <View style={styles.onlineDot} />
           </View>
 
           <View style={styles.identityText}>
-            <Text style={styles.name}>Alex Johnson</Text>
-            <Text style={styles.email}>alex@example.com</Text>
+            <Text style={styles.name}>{fullName}</Text>
+            <Text style={styles.email}>{profile?.email ?? ""}</Text>
             <View style={styles.ratingRow}>
               <View style={styles.ratingPill}>
                 <Ionicons name="star" size={11} color={colors.amber} />

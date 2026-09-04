@@ -13,8 +13,8 @@ export type TabParamList = {
 /**
  * Everything that pushes over the tabs, plus the auth flow that precedes them.
  *
- * Params carry only what a screen needs to render its own copy. Nothing here talks to the backend
- * yet; when the API lands these stay as they are and gain a data layer behind them.
+ * Params carry only what a screen needs. VerifyOtp takes the email because the backend delivers
+ * the code there - SMS is a stub until a provider is wired.
  */
 export type RootStackParamList = {
   Splash: undefined;
@@ -25,7 +25,7 @@ export type RootStackParamList = {
   CheckInbox: { email: string };
   NewPassword: undefined;
   CreateAccount: undefined;
-  VerifyOtp: { phone: string };
+  VerifyOtp: { email: string; password?: string };
   Verified: undefined;
   ProfileSetup: { fullName: string };
   PersonalDetails: undefined;

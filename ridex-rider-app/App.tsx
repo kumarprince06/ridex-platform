@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { SessionProvider } from './src/auth/session';
 import { primeLocation } from './src/lib/location';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
@@ -38,7 +39,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <RootNavigator />
+      <SessionProvider>
+        <RootNavigator />
+      </SessionProvider>
     </SafeAreaProvider>
   );
 }

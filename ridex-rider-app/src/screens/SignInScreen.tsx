@@ -3,6 +3,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ApiError } from '../api/problem';
+import { useSession } from '../auth/session';
+
 import { Button } from '../components/Button';
 import { Screen, ScreenTitle } from '../components/Screen';
 import { TextField } from '../components/TextField';
@@ -12,20 +15,39 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'SignIn'>;
 
 export function SignInScreen({ navigation }: Props) {
+  const { signIn } = useSession();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSignIn() {
+    setError(null);
+    setBusy(true);
+    try {
+      await signIn(identifier.trim(), password);
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs', params: { screen: 'Home' } }] });
+    } catch (caught) {
+      // A wrong password and an unverified account both land here; the server decides the wording,
+      // because only it can say which without leaking whether the account exists.
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not sign in.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Screen onBack={() => navigation.goBack()}>
       <ScreenTitle title="Welcome back" subtitle="Sign in to continue your journey" />
 
       <TextField
-        label="Email or Phone"
+        label="Email"
         icon="mail"
         placeholder="you@example.com"
         value={identifier}
         onChangeText={setIdentifier}
         keyboardType="email-address"
+        autoCapitalize="none"
       />
 
       <TextField
@@ -46,8 +68,9 @@ export function SignInScreen({ navigation }: Props) {
         <Text style={styles.forgot}>Forgot password?</Text>
       </Pressable>
 
-      {/* Static flow: no credential check, straight to the signed-in surface. */}
-      <Button label="Sign In" onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })} />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <Button label={busy ? 'Signing in...' : 'Sign In'} onPress={onSignIn} disabled={busy} />
 
       <View style={styles.dividerRow}>
         <View style={styles.rule} />
@@ -77,6 +100,11 @@ export function SignInScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginBottom: spacing.md,
+  },
   spaced: {
     marginTop: spacing.lg,
   },

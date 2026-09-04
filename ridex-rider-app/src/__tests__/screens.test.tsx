@@ -3,6 +3,8 @@ import path from 'path';
 import { createElement } from 'react';
 import { act, create } from 'react-test-renderer';
 
+import { SessionProvider } from '../auth/session';
+
 /**
  * Renders every screen in src/screens once, with the params its route declares.
  *
@@ -14,7 +16,7 @@ const SCREENS_DIR = path.join(__dirname, '..', 'screens');
 /** Only the screens whose routes carry params need an entry. */
 const PARAMS: Record<string, object> = {
   CheckInbox: { email: 'rider@example.com' },
-  VerifyOtp: { phone: '+1 555 0100' },
+  VerifyOtp: { email: 'rider@example.com', password: 'not-a-real-password' },
   ProfileSetup: { fullName: 'Ada Rider' },
   PersonalDetails: { fullName: 'Ada Rider' },
   RoutePreview: { destination: 'Midtown Tower' },
@@ -73,9 +75,11 @@ describe('every screen renders', () => {
       route: { key: `${routeName}-1`, name: routeName, params: PARAMS[routeName] ?? {} },
     };
 
+    // Wrapped, because screens that read the session throw outside the provider - which is the
+    // correct behaviour, and would otherwise make this test unable to render them at all.
     let tree: ReturnType<typeof create> | undefined;
     await act(async () => {
-      tree = create(createElement(Screen, props));
+      tree = create(createElement(SessionProvider, null, createElement(Screen, props)));
     });
 
     expect(tree!.toJSON()).toBeTruthy();

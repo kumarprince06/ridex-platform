@@ -3,21 +3,60 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { register, verifyEmail } from '../api/auth';
+import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
+import { useSession } from '../auth/session';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VerifyOtp'>;
 
 const CODE_LENGTH = 6;
-const RESEND_SECONDS = 42;
+// The code itself expires in 10 minutes server-side; this only paces the resend button.
+const RESEND_SECONDS = 45;
 
 export function VerifyOtpScreen({ navigation, route }: Props) {
+  const { email, password } = route.params;
+  const { signIn } = useSession();
   const [code, setCode] = useState('');
   const [focused, setFocused] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  async function onVerify() {
+    setError(null);
+    setBusy(true);
+    try {
+      await verifyEmail(email, code);
+      // Signing in here rather than sending them to the sign-in screen: they just proved the
+      // address and typed the password a moment ago, so asking again is friction for nothing.
+      if (password) {
+        await signIn(email, password);
+      }
+      navigation.navigate('Verified');
+    } catch (caught) {
+      // Wrong, expired and already-used codes are one message on purpose - the server will not
+      // say which, and neither should this.
+      setError(caught instanceof ApiError ? caught.userMessage : 'That code did not work.');
+      setCode('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onResend() {
+    setError(null);
+    setSecondsLeft(RESEND_SECONDS);
+    // Registration is idempotent from the caller's side: it answers 202 either way and issues a
+    // fresh code, which is exactly what a resend needs.
+    if (password) {
+      await register(email, password).catch(() => setError('Could not resend the code.'));
+    }
+  }
 
   useEffect(() => {
     if (secondsLeft <= 0) {
@@ -34,10 +73,9 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
         <Ionicons name="call" size={26} color={colors.primary} />
       </View>
 
-      <Text style={styles.title}>Verify your number</Text>
+      <Text style={styles.title}>Verify your email</Text>
       <Text style={styles.subtitle}>
-        We&apos;ve sent a {CODE_LENGTH}-digit code to{' '}
-        <Text style={styles.phone}>{route.params.phone}</Text>
+        We&apos;ve sent a {CODE_LENGTH}-digit code to <Text style={styles.phone}>{email}</Text>
       </Text>
 
       {/*
@@ -80,10 +118,12 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
         style={styles.hiddenInput}
       />
 
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
       <Button
-        label="Verify Code"
-        disabled={code.length < CODE_LENGTH}
-        onPress={() => navigation.navigate('Verified')}
+        label={busy ? 'Verifying...' : 'Verify Code'}
+        disabled={busy || code.length < CODE_LENGTH}
+        onPress={onVerify}
       />
 
       <Text style={styles.resend}>
@@ -94,7 +134,7 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
             {String(secondsLeft % 60).padStart(2, '0')}
           </Text>
         ) : (
-          <Text style={styles.resendTimer} onPress={() => setSecondsLeft(RESEND_SECONDS)}>
+          <Text style={styles.resendTimer} onPress={onResend}>
             Resend now
           </Text>
         )}
@@ -104,6 +144,11 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginBottom: spacing.md,
+  },
   badge: {
     width: 64,
     height: 64,

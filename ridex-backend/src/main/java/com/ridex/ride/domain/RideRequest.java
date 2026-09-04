@@ -67,6 +67,14 @@ public class RideRequest {
     @Column(name = "quoted_fare_minor", nullable = false)
     private long quotedFareMinor;
 
+    // What the rider chose to spend, and what it was worth when they chose it. The rate can move
+    // between booking and completion, and they agreed to the number they were shown.
+    @Column(name = "redeemed_points", nullable = false)
+    private int redeemedPoints;
+
+    @Column(name = "discount_minor", nullable = false)
+    private long discountMinor;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "cancelled_by", length = 20)
     private CancelledBy cancelledBy;

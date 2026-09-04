@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.dispatch.DispatchTrigger;
+import com.ridex.points.PointsService;
 import com.ridex.pricing.FareEstimateRepository;
 import com.ridex.pricing.domain.FareEstimate;
 import com.ridex.pricing.dto.FareLineResponse;
@@ -36,6 +37,7 @@ public class RideRequestService {
     private final FareEstimateRepository fareEstimateRepository;
     private final RiderProfileRepository riderProfileRepository;
     private final DispatchTrigger dispatchTrigger;
+    private final PointsService pointsService;
 
     /** Turns a quote the rider chose into a request. The price comes from the quote, never the body. */
     @Transactional
@@ -80,6 +82,16 @@ public class RideRequestService {
         ride.transitionTo(RideStatus.SEARCHING);
 
         rideRequestRepository.save(ride);
+
+        // Spent now, so the points cannot be used twice on two open bookings. A cancellation
+        // refunds them as a new entry rather than deleting this one.
+        int requested = request.redeemPoints() == null ? 0 : request.redeemPoints();
+        if (requested > 0) {
+            int spent = pointsService.redeem(riderUserId, requested, ride.getId());
+            ride.setRedeemedPoints(spent);
+            ride.setDiscountMinor(pointsService.valueOf(spent));
+            rideRequestRepository.save(ride);
+        }
 
         // After commit: dispatch must not offer a ride whose row is not visible yet, and a
         // dispatch failure must not roll back a ride the rider was told was booked.
@@ -165,6 +177,8 @@ public class RideRequestService {
                 ride.getCurrency(),
                 ride.getQuotedFareMinor(),
                 lines,
+                ride.getRedeemedPoints(),
+                ride.getDiscountMinor(),
                 ride.getCancellationFeeMinor(),
                 ride.getCancellationReason(),
                 ride.getRequestedAt());

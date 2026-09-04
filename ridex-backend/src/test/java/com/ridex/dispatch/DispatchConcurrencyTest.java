@@ -92,7 +92,7 @@ class DispatchConcurrencyTest {
     @Test
     void twoDriversAcceptingTheSameRideProduceOneWinnerAndOneConflict() throws Exception {
         String rideId = rideRequestService.create(riderUserId, new CreateRideRequest(
-                fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(), null, null)).id();
+                fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(), null, null, null)).id();
 
         List<String> offerIds = new ArrayList<>();
         for (String driverUserId : driverUserIds) {

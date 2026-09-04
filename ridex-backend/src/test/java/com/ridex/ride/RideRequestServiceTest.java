@@ -64,7 +64,7 @@ class RideRequestServiceTest {
         var option = fareEstimateService.estimate(riderId, ROUTE).get(0);
 
         RideResponse ride = rideRequestService.create(riderId,
-                new CreateRideRequest(option.estimateId(), "Koramangala", "Indiranagar"));
+                new CreateRideRequest(option.estimateId(), "Koramangala", "Indiranagar", null));
 
         // The client sent no price and could not have.
         assertThat(ride.quotedFareMinor()).isEqualTo(option.totalMinor());
@@ -81,7 +81,7 @@ class RideRequestServiceTest {
 
         // Re-quoting is the rider's choice, not something to do silently at a price they never saw.
         assertThatThrownBy(() -> rideRequestService.create(riderId,
-                new CreateRideRequest(option.estimateId(), null, null)))
+                new CreateRideRequest(option.estimateId(), null, null, null)))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("expired");
     }
@@ -89,10 +89,10 @@ class RideRequestServiceTest {
     @Test
     void oneQuoteBooksOneRide() {
         var option = fareEstimateService.estimate(riderId, ROUTE).get(0);
-        rideRequestService.create(riderId, new CreateRideRequest(option.estimateId(), null, null));
+        rideRequestService.create(riderId, new CreateRideRequest(option.estimateId(), null, null, null));
 
         assertThatThrownBy(() -> rideRequestService.create(riderId,
-                new CreateRideRequest(option.estimateId(), null, null)))
+                new CreateRideRequest(option.estimateId(), null, null, null)))
                 .isInstanceOf(ConflictException.class);
     }
 
@@ -102,7 +102,7 @@ class RideRequestServiceTest {
 
         // Not found rather than forbidden: whether it exists is not the caller's business.
         assertThatThrownBy(() -> rideRequestService.create(riderId,
-                new CreateRideRequest(option.estimateId(), null, null)))
+                new CreateRideRequest(option.estimateId(), null, null, null)))
                 .isInstanceOf(NotFoundException.class);
     }
 
@@ -155,7 +155,7 @@ class RideRequestServiceTest {
 
     private RideResponse book(String rider) {
         var option = fareEstimateService.estimate(rider, ROUTE).get(0);
-        return rideRequestService.create(rider, new CreateRideRequest(option.estimateId(), null, null));
+        return rideRequestService.create(rider, new CreateRideRequest(option.estimateId(), null, null, null));
     }
 
     private String newRider() {

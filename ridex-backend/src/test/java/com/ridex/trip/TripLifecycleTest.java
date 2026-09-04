@@ -82,7 +82,7 @@ class TripLifecycleTest {
 
         rideId = rideRequestService.create(riderUserId, new CreateRideRequest(
                 fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(),
-                "Koramangala", "Indiranagar")).id();
+                "Koramangala", "Indiranagar", null)).id();
 
         dispatchService.offerRide(rideId, 1);
         String offerId = dispatchService.liveOffers(driverUserId).get(0).offerId();

@@ -20,6 +20,8 @@ import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
+import com.ridex.payment.PaymentService;
+import com.ridex.payment.domain.PaymentMethod;
 import com.ridex.points.PointsService;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.trip.domain.ActorType;
@@ -53,6 +55,7 @@ public class TripService {
     private final PasswordEncoder passwordEncoder;
     private final PickupCodeAttempts pickupCodeAttempts;
     private final PointsService pointsService;
+    private final PaymentService paymentService;
 
     /**
      * Creates the trip and its pickup code the moment a driver is assigned.
@@ -176,6 +179,11 @@ public class TripService {
         tripRepository.save(trip);
 
         record(trip, from, ride.getStatus(), ActorType.DRIVER, trip.getDriver().getId(), null);
+
+        // Charge, split and book the money. The discount the rider redeemed at booking is passed
+        // through: the driver is still paid on the gross, and the platform funds the difference.
+        // ponytail: cash only. A card gateway is another PaymentProvider, not a change here.
+        paymentService.settleTrip(trip.getId(), ride.getDiscountMinor(), PaymentMethod.CASH);
 
         // Points for the ride, and a pending referral settles here if this was the rider's first.
         // Awarding on completion rather than on signup means a referral pays for a rider, not for

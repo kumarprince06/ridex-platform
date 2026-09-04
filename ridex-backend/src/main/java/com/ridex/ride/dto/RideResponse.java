@@ -17,6 +17,8 @@ public record RideResponse(
         // Carried on the ride, not left behind with the estimate: "why am I paying this" is asked
         // about the ride, not about a quote the rider has forgotten.
         List<FareLineResponse> fareLines,
+        int redeemedPoints,
+        long discountMinor,
         Long cancellationFeeMinor,
         String cancellationReason,
         Instant requestedAt) {

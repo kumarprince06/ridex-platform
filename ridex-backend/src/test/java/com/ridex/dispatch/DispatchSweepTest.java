@@ -137,7 +137,7 @@ class DispatchSweepTest {
 
     private String book() {
         return rideRequestService.create(riderUserId, new CreateRideRequest(
-                fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(), null, null)).id();
+                fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(), null, null, null)).id();
     }
 
     private String newRider() {

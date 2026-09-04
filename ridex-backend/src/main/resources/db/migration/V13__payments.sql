@@ -143,3 +143,9 @@ CREATE TABLE driver_earnings (
 );
 
 CREATE INDEX idx_driver_earnings_driver ON driver_earnings (driver_id, created_at DESC);
+
+-- Points the rider chose to spend on this ride, and what they were worth. Recorded on the ride
+-- rather than recomputed at payment time: the rate can change between booking and completion, and
+-- the rider agreed to the number they were shown.
+ALTER TABLE ride_requests ADD COLUMN redeemed_points INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE ride_requests ADD COLUMN discount_minor BIGINT NOT NULL DEFAULT 0;

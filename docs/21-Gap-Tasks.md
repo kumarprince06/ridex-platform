@@ -149,6 +149,37 @@ Three places where the implemented schema deliberately differs. Update the ERD o
    the approval status. Two columns for one machine can contradict each other.
 3. **`RIDERS` on ERD line 11 is a stray entity** alongside `RIDER_PROFILES`. Pick one.
 
+## T7b — Clients wired to the API — **DONE for auth**
+
+Done before more backend on purpose: three finished UIs drifting on mock data is how integration
+week becomes a rewrite. Proving one flow end to end found four real defects that unit tests could
+not.
+
+- [x] Rider, partner and console each have an API client, single-flight token refresh and
+      ProblemDetail-to-message mapping
+- [x] Mobile tokens in `expo-secure-store`; console access token in memory only, refresh token in
+      `sessionStorage`
+- [x] Sign-up, 6-digit verification and sign-in live on all three
+- [ ] The booking, onboarding and operations screens are still static - they need the endpoints
+      from T9 onward
+
+### Found only by running it
+
+1. **Refresh rotation was a no-op.** JWT refresh tokens varied only by a second-granularity
+   timestamp, so two minted in the same second were identical and rotation replaced a secret with
+   itself. Now opaque random values, surface stored on the row (`V5`)
+2. `LoginResponse.token` versus the client's `accessToken` - contract drift, renamed
+3. `/actuator/health` returned 503 when the mail server was down, which would pull every node out
+   of a load balancer for the one failure the outbox absorbs
+4. **No admin account could exist** - staff roles are rejected at signup and nothing provisioned
+   them, so the console could not be signed into at all. Bootstrapped from the environment
+
+### Open contract mismatch
+
+`FINANCE` is a role in the console and **not** a value in the backend's `UserRole`. docs/14 lists it
+as a permission. Nobody can sign in as one until this is decided: add the role, or drop it from the
+console.
+
 ## T8 — Maps + location (Phase 3)
 
 - [ ] `MapsProvider` interface (geocode, route, distance/duration) — provider-neutral

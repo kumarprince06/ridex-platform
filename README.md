@@ -40,10 +40,10 @@ Do not reintroduce `tenant_id` into the schema.
 
 | Surface | Location | State |
 |---|---|---|
-| Backend API | [ridex-backend/](ridex-backend/) | Phase 0 — auth and profile schema |
-| Rider mobile app | [ridex-rider-app/](ridex-rider-app/) | Static UI, not wired to the API |
-| Driver mobile app | [ridex-partner-app/](ridex-partner-app/) | Static UI, not wired to the API |
-| Admin / operations web | [ridex-admin-web/](ridex-admin-web/) | Static UI, not wired to the API |
+| Backend API | [ridex-backend/](ridex-backend/) | Auth and profiles complete; rides onwards not started |
+| Rider mobile app | [ridex-rider-app/](ridex-rider-app/) | Auth wired to the API; the booking flow is still static |
+| Driver mobile app | [ridex-partner-app/](ridex-partner-app/) | Auth wired to the API; onboarding and trips still static |
+| Admin / operations web | [ridex-admin-web/](ridex-admin-web/) | Sign-in wired; every page still reads mock data (T15) |
 
 One repository on purpose. The API contract is shared, so a backend change and its client update
 belong in the same commit; splitting them into separate repos only lets them drift.

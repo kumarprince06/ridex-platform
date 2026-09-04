@@ -135,6 +135,12 @@ GET    /api/v1/rider/profile            RIDER
 PUT    /api/v1/rider/profile            RIDER
 GET    /api/v1/driver/profile           DRIVER
 PUT    /api/v1/driver/profile           DRIVER
+POST   /api/v1/rides/estimate           RIDER
+POST   /api/v1/rides                    RIDER
+GET    /api/v1/rides                    RIDER
+GET    /api/v1/rides/{id}               RIDER
+GET    /api/v1/rides/{id}/cancellation-quote  RIDER
+POST   /api/v1/rides/{id}/cancel        RIDER
 GET    /api/v1/maps/geocode             authenticated
 GET    /api/v1/maps/route               authenticated
 GET    /actuator/health                 public
@@ -204,6 +210,21 @@ implemented schema deliberately departs from it are listed under T7 in
 [docs/21-Gap-Tasks.md](../docs/21-Gap-Tasks.md).
 
 ---
+
+## Money and fares
+
+Amounts are `BIGINT` minor units with an explicit currency, through a `Money` value object that
+refuses to add two currencies together. Never a `double`: a fare is summed from a dozen lines, and
+0.1 + 0.2 is not 0.3 in binary floating point.
+
+**A fare is a list of lines, not a number.** Base, distance, time, waiting, surge, discount, tax,
+minimum-fare adjustment - each a signed, append-only row. A single total cannot say why a fare
+changed, cannot carry a discount without losing what it applied to, and cannot be reconciled
+against the final charge. The lines are asserted to sum to the total across ~400 combinations.
+
+`FareCalculator` is pure: no Spring, no clock, no database. The maths that decides what people are
+charged is testable exhaustively in milliseconds, which is the whole reason `<feature>/domain/`
+exists.
 
 ## Errors
 

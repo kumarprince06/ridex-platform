@@ -186,12 +186,28 @@ console.
 - [ ] One implementation (Google or Mapbox)
 - [ ] Driver location writes to Redis, not Postgres
 
-## T9 — Ride request + pricing (Phase 4)
+## T9 — Ride request + pricing (Phase 4) — **DONE**
 
-- [ ] `V4__rides.sql`: `ride_requests`, `fare_breakdowns`, `ride_types`, `pricing_rules`
-- [ ] Fare estimation
-- [ ] Ride request state machine per `docs/11`, transitions validated in **one** boundary
-- [ ] Cancellation rules
+- [x] `V6__pricing.sql`: `ride_types`, `pricing_rules`, `fare_estimates`, `fare_estimate_lines`
+- [x] `V7__ride_requests.sql`: `ride_requests`, `cancellation_policies`
+- [x] `Money` in minor units with an explicit currency, refusing to mix them
+- [x] Fare estimation across every active ride type from **one** maps call
+- [x] **A fare is lines, not a number.** Signed and append-only, so a discount is a negative line.
+      Asserted to sum to the total across ~400 distance/duration/waiting/surge combinations
+- [x] Waiting charge, only past a free allowance and only from a recorded arrival
+- [x] `RideStatus` machine per docs/11, in one place, throwing on an illegal move
+- [x] Ride created from a stored quote - the client sends an estimate id, never a price
+- [x] Cancellation fees from a policy table, quoted before the rider confirms
+- [x] `@Version` on `ride_requests`, so a rider cancelling as dispatch assigns cannot both win
+
+### Deviations from docs/09 and docs/25 to fold back
+
+1. **`fare_estimates` + `fare_estimate_lines`, not `fare_breakdowns`.** A quote exists before a ride
+   request does, so the lines cannot hang off `ride_requests`. Trip-final lines get their own rows
+   when trips land - the estimate is what was agreed, the trip is what happened, and conflating
+   them loses the comparison that the reconciling receipt depends on.
+2. **No `route_polyline` yet.** The Distance Matrix API does not return one; it arrives with the
+   Directions API, and a column nothing writes is worse than no column.
 
 ## T10 — Dispatch (Phase 5)
 

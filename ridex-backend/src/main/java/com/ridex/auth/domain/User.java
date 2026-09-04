@@ -72,6 +72,11 @@ public class User {
     @Column(name = "role", nullable = false, length = 30)
     private Set<UserRole> roles = EnumSet.noneOf(UserRole.class);
 
+    // Public by design: a referral code is meant to be shared. Minted on first use, not at
+    // signup, so dormant accounts do not hold one.
+    @Column(name = "referral_code", length = 12)
+    private String referralCode;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private UserStatus status;

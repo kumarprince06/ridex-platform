@@ -67,6 +67,15 @@ app:
     admin-email: ${RIDEX_BOOTSTRAP_ADMIN_EMAIL:}
     admin-password: ${RIDEX_BOOTSTRAP_ADMIN_PASSWORD:}
 
+  # Points are not money: no currency on the ledger, and this rate is the only place they cross
+  # into it. Changing it changes what future redemptions are worth, never what was already spent.
+  points:
+    referral-reward: 250
+    referral-welcome: 100
+    per-ride: 20
+    per-currency-unit: 100
+    currency: INR
+
   google:
     maps:
       # No default. A key committed here is a key someone else can bill, and the previous one

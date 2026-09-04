@@ -20,6 +20,7 @@ import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
+import com.ridex.points.PointsService;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.trip.domain.ActorType;
 import com.ridex.trip.domain.Trip;
@@ -51,6 +52,7 @@ public class TripService {
     private final PricingRuleRepository pricingRuleRepository;
     private final PasswordEncoder passwordEncoder;
     private final PickupCodeAttempts pickupCodeAttempts;
+    private final PointsService pointsService;
 
     /**
      * Creates the trip and its pickup code the moment a driver is assigned.
@@ -174,6 +176,13 @@ public class TripService {
         tripRepository.save(trip);
 
         record(trip, from, ride.getStatus(), ActorType.DRIVER, trip.getDriver().getId(), null);
+
+        // Points for the ride, and a pending referral settles here if this was the rider's first.
+        // Awarding on completion rather than on signup means a referral pays for a rider, not for
+        // an account somebody manufactured.
+        pointsService.awardForCompletedRide(
+                ride.getRider().getUser().getId(), ride.getId());
+
         return toResponse(trip);
     }
 

@@ -20,6 +20,18 @@ spring:
   flyway:
     enabled: true
 
+  # Local development points at Mailpit, which accepts any sender and delivers nothing onward, so
+  # a wrong address can never reach a real person.
+  mail:
+    host: ${RIDEX_MAIL_HOST:localhost}
+    port: ${RIDEX_MAIL_PORT:1025}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
   data:
     redis:
       host: ${RIDEX_REDIS_HOST:localhost}
@@ -55,15 +67,7 @@ app:
       # is already in git history and must be treated as burned.
       api-key: ${GOOGLE_MAPS_API_KEY:}
 
-  # Local development points at Mailpit, which accepts any sender and delivers nothing onward,
-  # so a wrong address can never reach a real person. Split this into a prod profile when a
-  # second environment exists - a placeholder prod block nobody runs would only rot.
+  # Sender address only. The connection lives under spring.mail, which is where Boot looks - it
+  # was under app.mail, so no JavaMailSender was ever created.
   mail:
-    host: localhost
-    port: 1025
-    properties:
-      mail:
-        smtp:
-          auth: false
-          starttls:
-            enable: false
+    from: ${RIDEX_MAIL_FROM:no-reply@ridex.local}

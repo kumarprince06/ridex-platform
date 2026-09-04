@@ -4,7 +4,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.Set;
+
+import jakarta.annotation.PostConstruct;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -26,7 +29,6 @@ import com.ridex.auth.domain.UserRole;
 import com.ridex.auth.domain.UserStatus;
 import com.ridex.auth.domain.UserToken;
 import com.ridex.platform.security.JwtService;
-import com.ridex.auth.domain.EmailAlreadyExistsException;
 import com.ridex.shared.util.VerificationTokenGenerator;
 
 import io.jsonwebtoken.Claims;
@@ -39,20 +41,34 @@ public class AuthService {
     private static final Duration VERIFICATION_TOKEN_VALIDITY = Duration.ofHours(24);
     private static final Duration REFRESH_TOKEN_VALIDITY = Duration.ofDays(7);
 
+    // Hash of a random value nobody holds, computed once at startup. Login compares against this
+    // when the address is unknown, so a miss costs the same ~200ms as a hit. Generated rather than
+    // hardcoded so it always matches whatever cost factor PasswordConfig is using.
+    private String absentUserHash;
+
     private final UserRepository userRepository;
     private final UserTokenRepository userTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
+    @PostConstruct
+    void generateDecoyHash() {
+        absentUserHash = passwordEncoder.encode(UUID.randomUUID().toString());
+    }
+
     /**
      * Opens a rider or driver account and issues a verification token. No tenant is created or
      * resolved - that conflict between the tenant boundary and public signup is exactly why the
      * multi-tenant model was dropped (ADR-001).
      *
-     * <p>No email is sent yet; that arrives in a later task as an after-commit event.
+     * <p>An address that already has an account produces no account and no error: the caller
+     * always sees the same 202. Telling the client "that email is taken" hands an attacker a
+     * membership oracle for any address they care to try. The existing owner is told by email
+     * instead, where only they can read it.
      *
-     * @return the raw verification token, for the caller to deliver. Never persisted, never logged.
+     * @return the raw verification token for the caller to deliver, or null when the address
+     *         already has an account. Never persisted, never logged.
      */
     @Transactional
     public String register(RegisterRequest request) {
@@ -63,13 +79,20 @@ public class AuthService {
 
         String email = request.email().trim().toLowerCase(Locale.ROOT);
 
+        // Hash first, unconditionally. Skipping it on the taken-address path would make that path
+        // ~200ms faster and reintroduce the same oracle through timing.
+        String passwordHash = passwordEncoder.encode(request.password());
+
         if (userRepository.existsByEmail(email)) {
-            throw new EmailAlreadyExistsException(email);
+            // ponytail: a concurrent duplicate still surfaces as a 409 from the unique constraint,
+            // which is a far weaker oracle than a deterministic one. Closing it needs the
+            // registration write moved behind a queue - not worth it before there are users.
+            return null;
         }
 
         User user = new User();
         user.setEmail(email);
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setPasswordHash(passwordHash);
         user.setStatus(UserStatus.PENDING);
         user.setRoles(EnumSet.of(request.role()));
         userRepository.save(user);
@@ -89,10 +112,15 @@ public class AuthService {
     @Transactional
     public LoginResponse login(LoginRequest request, String userAgent, String ipAddress) {
         String email = request.email().trim().toLowerCase(Locale.ROOT);
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+        User user = userRepository.findByEmail(email).orElse(null);
 
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        // Compare against a decoy hash rather than returning early, so an unknown address costs the
+        // same as a known one. An early return here is measurable from the internet and enumerates
+        // every account on the platform.
+        String storedHash = user == null ? absentUserHash : user.getPasswordHash();
+        boolean passwordMatches = passwordEncoder.matches(request.password(), storedHash);
+
+        if (user == null || !passwordMatches) {
             throw new BadCredentialsException("Invalid email or password");
         }
 

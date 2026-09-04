@@ -1,6 +1,5 @@
 package com.ridex.platform.error;
 
-import com.ridex.auth.domain.EmailAlreadyExistsException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,15 +21,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(EmailAlreadyExistsException.class)
-    public ProblemDetail handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-    }
-
     /**
-     * The pre-flight existsByEmail check is a check-then-act race: two concurrent registrations can
-     * both see the address as free. uk_users_email is what actually enforces it, so the constraint
-     * violation has to land on the same 409 as the friendly path.
+     * Registration no longer reports a taken address, so this now only fires on a genuine race
+     * between two concurrent signups, or on a duplicate phone number. The message names no field:
+     * saying which one collided would restore the enumeration oracle registration just closed.
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {

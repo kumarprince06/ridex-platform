@@ -16,6 +16,7 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -57,6 +58,7 @@ class AuthServiceTest {
 
         authService = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, jwtService, passwordEncoder);
+        authService.generateDecoyHash();
 
         when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
         when(refreshTokenRepository.save(any())).thenAnswer(call -> call.getArgument(0));
@@ -191,5 +193,53 @@ class AuthServiceTest {
         when(refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(rawToken)))
                 .thenReturn(Optional.of(session));
         return session;
+    }
+
+    @Test
+    void registrationDoesNotRevealThatAnAddressIsTaken() {
+        when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
+
+        String token = authService.register(
+                new RegisterRequest("taken@example.com", PASSWORD, UserRole.RIDER));
+
+        // No token, no account, and no exception: the controller answers 202 either way, so the
+        // caller cannot tell a fresh address from one that already has an account.
+        assertThat(token).isNull();
+        verify(userRepository, never()).save(any(User.class));
+        verify(userTokenRepository, never()).save(any());
+    }
+
+    @Test
+    void registrationHashesThePasswordEvenWhenTheAddressIsTaken() {
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        when(encoder.encode(any())).thenReturn("hashed");
+        AuthService service = new AuthService(
+                userRepository, userTokenRepository, refreshTokenRepository, jwtService, encoder);
+        service.generateDecoyHash();
+        when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
+
+        service.register(new RegisterRequest("taken@example.com", PASSWORD, UserRole.RIDER));
+
+        // Skipping the hash on this path would make it measurably faster than a fresh signup.
+        verify(encoder).encode(PASSWORD);
+    }
+
+    @Test
+    void loginComparesAPasswordEvenWhenTheAddressIsUnknown() {
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        when(encoder.encode(any())).thenReturn("decoy-hash");
+        when(encoder.matches(any(), any())).thenReturn(false);
+        AuthService service = new AuthService(
+                userRepository, userTokenRepository, refreshTokenRepository, jwtService, encoder);
+        service.generateDecoyHash();
+        when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.login(
+                new LoginRequest("nobody@example.com", PASSWORD, AppContext.RIDER), null, null))
+                .isInstanceOf(BadCredentialsException.class);
+
+        // Returning early on an unknown address is measurable from the internet and enumerates
+        // every account on the platform.
+        verify(encoder).matches(PASSWORD, "decoy-hash");
     }
 }

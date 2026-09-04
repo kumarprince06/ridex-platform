@@ -108,6 +108,10 @@ export RIDEX_APP_PASSWORD=ridex_local
 docker compose up -d
 
 cd ridex-backend
+# No default: the app refuses to boot without a signing key. Any 32+ byte string locally.
+export RIDEX_JWT_SECRET=local-development-only-signing-key-32b+
+export RIDEX_BOOTSTRAP_ADMIN_EMAIL=admin@yopmail.com
+export RIDEX_BOOTSTRAP_ADMIN_PASSWORD='Admin@123'
 ./mvnw spring-boot:run
 ```
 

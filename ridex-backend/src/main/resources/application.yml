@@ -5,7 +5,6 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/ridex_platform
     username: ridex_app
-    # password: 'RidexApp@2026#Local'
     password: ${RIDEX_APP_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
@@ -29,7 +28,9 @@ app:
 
   google:
     maps:
-      api-key: ${GOOGLE_MAPS_API_KEY:AIzaSyB7WJvf4jDgXugNxOkJGQK0Z-1QJ_xlikE}
+      # No default. A key committed here is a key someone else can bill, and the previous one
+      # is already in git history and must be treated as burned.
+      api-key: ${GOOGLE_MAPS_API_KEY:}
 
   # Local development points at Mailpit, which accepts any sender and delivers nothing onward,
   # so a wrong address can never reach a real person. Split this into a prod profile when a

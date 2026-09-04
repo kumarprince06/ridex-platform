@@ -195,8 +195,8 @@ Four test files against ~45 sources is not adequate coverage and is tracked as d
 
 - **H2 is on the test classpath against a Postgres-only schema.** Replace it with Testcontainers, or
   the tests are not exercising the migrations that production runs (T5).
-- **`GoogleMapsIntegrationTest` calls the live Google API.** It needs a key and network, so it does
-  not belong in the default build.
+- **`GoogleMapsIntegrationTest` boots the whole application to assert two bound properties**, and
+  boots it against H2 to do so. It belongs in a plain `@ConfigurationProperties` slice test.
 
 ---
 

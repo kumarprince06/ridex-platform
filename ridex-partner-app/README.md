@@ -15,7 +15,7 @@ npm install
 npm run android      # or: npm run ios
 ```
 
-`react-native-maps` needs the native project, so Expo Go will not run this app — `npm run android`
+`@maplibre/maplibre-react-native` needs the native project, so Expo Go will not run this app — `npm run android`
 builds and installs it on a connected device. The `android/` and `ios/` folders are generated and
 git-ignored; delete them and they rebuild.
 

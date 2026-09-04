@@ -61,26 +61,48 @@ Two simplifications against the original plan:
   same person out everywhere else.
 - `BadCredentialsException` had no handler, so every wrong password returned 500 rather than 401.
 
-## T4 — Complete auth (docs/05 FR-AUTH-001..007)
-
-Registration and login are rewritten; the schema for the rest is in place.
+## T4 — Complete auth (docs/05 FR-AUTH-001..007) — **DONE**
 
 - [x] Multi-role accounts — one person can hold RIDER and DRIVER on one login
 - [x] App-scoped login: the client states its surface (`RIDER` / `DRIVER` / `ADMIN`) and the token
       is granted only that surface's roles, so a stolen rider-app token cannot reach driver routes
 - [x] Staff roles rejected at public signup
+- [x] Refresh token **rotation** on use, with roles re-derived from the account each time
+- [x] `POST /auth/logout` — revokes the caller's own session, matched on their user id
+- [x] `POST /auth/verify` — 6-digit code, attempt-capped
+- [x] `POST /auth/forgot-password` + `POST /auth/reset-password` — reset revokes every session
+- [x] Session/device listing + revoke, reading `refresh_tokens`
+- [x] Expired refresh token cleanup — nightly sweep with a 7-day grace
+- [x] Codes are delivered — outbox plus an email channel (T14 pulled forward, see below)
+- [x] Security test: unauthenticated → 401, wrong role → 403
 
-- [x] Refresh token **rotation** on use, with roles re-derived from the account each time so a
-      role removed by operations stops applying at the next refresh
-- [ ] `POST /auth/logout` — revoke refresh token (schema ready, endpoint not written)
-- [ ] `POST /auth/verify` — email verification (schema ready, controller not written)
-- [ ] `POST /auth/forgot-password` + `POST /auth/reset-password` (schema ready)
-- [ ] Session/device listing + revoke, reading `refresh_tokens`
-- [ ] Expired refresh token cleanup — rows accumulate one per device login
-- [ ] Send the verification email; `register()` returns the raw token to nobody today
+**Phase 0 exit gate: met.** App starts, migrations pass, register → verify → login → refresh →
+logout works end to end, security tests pass.
 
-**Phase 0 exit gate:** app starts, migrations pass, register/login/refresh/logout work, security
-tests pass. Logout and the 401 test are what remain.
+### Hardening done alongside it
+
+Not in the original plan; added because the endpoints were not safe to ship without it.
+
+- [x] **Refresh token reuse detection.** One generation of history on the row; a replayed spent
+      token revokes every session for the account and writes an audit event
+- [x] **`auth_events`** — append-only record of login success, failure, block, logout, refresh,
+      reset and theft. Failed logins against unknown addresses are recorded with a null user id,
+      because those rows are what credential stuffing looks like
+- [x] **Account enumeration closed.** Registration answers 202 either way and tells the owner by
+      email; login compares against a decoy hash so an unknown address costs the same as a known one
+- [x] **Rate limiting**, per IP (filter, ahead of authentication) and per account (failures only)
+- [x] **JWT secret fail-fast** — no default, minimum 32 bytes, the old placeholder rejected
+- [x] Access tokens cut to 15 minutes; BCrypt cost 12; security headers; 401 entry point
+
+### Deferred, deliberately
+
+- TOTP MFA for the admin surface — there is no admin surface yet (T15)
+- Breach-password check — an external call on the signup path (T16)
+- Argon2id — BCrypt at cost 12 is adequate and Argon2 needs BouncyCastle
+- Access-token revocation before expiry — the 15-minute TTL covers the same risk
+- `clientIp()` trusts the first `X-Forwarded-For` hop in `AuthController` and `RateLimitFilter`.
+  Marked `ponytail:` in both. **Needs a trusted-proxy config before the rate limiter can be relied
+  on in production** — a client can currently set that header and get a fresh bucket per request
 
 ## T5 — Local dev + CI — **MOSTLY DONE**
 
@@ -166,11 +188,20 @@ The current gateway is subscription-shaped and has no idempotency.
 - [ ] `V8__earnings.sql`: `driver_earnings`, `driver_payouts`
 - [ ] Commission, adjustments, settlement, payout, reconciliation
 
-## T14 — Notifications (Phase 9)
+## T14 — Notifications (Phase 9) — **PARTLY DONE, pulled forward**
 
-- [ ] `V9__notifications.sql`: `notifications`, `notification_outbox`, templates, preferences
-- [ ] Outbox pattern — the trip state machine must not block on a mail provider
-- [ ] Email + push + SMS behind one interface
+The outbox and two channels were built early because auth codes have to reach a real person, and
+building delivery twice would have been worse than building it once in the right shape.
+
+- [x] `notification_outbox` (in `V4`), claimed with `FOR UPDATE SKIP LOCKED`, exponential backoff,
+      dead-lettering after six attempts
+- [x] `NotificationChannel` with `EmailChannel` (working) and `SmsChannel` (**logs only** — a real
+      provider needs an account, per-message billing and, for India, DLT template registration)
+- [x] Templates in one class
+- [ ] A real SMS provider
+- [ ] Push (FCM) and `device_tokens`
+- [ ] `notification_preferences`, with a transactional set that ignores them
+- [ ] Templates in the database, once operations needs to edit them without a deploy
 
 ## T15 — Admin/ops (Phase 10)
 

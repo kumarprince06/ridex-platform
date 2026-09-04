@@ -120,16 +120,34 @@ one live row per device — which is why there is no separate `user_sessions` ta
 ### Endpoints today
 
 ```
-POST /api/v1/auth/register     public
-POST /api/v1/auth/login        public
-POST /api/v1/auth/refresh      public
-GET  /api/v1/maps/geocode      authenticated
-GET  /api/v1/maps/route        authenticated
-GET  /actuator/health          public
+POST   /api/v1/auth/register            public
+POST   /api/v1/auth/login               public
+POST   /api/v1/auth/refresh             public
+POST   /api/v1/auth/verify              public
+POST   /api/v1/auth/forgot-password     public
+POST   /api/v1/auth/reset-password      public
+POST   /api/v1/auth/logout              authenticated
+GET    /api/v1/auth/sessions            authenticated
+DELETE /api/v1/auth/sessions/{id}       authenticated
+GET    /api/v1/maps/geocode             authenticated
+GET    /api/v1/maps/route               authenticated
+GET    /actuator/health                 public
 ```
 
-`SecurityConfig` also opens `/auth/verify`, `/auth/forgot-password` and `/auth/reset-password`.
-Their schema is in place; the controllers are not written, so those paths 404 today (T4).
+Logout is authenticated on purpose: revoking a session means proving you own it.
+
+### One-time codes
+
+Verification and password reset both use a **6-digit code**, delivered through the outbox. Three
+things make six digits safe enough:
+
+- **BCrypt, not SHA-256.** Lookup is by account and purpose, so the digest never has to be
+  deterministic — and a SHA-256 of six digits is reversed by a table of a million rows.
+- **Every guess counts**, right or wrong, capped at 5. A cap that only counted failures would
+  leave the code brute-forceable by waiting.
+- **Ten-minute expiry**, plus the per-account rate limit on top.
+
+Codes are scoped by account *and* purpose, so a verification code cannot be redeemed as a reset.
 
 The target contract is [docs/10-API-Contract.md](../docs/10-API-Contract.md). It is hand-written and
 will drift — replace it with a generated OpenAPI document as soon as there is more than auth to
@@ -230,14 +248,14 @@ Four test files against ~45 sources is not adequate coverage and is tracked as d
 
 Ordered by how much later work they block.
 
-1. **Redis is documented but not on the classpath.** Driver location, rate limiting and caching all
-   need it (T8).
-2. **No CORS configuration** — the console cannot call this API at all yet.
-3. **No rate limiting.** `/maps/**` is an authenticated but unmetered proxy to a billed Google API.
-4. **No OpenAPI document**, so all three clients hand-write their types and will drift (T16).
-5. **No correlation ID or structured logging**, both required by
+1. **No OpenAPI document**, so all three clients hand-write their types and will drift (T16).
+2. **No correlation ID or structured logging**, both required by
    [docs/06](../docs/06-Non-Functional-Requirements.md).
-6. **No idempotency handling.** Mobile clients on bad networks retry POSTs; without it, payments and
-   ride requests will duplicate.
-7. **`pom.xml` targets Java 17 while the docs specify 21.** Pick one.
-8. **Registration does not create a profile row** — signup writes `user_roles` and nothing else (T6).
+3. **No idempotency handling.** Mobile clients on bad networks retry POSTs; without it, payments
+   and ride requests will duplicate.
+4. **Registration creates no profile row** — signup writes `user_roles` and nothing else (T6).
+5. **`clientIp()` trusts the first `X-Forwarded-For` hop**, in `AuthController` and
+   `RateLimitFilter`. A client can set that header and get a fresh rate-limit bucket per request,
+   so the per-IP limit is advisory until a trusted-proxy config exists.
+6. **SMS is a stub.** `SmsChannel` logs and does not send; codes reach users by email only.
+7. **H2 is still on the test classpath** against a Postgres-only schema. Testcontainers (T5).

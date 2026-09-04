@@ -17,6 +17,7 @@ import com.ridex.points.domain.ReferralStatus;
 import com.ridex.points.dto.PointEntryResponse;
 import com.ridex.points.dto.PointsBalanceResponse;
 import com.ridex.shared.exception.ConflictException;
+import com.ridex.platform.settings.SettingsService;
 import com.ridex.shared.exception.NotFoundException;
 
 import lombok.RequiredArgsConstructor;
@@ -41,22 +42,29 @@ public class PointsService {
     private final PointEntryRepository pointEntryRepository;
     private final ReferralRepository referralRepository;
     private final UserRepository userRepository;
-
-    @Value("${app.points.referral-reward:250}")
-    private int referralReward;
-
-    @Value("${app.points.referral-welcome:100}")
-    private int referralWelcome;
-
-    @Value("${app.points.per-ride:20}")
-    private int pointsPerRide;
-
-    /** How many points buy one unit of currency. 100 points per rupee at the default rate. */
-    @Value("${app.points.per-currency-unit:100}")
-    private int pointsPerCurrencyUnit;
+    private final SettingsService settings;
 
     @Value("${app.points.currency:INR}")
     private String currency;
+
+    // Read through settings so operations can change them without a deploy. The numbers here are
+    // only the fallback for a database that has not been seeded.
+    private int referralReward() {
+        return settings.getInt("points.referral-reward", 250);
+    }
+
+    private int referralWelcome() {
+        return settings.getInt("points.referral-welcome", 100);
+    }
+
+    private int pointsPerRide() {
+        return settings.getInt("points.per-ride", 20);
+    }
+
+    /** How many points buy one unit of currency. 100 points per rupee at the default rate. */
+    private int pointsPerCurrencyUnit() {
+        return settings.getInt("points.per-currency-unit", 100);
+    }
 
     @Transactional
     public PointsBalanceResponse balance(String userId) {
@@ -72,8 +80,8 @@ public class PointsService {
                 (int) referralRepository.countByReferrerUserIdAndStatus(userId, ReferralStatus.REWARDED),
                 currency,
                 // What the rate would take off a fare today. Not a withdrawable balance.
-                (long) (balance / pointsPerCurrencyUnit) * 100,
-                pointsPerCurrencyUnit,
+                (long) (balance / pointsPerCurrencyUnit()) * 100,
+                pointsPerCurrencyUnit(),
                 pointEntryRepository.findTop50ByUserIdOrderByCreatedAtDesc(userId).stream()
                         .map(entry -> new PointEntryResponse(entry.getId(), entry.getPoints(),
                                 entry.getReason(), entry.getNote(), entry.getCreatedAt()))
@@ -115,7 +123,7 @@ public class PointsService {
      */
     @Transactional
     public void awardForCompletedRide(String riderUserId, String rideId) {
-        award(riderUserId, pointsPerRide, PointReason.RIDE_COMPLETED, "RIDE", rideId,
+        award(riderUserId, pointsPerRide(), PointReason.RIDE_COMPLETED, "RIDE", rideId,
                 "ride:" + rideId, "Points for a completed ride");
 
         referralRepository.findByRefereeUserId(riderUserId)
@@ -124,11 +132,11 @@ public class PointsService {
     }
 
     private void settle(Referral referral, String rideId) {
-        award(referral.getReferrerUserId(), referralReward, PointReason.REFERRAL_REWARD,
+        award(referral.getReferrerUserId(), referralReward(), PointReason.REFERRAL_REWARD,
                 "REFERRAL", referral.getId(), "referral-reward:" + referral.getId(),
                 "A friend you referred took their first ride");
 
-        award(referral.getRefereeUserId(), referralWelcome, PointReason.REFERRAL_WELCOME,
+        award(referral.getRefereeUserId(), referralWelcome(), PointReason.REFERRAL_WELCOME,
                 "REFERRAL", referral.getId(), "referral-welcome:" + referral.getId(),
                 "Welcome bonus for joining with a referral code");
 
@@ -148,7 +156,7 @@ public class PointsService {
         int balance = pointEntryRepository.balanceOf(userId);
         // Only whole currency units are worth redeeming, and never more than the rider has.
         int spendable = Math.min(requestedPoints, balance);
-        int usable = (spendable / pointsPerCurrencyUnit) * pointsPerCurrencyUnit;
+        int usable = (spendable / pointsPerCurrencyUnit()) * pointsPerCurrencyUnit();
         if (usable <= 0) {
             return 0;
         }
@@ -160,7 +168,7 @@ public class PointsService {
 
     /** Minor units a number of points is worth at the current rate. */
     public long valueOf(int points) {
-        return (long) (points / pointsPerCurrencyUnit) * 100;
+        return (long) (points / pointsPerCurrencyUnit()) * 100;
     }
 
     private void award(String userId, int points, PointReason reason, String referenceType,

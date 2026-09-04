@@ -20,6 +20,12 @@ spring:
   flyway:
     enabled: true
 
+  data:
+    redis:
+      host: ${RIDEX_REDIS_HOST:localhost}
+      port: ${RIDEX_REDIS_PORT:6379}
+      timeout: 500ms
+
 app:
   jwt:
     # No default. The app refuses to start without a real key rather than signing tokens with a
@@ -29,6 +35,14 @@ app:
     # leaked one is useful - there is no revocation before expiry.
     access-expiration-ms: 900000
     refresh-expiration-ms: 604800000
+
+  # Fixed windows, counted in Redis. Two dimensions: an IP cannot hammer the auth routes, and one
+  # account cannot be brute forced from many IPs.
+  rate-limit:
+    ip-requests: 30
+    ip-window: 1m
+    login-failures: 8
+    login-window: 15m
 
   # Comma-separated. The console in development; the deployed console origin in every
   # other environment.

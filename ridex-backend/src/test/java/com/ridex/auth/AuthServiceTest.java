@@ -3,6 +3,7 @@ package com.ridex.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,6 +26,9 @@ import com.ridex.auth.dto.LoginRequest;
 import com.ridex.auth.dto.LoginResponse;
 import com.ridex.auth.dto.LogoutRequest;
 import com.ridex.auth.dto.RegisterRequest;
+import com.ridex.platform.ratelimit.RateLimiter;
+import com.ridex.platform.ratelimit.TooManyRequestsException;
+
 import com.ridex.auth.domain.AppContext;
 import com.ridex.auth.dto.RefreshTokenRequest;
 import com.ridex.auth.domain.AuthEventType;
@@ -50,6 +54,7 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
     private JwtService jwtService;
     private AuthSecurityService authSecurityService;
+    private RateLimiter rateLimiter;
     private AuthService authService;
 
     @BeforeEach
@@ -58,12 +63,14 @@ class AuthServiceTest {
         userTokenRepository = mock(UserTokenRepository.class);
         refreshTokenRepository = mock(RefreshTokenRepository.class);
         authSecurityService = mock(AuthSecurityService.class);
+        rateLimiter = mock(RateLimiter.class);
+        when(rateLimiter.tryConsume(any(), anyInt(), any())).thenReturn(true);
         jwtService = new JwtService("super-secret-key-which-is-very-long-for-jwt-signing", 3600000, 604800000);
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
         authService = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, passwordEncoder);
+                jwtService, passwordEncoder, rateLimiter);
         authService.generateDecoyHash();
 
         when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
@@ -220,7 +227,7 @@ class AuthServiceTest {
         when(encoder.encode(any())).thenReturn("hashed");
         AuthService service = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, encoder);
+                jwtService, encoder, rateLimiter);
         service.generateDecoyHash();
         when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
 
@@ -237,7 +244,7 @@ class AuthServiceTest {
         when(encoder.matches(any(), any())).thenReturn(false);
         AuthService service = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, encoder);
+                jwtService, encoder, rateLimiter);
         service.generateDecoyHash();
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 
@@ -311,5 +318,30 @@ class AuthServiceTest {
         // Null user id on purpose: that row is what credential stuffing looks like.
         verify(authSecurityService).record(
                 eq(null), eq(AuthEventType.LOGIN_FAILED), eq("1.2.3.4"), eq("agent"), any());
+    }
+
+    @Test
+    void aFloodOfFailedLoginsIsBlockedBeforeTheDatabaseIsTouched() {
+        when(rateLimiter.tryConsume(eq("rl:login:target@example.com"), anyInt(), any()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest("target@example.com", PASSWORD, AppContext.RIDER), "agent", "1.2.3.4"))
+                .isInstanceOf(TooManyRequestsException.class);
+
+        // Blocked before the lookup, so grinding one address costs the attacker nothing of ours.
+        verify(userRepository, never()).findByEmail(any());
+    }
+
+    @Test
+    void aSuccessfulLoginClearsTheFailureCount() {
+        User user = activeUser("owner-1");
+        user.setPasswordHash(new BCryptPasswordEncoder().encode(PASSWORD));
+        when(userRepository.findByEmail("owner-1@example.com")).thenReturn(Optional.of(user));
+
+        authService.login(
+                new LoginRequest("owner-1@example.com", PASSWORD, AppContext.RIDER), "agent", "1.2.3.4");
+
+        verify(rateLimiter).reset("rl:login:owner-1@example.com");
     }
 }

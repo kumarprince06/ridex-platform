@@ -11,6 +11,7 @@ import jakarta.annotation.PostConstruct;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,8 @@ import com.ridex.auth.domain.User;
 import com.ridex.auth.domain.UserRole;
 import com.ridex.auth.domain.UserStatus;
 import com.ridex.auth.domain.UserToken;
+import com.ridex.platform.ratelimit.RateLimiter;
+import com.ridex.platform.ratelimit.TooManyRequestsException;
 import com.ridex.platform.security.JwtService;
 import com.ridex.shared.util.VerificationTokenGenerator;
 
@@ -51,6 +54,13 @@ public class AuthService {
     private final AuthSecurityService authSecurityService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final RateLimiter rateLimiter;
+
+    @Value("${app.rate-limit.login-failures:8}")
+    private int loginFailureLimit;
+
+    @Value("${app.rate-limit.login-window:15m}")
+    private Duration loginWindow;
 
     @PostConstruct
     void generateDecoyHash() {
@@ -103,6 +113,17 @@ public class AuthService {
     @Transactional
     public LoginResponse login(LoginRequest request, String userAgent, String ipAddress) {
         String email = request.email().trim().toLowerCase(Locale.ROOT);
+
+        // Per account, not per IP: the IP filter alone is useless against a botnet grinding one
+        // address. Counts failures only, so a legitimate user is never locked out by their own
+        // successful logins.
+        String failureKey = "rl:login:" + email;
+        if (!rateLimiter.tryConsume(failureKey, loginFailureLimit, loginWindow)) {
+            authSecurityService.record(null, AuthEventType.LOGIN_BLOCKED, ipAddress, userAgent,
+                    "rate limited");
+            throw new TooManyRequestsException("Too many sign-in attempts. Try again later.");
+        }
+
         User user = userRepository.findByEmail(email).orElse(null);
 
         // Decoy hash rather than an early return, so an unknown address costs the same as a known
@@ -146,6 +167,10 @@ public class AuthService {
 
         user.setLastLoginAt(now);
         userRepository.save(user);
+
+        // Clears the failure count so an earlier fat-fingered password does not shorten the
+        // allowance for the rest of the window.
+        rateLimiter.reset(failureKey);
 
         authSecurityService.record(user.getId(), AuthEventType.LOGIN_SUCCEEDED, ipAddress, userAgent, "app=" + app);
 

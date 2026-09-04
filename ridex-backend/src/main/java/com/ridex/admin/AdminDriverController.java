@@ -36,6 +36,7 @@ public class AdminDriverController {
     }
 
     // No reason required to approve: the decision speaks for itself and the reviewer is recorded.
+    @Audited(action = "DRIVER_APPROVED", targetType = "DRIVER")
     @PostMapping("/{driverId}/approve")
     @ResponseStatus(HttpStatus.OK)
     public OnboardingResponse approve(@AuthenticationPrincipal JwtPrincipal principal,
@@ -45,6 +46,7 @@ public class AdminDriverController {
 
     // A reason is mandatory here, and on suspend: somebody loses their income over this, and
     // "rejected" with no explanation is not something a person can appeal.
+    @Audited(action = "DRIVER_REJECTED", targetType = "DRIVER")
     @PostMapping("/{driverId}/reject")
     @ResponseStatus(HttpStatus.OK)
     public OnboardingResponse reject(@AuthenticationPrincipal JwtPrincipal principal,
@@ -52,6 +54,7 @@ public class AdminDriverController {
         return driverOnboardingService.reject(driverId, principal.userId(), request.reason());
     }
 
+    @Audited(action = "DRIVER_SUSPENDED", targetType = "DRIVER")
     @PostMapping("/{driverId}/suspend")
     @ResponseStatus(HttpStatus.OK)
     public OnboardingResponse suspend(@AuthenticationPrincipal JwtPrincipal principal,

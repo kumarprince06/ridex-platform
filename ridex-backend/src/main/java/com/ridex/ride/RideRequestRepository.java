@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -24,6 +26,17 @@ public interface RideRequestRepository extends JpaRepository<RideRequest, String
     // The sweep's queue: rides still looking for a driver, oldest first so nobody is starved.
     @Query("SELECT r FROM RideRequest r WHERE r.status = :searching ORDER BY r.requestedAt")
     List<RideRequest> findSearching(@Param("searching") RideStatus searching);
+
+    @Query("SELECT r FROM RideRequest r WHERE :status IS NULL OR r.status = :status")
+    Page<RideRequest> searchByStatus(@Param("status") RideStatus status, Pageable pageable);
+
+    long countByRequestedAtAfter(Instant since);
+
+    long countByStatusInAndRequestedAtAfter(java.util.Collection<RideStatus> statuses, Instant since);
+
+    @Query("SELECT COALESCE(SUM(t.finalFareMinor), 0) FROM com.ridex.trip.domain.Trip t "
+            + "WHERE t.completedAt >= :since")
+    long grossFaresSince(@Param("since") Instant since);
 
     /**
      * The dispatch arbiter. One ride row, one winner.

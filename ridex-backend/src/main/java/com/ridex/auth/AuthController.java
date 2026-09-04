@@ -3,6 +3,11 @@ package com.ridex.auth;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import java.util.List;
+
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,11 +17,16 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ridex.auth.dto.LoginRequest;
 import com.ridex.auth.dto.LoginResponse;
 import com.ridex.auth.dto.LogoutRequest;
+import com.ridex.auth.dto.ForgotPasswordRequest;
 import com.ridex.auth.dto.RefreshTokenRequest;
 import com.ridex.auth.dto.RefreshTokenResponse;
 import com.ridex.auth.dto.RegisterRequest;
 import com.ridex.auth.dto.RegisterResponse;
+import com.ridex.auth.dto.ResetPasswordRequest;
+import com.ridex.auth.dto.SessionResponse;
+import com.ridex.auth.dto.VerifyEmailRequest;
 import com.ridex.platform.security.JwtPrincipal;
+import com.ridex.shared.util.VerificationTokenGenerator;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -65,6 +75,46 @@ public class AuthController {
     public void logout(@Valid @RequestBody LogoutRequest request,
             @AuthenticationPrincipal JwtPrincipal principal) {
         authService.logout(request, principal.userId());
+    }
+
+    @PostMapping("/verify")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void verify(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmail(request);
+    }
+
+    // Always 202, account or not. Anything else confirms which addresses are registered.
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public RegisterResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.requestPasswordReset(request);
+        return new RegisterResponse("If that address has an account, a reset link is on its way.");
+    }
+
+    @PostMapping("/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+    }
+
+    @GetMapping("/sessions")
+    @ResponseStatus(HttpStatus.OK)
+    public List<SessionResponse> sessions(@AuthenticationPrincipal JwtPrincipal principal,
+            HttpServletRequest httpRequest) {
+        // The access token cannot identify the session row, so "current" is only marked when the
+        // client passes its refresh token back. Absent, every row simply reads as not current.
+        String presented = httpRequest.getHeader("X-Refresh-Token");
+        String hash = presented == null || presented.isBlank()
+                ? ""
+                : VerificationTokenGenerator.hash(presented.trim());
+        return authService.listSessions(principal.userId(), hash);
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeSession(@PathVariable String sessionId,
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        authService.revokeSession(sessionId, principal.userId());
     }
 
     /**

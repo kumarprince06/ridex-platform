@@ -1,6 +1,7 @@
 package com.ridex.auth;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,6 +18,13 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Stri
     // Only ever consulted after findByTokenHash misses: a hit here means the secret was already
     // spent, so two parties are holding it.
     Optional<RefreshToken> findByPreviousTokenHash(String previousTokenHash);
+
+    List<RefreshToken> findByUserIdAndRevokedAtIsNullOrderByLastUsedAtDesc(String userId);
+
+    // Housekeeping: rows accumulate one per device login and nothing else removes them.
+    @Modifying
+    @Query("DELETE FROM RefreshToken t WHERE t.expiresAt < :cutoff")
+    int deleteExpiredBefore(@Param("cutoff") Instant cutoff);
 
     // Theft response. Revokes every live session for the account in one statement rather than
     // loading them, because the number of devices is not worth a round trip each.

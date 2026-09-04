@@ -30,6 +30,11 @@ import com.ridex.platform.ratelimit.RateLimiter;
 import com.ridex.platform.ratelimit.TooManyRequestsException;
 
 import com.ridex.auth.domain.AppContext;
+import com.ridex.auth.dto.VerifyEmailRequest;
+import com.ridex.auth.dto.ResetPasswordRequest;
+import com.ridex.auth.dto.ForgotPasswordRequest;
+import com.ridex.auth.domain.UserToken;
+import com.ridex.auth.domain.TokenPurpose;
 import com.ridex.auth.dto.RefreshTokenRequest;
 import com.ridex.auth.domain.AuthEventType;
 import com.ridex.auth.domain.RefreshToken;
@@ -343,5 +348,92 @@ class AuthServiceTest {
                 new LoginRequest("owner-1@example.com", PASSWORD, AppContext.RIDER), "agent", "1.2.3.4");
 
         verify(rateLimiter).reset("rl:login:owner-1@example.com");
+    }
+
+    @Test
+    void verifyingActivatesTheAccountAndSpendsTheToken() {
+        User user = pendingUser("owner-1");
+        UserToken token = redeemableToken(user, "raw-verify", TokenPurpose.EMAIL_VERIFICATION);
+
+        authService.verifyEmail(new VerifyEmailRequest("raw-verify"));
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(user.getEmailVerifiedAt()).isNotNull();
+        assertThat(token.getConsumedAt()).isNotNull();
+    }
+
+    @Test
+    void aVerificationTokenCannotBeSpentTwice() {
+        User user = pendingUser("owner-1");
+        UserToken token = redeemableToken(user, "raw-verify", TokenPurpose.EMAIL_VERIFICATION);
+        token.setConsumedAt(java.time.Instant.now());
+
+        assertThatThrownBy(() -> authService.verifyEmail(new VerifyEmailRequest("raw-verify")))
+                .isInstanceOf(BadCredentialsException.class);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING);
+    }
+
+    @Test
+    void forgotPasswordIsSilentForAnUnknownAddress() {
+        when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
+
+        assertThat(authService.requestPasswordReset(
+                new ForgotPasswordRequest("nobody@example.com"))).isNull();
+        verify(userTokenRepository, never()).save(any());
+    }
+
+    @Test
+    void resettingAPasswordEndsEverySession() {
+        User user = activeUser("owner-1");
+        redeemableToken(user, "raw-reset", TokenPurpose.PASSWORD_RESET);
+
+        authService.resetPassword(new ResetPasswordRequest("raw-reset", "a-new-password"));
+
+        // A reset that leaves the attacker signed in is not a reset.
+        verify(refreshTokenRepository).revokeAllForUser(eq("owner-1"), any());
+        assertThat(new BCryptPasswordEncoder().matches("a-new-password", user.getPasswordHash()))
+                .isTrue();
+    }
+
+    @Test
+    void aVerificationTokenIsNotRedeemableAsAPasswordReset() {
+        // Looked up by hash *and* purpose, so the wrong kind of token simply is not found.
+        when(userTokenRepository.findByTokenHashAndPurpose(any(), eq(TokenPurpose.PASSWORD_RESET)))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.resetPassword(
+                new ResetPasswordRequest("raw-verify", "a-new-password")))
+                .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void aSessionBelongingToSomeoneElseCannotBeRevoked() {
+        User owner = activeUser("owner-1");
+        RefreshToken session = new RefreshToken();
+        session.setUser(owner);
+        session.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
+        when(refreshTokenRepository.findById("session-1")).thenReturn(Optional.of(session));
+
+        authService.revokeSession("session-1", "attacker-9");
+
+        assertThat(session.getRevokedAt()).isNull();
+    }
+
+    private User pendingUser(String id) {
+        User user = activeUser(id);
+        user.setStatus(UserStatus.PENDING);
+        return user;
+    }
+
+    private UserToken redeemableToken(User user, String raw, TokenPurpose purpose) {
+        UserToken token = new UserToken();
+        token.setUser(user);
+        token.setPurpose(purpose);
+        token.setTokenHash(VerificationTokenGenerator.hash(raw));
+        token.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
+        when(userTokenRepository.findByTokenHashAndPurpose(
+                VerificationTokenGenerator.hash(raw), purpose)).thenReturn(Optional.of(token));
+        return token;
     }
 }

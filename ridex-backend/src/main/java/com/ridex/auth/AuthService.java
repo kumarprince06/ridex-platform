@@ -3,6 +3,7 @@ package com.ridex.auth;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.Set;
@@ -19,9 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ridex.auth.dto.LoginRequest;
 import com.ridex.auth.dto.LoginResponse;
 import com.ridex.auth.dto.LogoutRequest;
+import com.ridex.auth.dto.ForgotPasswordRequest;
 import com.ridex.auth.dto.RefreshTokenRequest;
 import com.ridex.auth.dto.RefreshTokenResponse;
 import com.ridex.auth.dto.RegisterRequest;
+import com.ridex.auth.dto.SessionResponse;
+import com.ridex.auth.dto.ResetPasswordRequest;
+import com.ridex.auth.dto.VerifyEmailRequest;
 import com.ridex.auth.domain.AppContext;
 import com.ridex.auth.domain.AuthEventType;
 import com.ridex.auth.domain.RefreshToken;
@@ -44,6 +49,8 @@ public class AuthService {
 
     private static final Duration VERIFICATION_TOKEN_VALIDITY = Duration.ofHours(24);
     private static final Duration REFRESH_TOKEN_VALIDITY = Duration.ofDays(7);
+    // Shorter than verification: a reset link is a live credential for the account.
+    private static final Duration RESET_TOKEN_VALIDITY = Duration.ofHours(1);
 
     // Hash of a random value, computed at startup so it always matches the configured cost factor.
     private String absentUserHash;
@@ -247,6 +254,113 @@ public class AuthService {
                 granted,
                 app,
                 newRefreshToken);
+    }
+
+    /** The caller's live devices, newest first. Scoped to the caller - never takes a user id. */
+    @Transactional(readOnly = true)
+    public List<SessionResponse> listSessions(String callerUserId, String currentRefreshTokenHash) {
+        return refreshTokenRepository.findByUserIdAndRevokedAtIsNullOrderByLastUsedAtDesc(callerUserId)
+                .stream()
+                .map(token -> new SessionResponse(
+                        token.getId(),
+                        token.getUserAgent(),
+                        token.getIpAddress(),
+                        token.getLastUsedAt(),
+                        token.getCreatedAt(),
+                        token.getTokenHash().equals(currentRefreshTokenHash)))
+                .toList();
+    }
+
+    /** Revokes one device. Matched on the caller's id, so nobody can end someone else's session. */
+    @Transactional
+    public void revokeSession(String sessionId, String callerUserId) {
+        refreshTokenRepository.findById(sessionId)
+                .filter(token -> token.getUser().getId().equals(callerUserId))
+                .filter(token -> token.getRevokedAt() == null)
+                .ifPresent(token -> {
+                    token.setRevokedAt(Instant.now());
+                    refreshTokenRepository.save(token);
+                    authSecurityService.record(callerUserId, AuthEventType.LOGOUT, null, null,
+                            "session revoked from device list");
+                });
+    }
+
+    /**
+     * Activates the account. Unknown, expired and already-spent tokens all get the same answer -
+     * telling them apart tells an attacker which links were once real.
+     */
+    @Transactional
+    public void verifyEmail(VerifyEmailRequest request) {
+        UserToken token = userTokenRepository
+                .findByTokenHashAndPurpose(
+                        VerificationTokenGenerator.hash(request.token().trim()),
+                        TokenPurpose.EMAIL_VERIFICATION)
+                .filter(candidate -> candidate.isRedeemable(Instant.now()))
+                .orElseThrow(() -> new BadCredentialsException("That verification link is not valid."));
+
+        Instant now = Instant.now();
+        token.setConsumedAt(now);
+        userTokenRepository.save(token);
+
+        User user = token.getUser();
+        user.setStatus(UserStatus.ACTIVE);
+        user.setEmailVerifiedAt(now);
+        userRepository.save(user);
+
+        authSecurityService.record(user.getId(), AuthEventType.EMAIL_VERIFIED, null, null, null);
+    }
+
+    /**
+     * Always succeeds from the caller's point of view, whether or not the address exists. Any other
+     * behaviour is a membership oracle for every address an attacker cares to try.
+     *
+     * @return the raw reset token to deliver by email, or null when there is no such account.
+     */
+    @Transactional
+    public String requestPasswordReset(ForgotPasswordRequest request) {
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return null;
+        }
+
+        String rawToken = VerificationTokenGenerator.generateRawToken();
+
+        UserToken token = new UserToken();
+        token.setUser(user);
+        token.setPurpose(TokenPurpose.PASSWORD_RESET);
+        token.setTokenHash(VerificationTokenGenerator.hash(rawToken));
+        token.setExpiresAt(Instant.now().plus(RESET_TOKEN_VALIDITY));
+        userTokenRepository.save(token);
+
+        authSecurityService.record(user.getId(), AuthEventType.PASSWORD_RESET_REQUESTED, null, null, null);
+        return rawToken;
+    }
+
+    /** Ends every session: a reset after a compromise that left the attacker signed in is no reset. */
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        Instant now = Instant.now();
+
+        UserToken token = userTokenRepository
+                .findByTokenHashAndPurpose(
+                        VerificationTokenGenerator.hash(request.token().trim()),
+                        TokenPurpose.PASSWORD_RESET)
+                .filter(candidate -> candidate.isRedeemable(now))
+                .orElseThrow(() -> new BadCredentialsException("That reset link is not valid."));
+
+        token.setConsumedAt(now);
+        userTokenRepository.save(token);
+
+        User user = token.getUser();
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        userRepository.save(user);
+
+        refreshTokenRepository.revokeAllForUser(user.getId(), now);
+        rateLimiter.reset("rl:login:" + user.getEmail());
+
+        authSecurityService.record(user.getId(), AuthEventType.PASSWORD_RESET, null, null, null);
     }
 
     // Silent on an unknown, revoked or someone else's token: distinguishing them would answer

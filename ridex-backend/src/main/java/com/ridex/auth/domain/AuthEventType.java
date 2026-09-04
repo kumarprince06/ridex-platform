@@ -7,6 +7,9 @@ public enum AuthEventType {
     LOGIN_FAILED,
     LOGIN_BLOCKED,
     LOGOUT,
+    EMAIL_VERIFIED,
+    PASSWORD_RESET_REQUESTED,
+    PASSWORD_RESET,
     TOKEN_REFRESHED,
 
     // A spent refresh token was replayed: revokes every session for the account.

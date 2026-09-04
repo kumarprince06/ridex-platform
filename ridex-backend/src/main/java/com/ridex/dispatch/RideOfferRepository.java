@@ -61,6 +61,16 @@ public interface RideOfferRepository extends JpaRepository<RideOffer, String> {
     @Query("SELECT o.driver.id FROM RideOffer o WHERE o.rideRequest.id = :rideId")
     List<String> findDriverIdsAlreadyOffered(@Param("rideId") String rideId);
 
+    // Which wave this ride reached. Derived rather than stored: one source of truth, and the
+    // offers table already knows.
+    @Query("SELECT COALESCE(MAX(o.wave), 0) FROM RideOffer o WHERE o.rideRequest.id = :rideId")
+    int highestWave(@Param("rideId") String rideId);
+
+    @Query("SELECT COUNT(o) FROM RideOffer o WHERE o.rideRequest.id = :rideId "
+            + "AND o.status = :offered AND o.expiresAt > :now")
+    long countLive(@Param("rideId") String rideId,
+            @Param("now") Instant now, @Param("offered") OfferStatus offered);
+
     @Modifying
     @Query("UPDATE RideOffer o SET o.status = :expired WHERE o.status = :offered AND o.expiresAt <= :now")
     int expireOverdue(@Param("now") Instant now,

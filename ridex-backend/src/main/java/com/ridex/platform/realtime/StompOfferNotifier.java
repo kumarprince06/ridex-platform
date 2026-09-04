@@ -33,6 +33,12 @@ public class StompOfferNotifier implements OfferNotifier {
     }
 
     @Override
+    public void searchGaveUp(String rideId) {
+        messaging.convertAndSend("/topic/rides/" + rideId,
+                new OfferTaken("SEARCH_EXPIRED", rideId, null));
+    }
+
+    @Override
     public void taken(String rideId, String winningOfferId) {
         // Broadcast on the ride, so every driver still counting down stops immediately rather than
         // tapping Accept into a 409.

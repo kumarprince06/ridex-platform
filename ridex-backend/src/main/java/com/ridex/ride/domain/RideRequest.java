@@ -80,6 +80,11 @@ public class RideRequest {
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
+    // How many waves the search has attempted. Recorded, not derived from the offers table: a
+    // wave that finds nobody new writes no offer, and an inferred wave would never advance.
+    @Column(name = "search_wave", nullable = false)
+    private short searchWave;
+
     // Set when an offer is accepted. The cancellation grace window runs from here, not from the
     // request: nothing is spent on the rider's behalf until somebody is driving toward them.
     @Column(name = "assigned_driver_id", length = 26)

@@ -35,7 +35,7 @@ public class DispatchTrigger {
 
     private void dispatch(String rideId) {
         try {
-            dispatchService.offerRide(rideId, 1);
+            dispatchService.offerFirstWave(rideId);
         } catch (RuntimeException ex) {
             // ponytail: the ride stays SEARCHING and nothing retries it. A sweep that re-offers
             // rides nobody was assigned to is the missing piece, along with widening waves.

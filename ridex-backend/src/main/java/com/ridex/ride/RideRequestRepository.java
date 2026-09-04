@@ -21,6 +21,10 @@ public interface RideRequestRepository extends JpaRepository<RideRequest, String
 
     boolean existsByFareEstimateId(String fareEstimateId);
 
+    // The sweep's queue: rides still looking for a driver, oldest first so nobody is starved.
+    @Query("SELECT r FROM RideRequest r WHERE r.status = :searching ORDER BY r.requestedAt")
+    List<RideRequest> findSearching(@Param("searching") RideStatus searching);
+
     /**
      * The dispatch arbiter. One ride row, one winner.
      *

@@ -56,6 +56,16 @@ public class DispatchService {
     // REQUIRES_NEW, not plain @Transactional: this is called from afterCommit, where the old
     // synchronization is still active but its transaction is finished. Joining it means every
     // write here is silently discarded - no exception, no offers, no clue why.
+    /** The search that starts when a ride is booked. Wave one, recorded as attempted. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int offerFirstWave(String rideId) {
+        rideRequestRepository.findById(rideId).ifPresent(ride -> {
+            ride.setSearchWave((short) 1);
+            rideRequestRepository.save(ride);
+        });
+        return offerRide(rideId, 1);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int offerRide(String rideId, int wave) {
         RideRequest ride = rideRequestRepository.findById(rideId)

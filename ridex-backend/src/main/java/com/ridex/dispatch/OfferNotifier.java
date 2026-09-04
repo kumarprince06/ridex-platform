@@ -14,4 +14,7 @@ public interface OfferNotifier {
 
     /** Tells the losers the moment somebody wins, rather than leaving them on a dead countdown. */
     void taken(String rideId, String winningOfferId);
+
+    /** Tells the rider nobody took it, rather than leaving a spinner running forever. */
+    void searchGaveUp(String rideId);
 }

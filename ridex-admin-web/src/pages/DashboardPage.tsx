@@ -11,9 +11,8 @@ import {
   stateTone,
   Table,
 } from '../components/ui';
-import { formatMoney, getDashboard } from '../api/admin';
+import { formatMoney, getDashboard, listTrips, type AdminTrip } from '../api/admin';
 import { useQuery } from '../api/useQuery';
-import { CASES, TRIPS, TRIPS_BY_STATE } from '../data/mock';
 
 /** FR-OPS-001. Answers "is the marketplace healthy right now", and every number links onward. */
 export function DashboardPage() {
@@ -23,8 +22,16 @@ export function DashboardPage() {
 
   // Dashes until the numbers arrive: a zero that is really "not loaded yet" is worse than a blank,
   // because an operator will act on it.
+  const { data: latest } = useQuery(() => listTrips(undefined, 0), []);
+
+  // Dashes until the numbers arrive: a zero that is really "not loaded yet" is worse than a blank,
+  // because an operator will act on it.
   const value = (n: number | undefined) => (n === undefined ? '—' : String(n));
   const pendingApprovals = metrics?.driversAwaitingReview ?? 0;
+
+  const byState = Object.entries(metrics?.ridesByStatus ?? {})
+    .map(([state, count]) => ({ state, count }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <>
@@ -57,45 +64,62 @@ export function DashboardPage() {
       </Grid>
 
       <Grid columns={2}>
-        <Card title="Trips by state">
+        <Card title="Rides by state">
           <Table
             columns={[
-              { key: 'state', header: 'State', render: (row: (typeof TRIPS_BY_STATE)[number]) => <Pill tone={stateTone(row.state)}>{humanState(row.state)}</Pill> },
-              { key: 'count', header: 'Trips', align: 'right', render: (row) => <span className="cell-strong">{row.count}</span> },
+              { key: 'state', header: 'State', render: (row: { state: string; count: number }) => (
+                <Pill tone={stateTone(row.state)}>{humanState(row.state)}</Pill>
+              ) },
+              { key: 'count', header: 'Rides', align: 'right', render: (row) => (
+                <span className="cell-strong">{row.count}</span>
+              ) },
             ]}
-            rows={TRIPS_BY_STATE}
+            rows={byState}
+            empty="No rides yet."
           />
         </Card>
 
         <Card title="Needs attention">
           <Table
             columns={[
-              { key: 'what', header: 'Queue', render: (row: { what: string; count: number; to: string }) => row.what },
-              { key: 'count', header: 'Waiting', align: 'right', render: (row) => <span className="cell-strong">{row.count}</span> },
+              { key: 'what', header: 'Queue', render: (row: { what: string; count: string; to: string }) => row.what },
+              { key: 'count', header: 'Waiting', align: 'right', render: (row) => (
+                <span className="cell-strong">{row.count}</span>
+              ) },
             ]}
             rows={[
-              { what: 'Drivers awaiting approval', count: pendingApprovals, to: '/approvals' },
-              { what: 'Urgent support cases', count: CASES.filter((c) => c.priority === 'Urgent' && c.state !== 'RESOLVED').length, to: '/cases' },
-              { what: 'Failed payments to review', count: 1, to: '/payments' },
-              { what: 'Failed payouts to retry', count: 1, to: '/payouts' },
+              { what: 'Drivers awaiting approval', count: String(pendingApprovals), to: '/approvals' },
+              // Dashes, not numbers: these queues need endpoints that do not exist, and an
+              // invented count is one an operator would act on.
+              { what: 'Urgent support cases', count: '—', to: '/cases' },
+              { what: 'Failed payments to review', count: '—', to: '/payments' },
+              { what: 'Failed payouts to retry', count: '—', to: '/payouts' },
             ]}
             onRowClick={(row) => navigate(row.to)}
           />
         </Card>
       </Grid>
 
-      <Card title="Latest trips">
+      <Card title="Latest rides">
         <Table
           columns={[
-            { key: 'id', header: 'Trip', render: (row: (typeof TRIPS)[number]) => <span className="mono">{row.id}</span> },
-            { key: 'rider', header: 'Rider', render: (row) => row.rider },
-            { key: 'driver', header: 'Driver', render: (row) => row.driver },
-            { key: 'state', header: 'State', render: (row) => <Pill tone={stateTone(row.state)}>{humanState(row.state)}</Pill> },
-            { key: 'gross', header: 'Fare', align: 'right', render: (row) => row.gross },
-            { key: 'requested', header: 'Requested', render: (row) => <span className="cell-muted">{row.requested}</span> },
+            { key: 'rideId', header: 'Ride', render: (row: AdminTrip) => (
+              <span className="mono">{row.rideId.slice(-8)}</span>
+            ) },
+            { key: 'rider', header: 'Rider', render: (row) => row.riderEmail },
+            { key: 'driver', header: 'Driver', render: (row) => row.driverEmail ?? '—' },
+            { key: 'state', header: 'State', render: (row) => (
+              <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>
+            ) },
+            { key: 'fare', header: 'Fare', align: 'right', render: (row) =>
+              formatMoney(row.finalFareMinor ?? row.quotedFareMinor, row.currency) },
+            { key: 'requested', header: 'Requested', render: (row) => (
+              <span className="cell-muted">{new Date(row.requestedAt).toLocaleString()}</span>
+            ) },
           ]}
-          rows={TRIPS}
-          onRowClick={(row) => navigate(`/trips/${row.id}`)}
+          rows={latest?.items.slice(0, 8) ?? []}
+          onRowClick={(row) => navigate(`/trips/${row.rideId}`)}
+          empty="No rides yet."
         />
       </Card>
     </>

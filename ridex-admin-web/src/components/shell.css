@@ -4,71 +4,101 @@
   height: 100%;
 }
 
+/* Dark chrome, light workspace: the sidebar is navigation, not data, and this stops it competing
+   with the tables for attention. */
 .sidebar {
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  padding: var(--space-4) var(--space-3);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  padding: var(--space-5) var(--space-3) var(--space-4);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+/* The mark's R is white. On a light surface it needs the same dark plate the apps use. */
+.logo-plate {
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--logo-bg);
+  flex: none;
+}
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.logo-name {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+.logo-sub {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2) var(--space-5);
-}
-.brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--on-primary);
-  color: var(--primary);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: -0.02em;
-}
-.brand-name {
-  font-weight: 600;
-  font-size: 15px;
-}
-.brand-console {
-  color: var(--primary-strong);
+  padding: 0 var(--space-2) var(--space-6);
+  color: var(--sidebar-text-strong);
 }
 
 .nav-group {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 .nav-title {
   display: block;
-  padding: 0 var(--space-2) 6px;
-  font-size: 11px;
+  padding: 0 var(--space-2) 8px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  color: #64748b;
+  font-weight: 600;
 }
 .nav-link {
+  position: relative;
   display: block;
-  padding: 7px var(--space-2);
+  padding: 8px var(--space-3);
+  margin-bottom: 2px;
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  color: var(--sidebar-text);
   font-size: 13px;
+  transition: background 140ms var(--ease), color 140ms var(--ease);
 }
 .nav-link:hover {
-  background: var(--surface-alt);
-  color: var(--text);
+  background: var(--sidebar-surface);
+  color: var(--sidebar-text-strong);
 }
 .nav-link.active {
-  background: var(--primary-surface);
-  color: var(--primary-strong);
+  background: var(--sidebar-surface);
+  color: var(--sidebar-text-strong);
   font-weight: 600;
+}
+/* A rail rather than a filled block: it marks the row without shouting over the label. */
+.nav-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--primary);
 }
 
 .main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  background: var(--bg);
 }
 
 .topbar {
@@ -80,18 +110,27 @@
   padding: 0 var(--space-5);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  /* Sticky so the search stays reachable while an operator scrolls a long table. */
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
+
 .global-search {
   flex: 1;
-  max-width: 480px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  max-width: 460px;
+  padding: 9px 12px 9px 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   font-size: 13px;
+  background: var(--surface-alt) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%238a94a6' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat 11px center;
+  transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
 }
 .global-search:focus {
   border-color: var(--primary-strong);
-  outline: none;
+  background-color: var(--surface);
+  outline: 2px solid var(--primary-surface);
+  outline-offset: 0;
 }
 
 .identity {
@@ -99,34 +138,60 @@
   align-items: center;
   gap: var(--space-3);
 }
+.identity-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  background: var(--primary-surface);
+  color: var(--primary-strong);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+}
 .identity-text {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 .identity-name {
   font-size: 13px;
   font-weight: 600;
 }
 .identity-role {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 .signout {
   background: transparent;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  padding: 6px 11px;
   font-size: 12px;
   color: var(--text-muted);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
 }
 .signout:hover {
   background: var(--surface-alt);
+  color: var(--text);
 }
 
 .content {
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-6);
   overflow-y: auto;
   flex: 1;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    display: none;
+  }
+  .content {
+    padding: var(--space-4);
+  }
 }

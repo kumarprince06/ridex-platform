@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 
 import { ApiError } from '../api/problem';
 import { useSession } from '../auth/session';
+import { Logo } from '../components/Logo';
 import './login.css';
 
 export function LoginPage() {
@@ -30,10 +31,7 @@ export function LoginPage() {
     <div className="login">
       <form className="login-card" onSubmit={onSubmit}>
         <div className="login-brand">
-          <span className="brand-mark">RX</span>
-          <span>
-            RideX <strong>Console</strong>
-          </span>
+          <Logo size={40} subtitle="Console" plate />
         </div>
 
         <h1 className="login-title">Sign in to operations</h1>

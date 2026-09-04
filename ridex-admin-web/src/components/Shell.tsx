@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { Permission } from '../auth/permissions';
 import { ROLE_LABELS } from '../auth/permissions';
+import { Logo } from './Logo';
 import { useSession } from '../auth/session';
 import './shell.css';
 
@@ -84,10 +85,7 @@ export function Shell() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">RX</span>
-          <span className="brand-name">
-            RideX <span className="brand-console">Console</span>
-          </span>
+          <Logo subtitle="Console" />
         </div>
 
         <nav>
@@ -125,6 +123,9 @@ export function Shell() {
           />
 
           <div className="identity">
+            <span className="identity-avatar" aria-hidden="true">
+              {session.email.slice(0, 2)}
+            </span>
             <div className="identity-text">
               <span className="identity-name">{session.email}</span>
               <span className="identity-role">

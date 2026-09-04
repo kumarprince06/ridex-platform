@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ridex.dispatch.DispatchTrigger;
 import com.ridex.pricing.FareEstimateRepository;
 import com.ridex.pricing.domain.FareEstimate;
 import com.ridex.pricing.dto.FareLineResponse;
@@ -34,6 +35,7 @@ public class RideRequestService {
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final FareEstimateRepository fareEstimateRepository;
     private final RiderProfileRepository riderProfileRepository;
+    private final DispatchTrigger dispatchTrigger;
 
     /** Turns a quote the rider chose into a request. The price comes from the quote, never the body. */
     @Transactional
@@ -78,6 +80,11 @@ public class RideRequestService {
         ride.transitionTo(RideStatus.SEARCHING);
 
         rideRequestRepository.save(ride);
+
+        // After commit: dispatch must not offer a ride whose row is not visible yet, and a
+        // dispatch failure must not roll back a ride the rider was told was booked.
+        dispatchTrigger.afterCommit(ride.getId());
+
         return toResponse(ride);
     }
 

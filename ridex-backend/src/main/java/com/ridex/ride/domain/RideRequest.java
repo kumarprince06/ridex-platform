@@ -80,6 +80,14 @@ public class RideRequest {
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
+    // Set when an offer is accepted. The cancellation grace window runs from here, not from the
+    // request: nothing is spent on the rider's behalf until somebody is driving toward them.
+    @Column(name = "assigned_driver_id", length = 26)
+    private String assignedDriverId;
+
+    @Column(name = "assigned_at")
+    private Instant assignedAt;
+
     @Column(name = "requested_at", nullable = false, updatable = false)
     private Instant requestedAt;
 

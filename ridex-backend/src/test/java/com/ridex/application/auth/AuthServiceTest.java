@@ -21,8 +21,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.ridex.api.dto.auth.LoginRequest;
 import com.ridex.api.dto.auth.LoginResponse;
+import com.ridex.api.dto.auth.LogoutRequest;
 import com.ridex.api.dto.auth.RegisterRequest;
 import com.ridex.domain.user.AppContext;
+import com.ridex.domain.user.RefreshToken;
 import com.ridex.domain.user.User;
 import com.ridex.domain.user.UserRole;
 import com.ridex.domain.user.UserStatus;
@@ -30,6 +32,7 @@ import com.ridex.infrastructure.persistence.jpa.repository.RefreshTokenRepositor
 import com.ridex.infrastructure.persistence.jpa.repository.UserRepository;
 import com.ridex.infrastructure.persistence.jpa.repository.UserTokenRepository;
 import com.ridex.infrastructure.security.JwtService;
+import com.ridex.shared.util.VerificationTokenGenerator;
 
 import io.jsonwebtoken.Claims;
 
@@ -141,5 +144,55 @@ class AuthServiceTest {
     private LoginResponse login(AppContext app) {
         return authService.login(
                 new LoginRequest("person@example.com", PASSWORD, app), "JUnit/1.0", "127.0.0.1");
+    }
+
+    @Test
+    void logoutRevokesTheCallersOwnSession() {
+        User owner = activeUser("owner-1");
+        RefreshToken session = liveSession(owner, "raw-refresh-token");
+
+        authService.logout(new LogoutRequest("raw-refresh-token"), "owner-1");
+
+        assertThat(session.getRevokedAt()).isNotNull();
+        verify(refreshTokenRepository).save(session);
+    }
+
+    @Test
+    void logoutLeavesAnotherUsersSessionAlone() {
+        User someoneElse = activeUser("owner-1");
+        RefreshToken session = liveSession(someoneElse, "raw-refresh-token");
+
+        authService.logout(new LogoutRequest("raw-refresh-token"), "attacker-9");
+
+        assertThat(session.getRevokedAt()).isNull();
+        verify(refreshTokenRepository, never()).save(any());
+    }
+
+    @Test
+    void logoutOfAnUnknownTokenIsSilent() {
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
+
+        authService.logout(new LogoutRequest("never-issued"), "owner-1");
+
+        verify(refreshTokenRepository, never()).save(any());
+    }
+
+    private User activeUser(String id) {
+        User user = new User();
+        user.setId(id);
+        user.setEmail(id + "@example.com");
+        user.setStatus(UserStatus.ACTIVE);
+        user.setRoles(EnumSet.of(UserRole.RIDER));
+        return user;
+    }
+
+    private RefreshToken liveSession(User owner, String rawToken) {
+        RefreshToken session = new RefreshToken();
+        session.setUser(owner);
+        session.setTokenHash(VerificationTokenGenerator.hash(rawToken));
+        session.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
+        when(refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(rawToken)))
+                .thenReturn(Optional.of(session));
+        return session;
     }
 }

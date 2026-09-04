@@ -2,6 +2,7 @@ package com.ridex.api.controller.auth;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,11 +11,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ridex.api.dto.auth.LoginRequest;
 import com.ridex.api.dto.auth.LoginResponse;
+import com.ridex.api.dto.auth.LogoutRequest;
 import com.ridex.api.dto.auth.RefreshTokenRequest;
 import com.ridex.api.dto.auth.RefreshTokenResponse;
 import com.ridex.api.dto.auth.RegisterRequest;
 import com.ridex.api.dto.auth.RegisterResponse;
 import com.ridex.application.auth.AuthService;
+import com.ridex.infrastructure.security.JwtPrincipal;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -51,6 +54,18 @@ public class AuthController {
     @ResponseStatus(HttpStatus.OK)
     public RefreshTokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return authService.refresh(request);
+    }
+
+    /**
+     * Authenticated, unlike the other auth routes: revoking a session means proving you own it.
+     * The token is matched against the caller's own id, so a stolen refresh token cannot be used
+     * to sign someone else out.
+     */
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody LogoutRequest request,
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        authService.logout(request, principal.userId());
     }
 
     /**

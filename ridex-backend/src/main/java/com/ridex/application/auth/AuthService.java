@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.api.dto.auth.LoginRequest;
 import com.ridex.api.dto.auth.LoginResponse;
+import com.ridex.api.dto.auth.LogoutRequest;
 import com.ridex.api.dto.auth.RefreshTokenRequest;
 import com.ridex.api.dto.auth.RefreshTokenResponse;
 import com.ridex.api.dto.auth.RegisterRequest;
@@ -192,6 +193,22 @@ public class AuthService {
                 granted,
                 app,
                 newRefreshToken);
+    }
+
+    /**
+     * Ends one device session. Silent when the token is unknown, already revoked or owned by
+     * someone else - a logout that reported which of those it was would answer questions about
+     * other people's sessions.
+     */
+    @Transactional
+    public void logout(LogoutRequest request, String callerUserId) {
+        refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(request.refreshToken().trim()))
+                .filter(token -> token.getUser().getId().equals(callerUserId))
+                .filter(token -> token.getRevokedAt() == null)
+                .ifPresent(token -> {
+                    token.setRevokedAt(Instant.now());
+                    refreshTokenRepository.save(token);
+                });
     }
 
     /**

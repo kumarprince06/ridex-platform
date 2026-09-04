@@ -24,10 +24,13 @@ Before any feature work. These are live problems, not improvements.
 | 0.1 | **Rotate the Google Maps key.** A working key is committed as a default in `application.yml` and is in git history (commit `771f6c0`). Rotate at Google, then remove the default | Restricting or deleting the line does not un-leak a published key. Someone else can bill your account today |
 | 0.2 | Align `pom.xml` to Java 21 | Docs and README say 21, the build says 17 |
 | 0.3 | Add CORS config for the console origin | The admin web physically cannot call the API right now |
-| 0.4 | Add `spring-boot-starter-data-redis` | Documented everywhere, on the classpath nowhere |
 
-**Done when:** old key rejected by Google, console can make an authenticated request, app boots with
-a Redis connection.
+Redis was listed here originally and has been moved to Step 7. Nothing reads or writes it yet, and
+an unused starter only makes `/actuator/health` report DOWN wherever Redis is not running. It
+arrives with the first code that needs it.
+
+**Done when:** the old key is rejected by Google, the build targets 21, and the console can make an
+authenticated request.
 
 ---
 
@@ -174,6 +177,8 @@ and an expired document blocks them.
 ---
 
 ## Step 7 — Location · `M`
+
+Add `spring-boot-starter-data-redis` here, with the first code that uses it (moved from Step 0).
 
 Driver position pings to Redis (`GEOADD`), never Postgres. Route cache in Redis keyed on rounded
 coordinates. Service areas as polygons, with rides refused outside them.

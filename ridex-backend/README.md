@@ -129,10 +129,25 @@ POST   /api/v1/auth/reset-password      public
 POST   /api/v1/auth/logout              authenticated
 GET    /api/v1/auth/sessions            authenticated
 DELETE /api/v1/auth/sessions/{id}       authenticated
+GET    /api/v1/rider/profile            RIDER
+PUT    /api/v1/rider/profile            RIDER
+GET    /api/v1/driver/profile           DRIVER
+PUT    /api/v1/driver/profile           DRIVER
 GET    /api/v1/maps/geocode             authenticated
 GET    /api/v1/maps/route               authenticated
 GET    /actuator/health                 public
+GET    /swagger-ui.html                 public
+GET    /v3/api-docs                     public
 ```
+
+### API documentation
+
+springdoc generates the contract from the controllers. `/swagger-ui.html` to browse it,
+`/v3/api-docs` for the JSON. **The three clients should generate their types from that document**
+rather than hand-writing them — [docs/10](../docs/10-API-Contract.md) is prose and will drift.
+
+A test asserts every controller appears in the document, because a generated contract that
+silently stops generating is worse than none: the clients keep building against the last good copy.
 
 Logout is authenticated on purpose: revoking a session means proving you own it.
 
@@ -248,14 +263,12 @@ Four test files against ~45 sources is not adequate coverage and is tracked as d
 
 Ordered by how much later work they block.
 
-1. **No OpenAPI document**, so all three clients hand-write their types and will drift (T16).
-2. **No correlation ID or structured logging**, both required by
+1. **No correlation ID or structured logging**, both required by
    [docs/06](../docs/06-Non-Functional-Requirements.md).
-3. **No idempotency handling.** Mobile clients on bad networks retry POSTs; without it, payments
+2. **No idempotency handling.** Mobile clients on bad networks retry POSTs; without it, payments
    and ride requests will duplicate.
-4. **Registration creates no profile row** — signup writes `user_roles` and nothing else (T6).
-5. **`clientIp()` trusts the first `X-Forwarded-For` hop**, in `AuthController` and
+3. **`clientIp()` trusts the first `X-Forwarded-For` hop**, in `AuthController` and
    `RateLimitFilter`. A client can set that header and get a fresh rate-limit bucket per request,
    so the per-IP limit is advisory until a trusted-proxy config exists.
-6. **SMS is a stub.** `SmsChannel` logs and does not send; codes reach users by email only.
-7. **H2 is still on the test classpath** against a Postgres-only schema. Testcontainers (T5).
+4. **SMS is a stub.** `SmsChannel` logs and does not send; codes reach users by email only.
+5. **H2 is still on the test classpath** against a Postgres-only schema. Testcontainers (T5).

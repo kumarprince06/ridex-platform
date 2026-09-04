@@ -89,6 +89,10 @@ public class SecurityConfig {
                 .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                // The schema of the API, not the data in it. ponytail: fine while the API is
+                // public-facing anyway; put it behind auth if the endpoint list ever becomes
+                // something worth hiding.
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .anyRequest().authenticated());
 
         return http.build();

@@ -113,13 +113,15 @@ Not in the original plan; added because the endpoints were not safe to ship with
 - [x] `.editorconfig`, `.env.example`; untracked `.idea/`; deleted Spring Initializr `HELP.md`
 - [ ] Testcontainers, so `mvn test` does not need a hand-run local Postgres
 
-## T6 — Profiles (Phase 1) — **SCHEMA DONE**
+## T6 — Profiles (Phase 1) — **DONE**
 
 - [x] `V2__profiles.sql`: `rider_profiles`, `driver_profiles`
 - [x] `RiderProfile`, `DriverProfile` entities
-- [ ] Rider profile GET/PUT
-- [ ] Driver profile GET/PUT
-- [ ] Create the matching profile row at registration — signup writes `user_roles` but no profile
+- [x] Rider profile GET/PUT
+- [x] Driver profile GET/PUT
+- [x] The profile row is created in the registration transaction
+- [x] Identity fields (name, phone) live on `users` and are updated through `User.updateIdentity`,
+      so the two profile endpoints cannot disagree about normalisation
 
 ## T7 — Driver onboarding (Phase 2) — **SCHEMA DONE**
 
@@ -209,7 +211,8 @@ building delivery twice would have been worse than building it once in the right
 
 ## T16 — Production hardening (Phase 12)
 
-- [ ] OpenAPI/Swagger (absent today)
+- [x] OpenAPI/Swagger — springdoc, `/swagger-ui.html` and `/v3/api-docs`, with a test asserting
+      every controller is in the document
 - [ ] Load tests, security testing, observability, backups, DR
 
 ---

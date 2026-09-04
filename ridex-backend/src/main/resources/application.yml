@@ -71,3 +71,9 @@ app:
   # was under app.mail, so no JavaMailSender was ever created.
   mail:
     from: ${RIDEX_MAIL_FROM:no-reply@ridex.local}
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method

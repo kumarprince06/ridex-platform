@@ -36,6 +36,8 @@ class ProtectedRouteTest {
         mockMvc.perform(get("/api/v1/auth/sessions")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/maps/geocode").param("query", "x"))
                 .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/rider/profile")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/driver/profile")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -50,6 +52,12 @@ class ProtectedRouteTest {
     void aGarbageBearerTokenIsRejected() throws Exception {
         mockMvc.perform(get("/api/v1/auth/sessions").header("Authorization", "Bearer not-a-jwt"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void theApiDocumentIsPublicButTheApiIsNot() throws Exception {
+        mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/rider/profile")).andExpect(status().isUnauthorized());
     }
 
     @Test

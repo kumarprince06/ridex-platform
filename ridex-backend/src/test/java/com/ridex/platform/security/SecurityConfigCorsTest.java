@@ -29,8 +29,7 @@ class SecurityConfigCorsTest {
 
     @Test
     void neverAllowsCredentials() {
-        // A cookie-bearing cross-origin request is not something this API should ever accept:
-        // the token is an Authorization header, so credentials would only widen the attack surface.
+        // The token is an Authorization header, so credentials would only widen the surface.
         assertThat(configFor("/api/v1/auth/login", "https://console.ridex.test").getAllowCredentials())
                 .isNotEqualTo(Boolean.TRUE);
     }

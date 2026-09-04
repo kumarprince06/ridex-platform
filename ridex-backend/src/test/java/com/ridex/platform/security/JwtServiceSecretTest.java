@@ -5,10 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * The secret is the only thing standing between a stranger and a forged SUPER_ADMIN token, so a
- * weak one has to stop the application booting rather than degrade it quietly.
- */
+// A weak secret must stop the application booting, not degrade it quietly.
 class JwtServiceSecretTest {
 
     private static final String GOOD_SECRET = "a-real-signing-key-of-at-least-32-bytes";

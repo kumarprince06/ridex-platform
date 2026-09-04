@@ -29,12 +29,10 @@ public class JwtService {
     public static final String TOKEN_TYPE_ACCESS = "access";
     public static final String TOKEN_TYPE_REFRESH = "refresh";
 
-    // HMAC-SHA256 gives no more security than the length of its key, so a shorter one silently
-    // weakens every token the platform issues.
+    // HMAC-SHA256 is only as strong as its key length.
     private static final int MINIMUM_SECRET_BYTES = 32;
 
-    // The placeholder that used to be the default. It is in git history, so a deployment that
-    // still signs with it can be handed a forged SUPER_ADMIN token by anyone who reads the repo.
+    // The old default. It is in git history, so anyone reading the repo could forge admin tokens.
     private static final String REJECTED_SECRET = "change-me-please-very-long-secret-key";
 
     private final SecretKey signingKey;
@@ -50,7 +48,7 @@ public class JwtService {
         this.refreshExpirationMs = refreshExpirationMs;
     }
 
-    /** Refuses to start rather than issuing forgeable tokens. A boot failure is the loud option. */
+    // Refuses to start rather than issue forgeable tokens.
     private static void requireStrongSecret(String secret) {
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(

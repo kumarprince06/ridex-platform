@@ -9,10 +9,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * The package layout is only a convention until something fails the build over it. These are the
- * three rules that make the feature-first structure real rather than aspirational.
- */
+// The layout is only a convention until something fails the build over it.
 class PackageStructureTest {
 
     private static final JavaClasses CLASSES = new ClassFileImporter()
@@ -21,8 +18,7 @@ class PackageStructureTest {
 
     @Test
     void domainDoesNotDependOnSpring() {
-        // The point of the domain package: fare maths and state machines must be testable without
-        // booting a context, which stops being true the moment one of them takes a Spring type.
+        // Fare maths and state machines must be testable without booting a context.
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..domain..")
                 .should().dependOnClassesThat().resideInAnyPackage(
@@ -33,8 +29,7 @@ class PackageStructureTest {
 
     @Test
     void domainDoesNotDependOnWebOrPersistenceLayers() {
-        // Dependencies point inward. A domain class reaching for a controller, a DTO or a
-        // repository has inverted that, and the next person copies the pattern.
+        // Dependencies point inward, and the next person copies whatever they find.
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..domain..")
                 .should().dependOnClassesThat().resideInAnyPackage("..dto..", "..platform..");
@@ -44,8 +39,7 @@ class PackageStructureTest {
 
     @Test
     void featuresDoNotReachIntoAnotherFeaturesDomain() {
-        // Cross-feature access goes through that feature's service, never straight at its
-        // entities. This is the rule that keeps the modules separable later.
+        // Cross-feature access goes through that feature's service, never at its entities.
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.ridex.auth..")
                 .should().dependOnClassesThat().resideInAnyPackage(

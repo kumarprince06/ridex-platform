@@ -67,6 +67,11 @@ app:
     admin-email: ${RIDEX_BOOTSTRAP_ADMIN_EMAIL:}
     admin-password: ${RIDEX_BOOTSTRAP_ADMIN_PASSWORD:}
 
+  # Reporting groups by calendar day, and a day only exists in a timezone. Both the chart axis
+  # and the SQL grouping read this, so they cannot disagree about where a day starts.
+  reporting:
+    zone: ${RIDEX_REPORTING_ZONE:Asia/Kolkata}
+
   # Points are not money: no currency on the ledger, and this rate is the only place they cross
   # into it. Changing it changes what future redemptions are worth, never what was already spent.
   points:

@@ -5,6 +5,7 @@ import { Permission } from './auth/permissions';
 import { SessionProvider, useSession } from './auth/session';
 import { Shell } from './components/Shell';
 import { ApprovalsPage } from './pages/ApprovalsPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
 import { AuditPage } from './pages/AuditPage';
 import { CaseDetailPage } from './pages/CaseDetailPage';
 import { CasesPage } from './pages/CasesPage';
@@ -70,6 +71,7 @@ function Routed() {
         <Route path="templates" element={<Require permission="SUPER_ADMIN"><TemplatesPage /></Require>} />
         <Route path="flags" element={<Require permission="SUPER_ADMIN"><FlagsPage /></Require>} />
 
+        <Route path="analytics" element={<Require permission="OPERATIONS"><AnalyticsPage /></Require>} />
         <Route path="audit" element={<Require permission="OPERATIONS"><AuditPage /></Require>} />
         <Route path="staff" element={<Require permission="SUPER_ADMIN"><StaffPage /></Require>} />
 

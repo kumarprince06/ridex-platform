@@ -25,6 +25,7 @@ const NAV: NavGroup[] = [
     title: 'Overview',
     items: [
       { to: '/', label: 'Dashboard' },
+      { to: '/analytics', label: 'Analytics', permission: 'OPERATIONS' },
       { to: '/live', label: 'Live map', permission: 'OPERATIONS' },
     ],
   },

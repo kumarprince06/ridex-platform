@@ -45,7 +45,6 @@ import com.ridex.platform.security.JwtService;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.shared.util.VerificationTokenGenerator;
 
-import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -207,7 +206,9 @@ public class AuthService {
         }
 
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail(), granted, app);
-        String refreshTokenValue = jwtService.generateRefreshToken(user.getId(), user.getEmail(), granted, app);
+        // Opaque and random, never a JWT: nothing reads it but a hash lookup, and 256 bits of
+        // SecureRandom cannot collide the way a second-granularity timestamp could.
+        String refreshTokenValue = VerificationTokenGenerator.generateRawToken();
 
         // One row per login, not one row per user. The previous code deleted every existing token
         // on each login, so signing in on a phone silently signed the same person out on a tablet.
@@ -215,6 +216,7 @@ public class AuthService {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
         refreshToken.setTokenHash(VerificationTokenGenerator.hash(refreshTokenValue));
+        refreshToken.setAppContext(app);
         refreshToken.setUserAgent(truncate(userAgent, 255));
         refreshToken.setIpAddress(truncate(ipAddress, 45));
         refreshToken.setLastUsedAt(now);
@@ -242,20 +244,7 @@ public class AuthService {
 
     @Transactional
     public RefreshTokenResponse refresh(RefreshTokenRequest request) {
-        String rawRefreshToken = request.refreshToken().trim();
-
-        Claims claims;
-        try {
-            claims = jwtService.parseClaims(rawRefreshToken);
-        } catch (RuntimeException ex) {
-            throw new BadCredentialsException("Invalid refresh token");
-        }
-
-        if (!JwtService.TOKEN_TYPE_REFRESH.equals(claims.get(JwtService.CLAIM_TOKEN_TYPE, String.class))) {
-            throw new BadCredentialsException("Invalid refresh token");
-        }
-
-        String presentedHash = VerificationTokenGenerator.hash(rawRefreshToken);
+        String presentedHash = VerificationTokenGenerator.hash(request.refreshToken().trim());
         Instant now = Instant.now();
 
         RefreshToken storedToken = refreshTokenRepository.findByTokenHash(presentedHash)
@@ -274,10 +263,12 @@ public class AuthService {
         User user = storedToken.getUser();
         requireLoginableStatus(user);
 
-        AppContext app = AppContext.valueOf(claims.get(JwtService.CLAIM_APP, String.class));
+        // Read from the row, not from the token. The client cannot promote its own session to a
+        // surface it never signed in from.
+        AppContext app = storedToken.getAppContext();
 
-        // Re-derived from the account rather than copied from the old token, so a role removed by
-        // operations stops applying at the next refresh instead of surviving for the token's life.
+        // Re-derived from the account rather than carried forward, so a role removed by operations
+        // stops applying at the next refresh instead of surviving for the token's life.
         Set<UserRole> granted = app.grantableFrom(user.getRoles());
         if (granted.isEmpty()) {
             storedToken.setRevokedAt(now);
@@ -286,7 +277,7 @@ public class AuthService {
         }
 
         String newAccessToken = jwtService.generateAccessToken(user.getId(), user.getEmail(), granted, app);
-        String newRefreshToken = jwtService.generateRefreshToken(user.getId(), user.getEmail(), granted, app);
+        String newRefreshToken = VerificationTokenGenerator.generateRawToken();
 
         // The row is the device session: same identity and user_agent, new secret, previous one kept.
         storedToken.rotateTo(

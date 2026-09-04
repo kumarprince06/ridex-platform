@@ -21,7 +21,7 @@ import com.ridex.auth.domain.UserRole;
 class JwtAuthenticationFilterTest {
 
     private final JwtService jwtService =
-            new JwtService("super-secret-key-which-is-very-long-for-jwt-signing", 3600000, 604800000);
+            new JwtService("super-secret-key-which-is-very-long-for-jwt-signing", 3600000);
     private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService);
 
     @Test
@@ -49,11 +49,12 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void rejectsARefreshTokenUsedAsAnAccessToken() throws Exception {
-        // A refresh token is valid for a week. Accepting it here would hand out a week-long
-        // access token to anyone who captured one.
-        String refreshToken = jwtService.generateRefreshToken(
-                "user-1", "driver@example.com", EnumSet.of(UserRole.DRIVER), AppContext.DRIVER);
+    void rejectsAJwtThatIsNotAnAccessToken() throws Exception {
+        // Refresh tokens are opaque now, so this guards against a forged or legacy JWT claiming
+        // to be one - which would otherwise authenticate for the refresh token's full week.
+        String refreshToken = jwtService.buildToken(
+                "user-1", "driver@example.com", EnumSet.of(UserRole.DRIVER), AppContext.DRIVER,
+                604800000L, JwtService.TOKEN_TYPE_REFRESH);
 
         boolean[] chainRan = {false};
         MockFilterChain chain = new MockFilterChain() {
@@ -72,7 +73,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void rejectsATokenSignedWithAnotherKey() throws Exception {
         JwtService otherIssuer =
-                new JwtService("a-completely-different-key-of-sufficient-length!!", 3600000, 604800000);
+                new JwtService("a-completely-different-key-of-sufficient-length!!", 3600000);
         String forged = otherIssuer.generateAccessToken(
                 "user-1", "attacker@example.com", EnumSet.of(UserRole.SUPER_ADMIN), AppContext.ADMIN);
 

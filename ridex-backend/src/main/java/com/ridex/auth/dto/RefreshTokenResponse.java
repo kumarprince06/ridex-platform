@@ -6,7 +6,7 @@ import com.ridex.auth.domain.AppContext;
 import com.ridex.auth.domain.UserRole;
 
 public record RefreshTokenResponse(
-        String token,
+        String accessToken,
         String tokenType,
         String userId,
         String email,

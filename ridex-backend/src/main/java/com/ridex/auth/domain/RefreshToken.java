@@ -6,6 +6,8 @@ import com.ridex.shared.util.UlidGenerator;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
@@ -47,6 +49,11 @@ public class RefreshToken {
     // one row stays one device session for its whole life.
     @Column(name = "token_hash", nullable = false, length = 255)
     private String tokenHash;
+
+    // Which surface issued it. On the row rather than in the token, so the client cannot change it.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "app_context", nullable = false, length = 20)
+    private AppContext appContext;
 
     // The secret before the last rotation, so a replay of it reads as theft rather than as an
     // ordinary unknown token.

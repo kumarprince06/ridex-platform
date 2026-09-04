@@ -27,6 +27,8 @@ public class JwtService {
     public static final String CLAIM_TOKEN_TYPE = "tokenType";
 
     public static final String TOKEN_TYPE_ACCESS = "access";
+    // Refresh tokens are opaque random values, not JWTs. This constant stays so the filter can
+    // still reject any legacy or forged JWT that claims to be one.
     public static final String TOKEN_TYPE_REFRESH = "refresh";
 
     // HMAC-SHA256 is only as strong as its key length.
@@ -37,15 +39,12 @@ public class JwtService {
 
     private final SecretKey signingKey;
     private final long accessExpirationMs;
-    private final long refreshExpirationMs;
 
     public JwtService(@Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.access-expiration-ms:900000}") long accessExpirationMs,
-            @Value("${app.jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs) {
+            @Value("${app.jwt.access-expiration-ms:900000}") long accessExpirationMs) {
         requireStrongSecret(secret);
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessExpirationMs = accessExpirationMs;
-        this.refreshExpirationMs = refreshExpirationMs;
     }
 
     // Refuses to start rather than issue forgeable tokens.
@@ -70,10 +69,6 @@ public class JwtService {
         return buildToken(userId, email, roles, app, accessExpirationMs, TOKEN_TYPE_ACCESS);
     }
 
-    public String generateRefreshToken(String userId, String email, Set<UserRole> roles, AppContext app) {
-        return buildToken(userId, email, roles, app, refreshExpirationMs, TOKEN_TYPE_REFRESH);
-    }
-
     public Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(signingKey)
@@ -82,7 +77,9 @@ public class JwtService {
                 .getPayload();
     }
 
-    private String buildToken(String userId, String email, Set<UserRole> roles, AppContext app,
+    // Package-private, not private: the filter test needs to mint a non-access token to prove
+    // such a token is rejected, and no production caller should be able to.
+    String buildToken(String userId, String email, Set<UserRole> roles, AppContext app,
             long expirationMs, String tokenType) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);

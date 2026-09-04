@@ -80,7 +80,7 @@ class AuthServiceTest {
         riderProfileService = mock(RiderProfileService.class);
         driverProfileService = mock(DriverProfileService.class);
         when(rateLimiter.tryConsume(any(), anyInt(), any())).thenReturn(true);
-        jwtService = new JwtService("super-secret-key-which-is-very-long-for-jwt-signing", 3600000, 604800000);
+        jwtService = new JwtService("super-secret-key-which-is-very-long-for-jwt-signing", 3600000);
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
         authService = new AuthService(
@@ -137,7 +137,7 @@ class AuthServiceTest {
         assertThat(response.roles()).containsExactly(UserRole.DRIVER);
         assertThat(response.app()).isEqualTo(AppContext.DRIVER);
 
-        Claims claims = jwtService.parseClaims(response.token());
+        Claims claims = jwtService.parseClaims(response.accessToken());
         @SuppressWarnings("unchecked")
         List<String> roleClaim = claims.get(JwtService.CLAIM_ROLES, List.class);
         assertThat(roleClaim).containsExactly("DRIVER");
@@ -282,8 +282,8 @@ class AuthServiceTest {
         session.setPreviousTokenHash(VerificationTokenGenerator.hash("spent-secret"));
         session.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
 
-        String spentToken = jwtService.generateRefreshToken(
-                "owner-1", "owner-1@example.com", EnumSet.of(UserRole.RIDER), AppContext.RIDER);
+        String spentToken = VerificationTokenGenerator.generateRawToken();
+        session.setAppContext(AppContext.RIDER);
         session.setPreviousTokenHash(VerificationTokenGenerator.hash(spentToken));
 
         when(refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(spentToken)))
@@ -300,8 +300,7 @@ class AuthServiceTest {
 
     @Test
     void anUnknownRefreshTokenIsNotTreatedAsTheft() {
-        String strangerToken = jwtService.generateRefreshToken(
-                "nobody", "nobody@example.com", EnumSet.of(UserRole.RIDER), AppContext.RIDER);
+        String strangerToken = VerificationTokenGenerator.generateRawToken();
         when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
         when(refreshTokenRepository.findByPreviousTokenHash(any())).thenReturn(Optional.empty());
 
@@ -479,5 +478,41 @@ class AuthServiceTest {
         when(userTokenRepository.findFirstByUserIdAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
                 user.getId(), purpose)).thenReturn(Optional.of(token));
         return token;
+    }
+
+    @Test
+    void twoRefreshTokensMintedInTheSameInstantAreStillDifferent() {
+        // They used to be JWTs whose only varying claim was a second-granularity timestamp, so a
+        // refresh inside the same second replaced a secret with itself and rotation silently did
+        // nothing. Anything time-derived brings that back.
+        java.util.Set<String> minted = new java.util.HashSet<>();
+        for (int i = 0; i < 500; i++) {
+            minted.add(VerificationTokenGenerator.generateRawToken());
+        }
+
+        assertThat(minted).hasSize(500);
+    }
+
+    @Test
+    void refreshReadsTheSurfaceFromTheStoredSessionNotTheToken() {
+        User owner = activeUser("owner-1");
+        owner.setRoles(EnumSet.of(UserRole.RIDER, UserRole.DRIVER));
+        String raw = VerificationTokenGenerator.generateRawToken();
+
+        RefreshToken session = new RefreshToken();
+        session.setUser(owner);
+        session.setTokenHash(VerificationTokenGenerator.hash(raw));
+        session.setAppContext(AppContext.RIDER);
+        session.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
+        when(refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(raw)))
+                .thenReturn(Optional.of(session));
+
+        var response = authService.refresh(new RefreshTokenRequest(raw));
+
+        // The account also holds DRIVER, but this session is a rider session and stays one.
+        assertThat(response.app()).isEqualTo(AppContext.RIDER);
+        assertThat(response.roles()).containsExactly(UserRole.RIDER);
+        assertThat(response.refreshToken()).isNotEqualTo(raw);
+        assertThat(session.getPreviousTokenHash()).isEqualTo(VerificationTokenGenerator.hash(raw));
     }
 }

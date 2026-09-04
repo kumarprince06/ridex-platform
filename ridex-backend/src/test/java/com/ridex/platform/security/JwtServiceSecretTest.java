@@ -12,27 +12,27 @@ class JwtServiceSecretTest {
 
     @Test
     void rejectsTheRepositoryPlaceholder() {
-        assertThatThrownBy(() -> new JwtService("change-me-please-very-long-secret-key", 900000, 604800000))
+        assertThatThrownBy(() -> new JwtService("change-me-please-very-long-secret-key", 900000))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("placeholder");
     }
 
     @Test
     void rejectsASecretShorterThanTheHmacBlockSize() {
-        assertThatThrownBy(() -> new JwtService("too-short", 900000, 604800000))
+        assertThatThrownBy(() -> new JwtService("too-short", 900000))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("at least 32 bytes");
     }
 
     @Test
     void rejectsAMissingSecret() {
-        assertThatThrownBy(() -> new JwtService("  ", 900000, 604800000))
+        assertThatThrownBy(() -> new JwtService("  ", 900000))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("not set");
     }
 
     @Test
     void acceptsAStrongSecret() {
-        assertThatCode(() -> new JwtService(GOOD_SECRET, 900000, 604800000)).doesNotThrowAnyException();
+        assertThatCode(() -> new JwtService(GOOD_SECRET, 900000)).doesNotThrowAnyException();
     }
 }

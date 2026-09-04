@@ -28,6 +28,13 @@ jest.mock('expo-location', () => ({
   })),
 }));
 
+// Secure storage is native. Screens only need it to resolve, and null is the signed-out case.
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(async () => null),
+  setItemAsync: jest.fn(async () => undefined),
+  deleteItemAsync: jest.fn(async () => undefined),
+}));
+
 // Place search and routing are network calls; a screen test must not depend on the internet.
 global.fetch = jest.fn(async () => ({
   ok: true,

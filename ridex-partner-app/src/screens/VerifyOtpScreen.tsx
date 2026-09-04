@@ -3,6 +3,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { register, verifyEmail } from '../api/auth';
+import { ApiError } from '../api/problem';
+import { useSession } from '../auth/session';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
@@ -14,7 +17,37 @@ const CODE_LENGTH = 6;
 const RESEND_SECONDS = 42;
 
 export function VerifyOtpScreen({ navigation, route }: Props) {
+  const { email, password } = route.params;
+  const { signIn } = useSession();
   const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onVerify() {
+    setError(null);
+    setBusy(true);
+    try {
+      await verifyEmail(email, code);
+      if (password) {
+        await signIn(email, password);
+      }
+      navigation.navigate('PersonalDetails', { fullName: '' });
+    } catch (caught) {
+      // Wrong, expired and already-used codes read the same on purpose.
+      setError(caught instanceof ApiError ? caught.userMessage : 'That code did not work.');
+      setCode('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onResend() {
+    setError(null);
+    setSecondsLeft(RESEND_SECONDS);
+    if (password) {
+      await register(email, password).catch(() => setError('Could not resend the code.'));
+    }
+  }
   const [focused, setFocused] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const inputRef = useRef<TextInput>(null);
@@ -34,10 +67,10 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
         <Ionicons name="call" size={26} color={colors.primary} />
       </View>
 
-      <Text style={styles.title}>Verify your number</Text>
+      <Text style={styles.title}>Verify your email</Text>
       <Text style={styles.subtitle}>
         We&apos;ve sent a {CODE_LENGTH}-digit code to{' '}
-        <Text style={styles.phone}>{route.params.phone}</Text>
+        <Text style={styles.phone}>{email}</Text>
       </Text>
 
       {/*
@@ -80,10 +113,12 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
         style={styles.hiddenInput}
       />
 
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
       <Button
-        label="Verify Code"
-        disabled={code.length < CODE_LENGTH}
-        onPress={() => navigation.navigate('PersonalDetails', { fullName: 'Marcus Reid' })}
+        label={busy ? 'Verifying...' : 'Verify Code'}
+        disabled={busy || code.length < CODE_LENGTH}
+        onPress={onVerify}
       />
 
       <Text style={styles.resend}>
@@ -94,7 +129,7 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
             {String(secondsLeft % 60).padStart(2, '0')}
           </Text>
         ) : (
-          <Text style={styles.resendTimer} onPress={() => setSecondsLeft(RESEND_SECONDS)}>
+          <Text style={styles.resendTimer} onPress={onResend}>
             Resend now
           </Text>
         )}
@@ -104,6 +139,11 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginBottom: spacing.md,
+  },
   badge: {
     width: 64,
     height: 64,

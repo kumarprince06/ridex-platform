@@ -3,6 +3,8 @@ import path from 'path';
 import { createElement } from 'react';
 import { act, create } from 'react-test-renderer';
 
+import { SessionProvider } from '../auth/session';
+
 /**
  * Renders every screen in src/screens once, with the params its route declares.
  *
@@ -14,7 +16,7 @@ const SCREENS_DIR = path.join(__dirname, '..', 'screens');
 /** Only the screens whose routes carry params need an entry. */
 const PARAMS: Record<string, object> = {
   CheckInbox: { email: 'driver@example.com' },
-  VerifyOtp: { phone: '+1 555 0100' },
+  VerifyOtp: { email: 'driver@example.com', password: 'not-a-real-password' },
   PersonalDetails: { fullName: 'Marcus Reid' },
   TripDetails: { tripId: '9241' },
 };
@@ -64,7 +66,7 @@ describe('every screen renders', () => {
 
     let tree: ReturnType<typeof create> | undefined;
     await act(async () => {
-      tree = create(createElement(Screen, props));
+      tree = create(createElement(SessionProvider, null, createElement(Screen, props)));
     });
 
     expect(tree!.toJSON()).toBeTruthy();

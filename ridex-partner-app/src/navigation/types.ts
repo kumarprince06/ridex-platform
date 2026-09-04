@@ -28,7 +28,7 @@ export type RootStackParamList = {
   CheckInbox: { email: string };
   NewPassword: undefined;
   CreateAccount: undefined;
-  VerifyOtp: { phone: string };
+  VerifyOtp: { email: string; password?: string };
 
   // Onboarding, one screen per transition of the driver onboarding machine.
   PersonalDetails: { fullName: string };

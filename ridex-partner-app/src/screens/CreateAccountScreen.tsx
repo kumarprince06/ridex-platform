@@ -2,6 +2,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
+import { register } from '../api/auth';
+import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { Screen, ScreenTitle } from '../components/Screen';
 import { TextField } from '../components/TextField';
@@ -15,6 +17,22 @@ export function CreateAccountScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onCreateAccount() {
+    setError(null);
+    setBusy(true);
+    try {
+      await register(email.trim(), password);
+      // Name and vehicle details come later in onboarding; registration is email and password.
+      navigation.navigate('VerifyOtp', { email: email.trim(), password });
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not create the account.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Screen onBack={() => navigation.goBack()}>
@@ -59,11 +77,12 @@ export function CreateAccountScreen({ navigation }: Props) {
         style={styles.spaced}
       />
 
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
       <Button
-        label="Create Account"
-        onPress={() =>
-          navigation.navigate('VerifyOtp', { phone: phone.trim() || '+1 (555) 000-0000' })
-        }
+        label={busy ? 'Creating...' : 'Create Account'}
+        onPress={onCreateAccount}
+        disabled={busy}
         style={styles.action}
       />
 
@@ -78,6 +97,11 @@ export function CreateAccountScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.lg,
+  },
   spaced: {
     marginTop: spacing.lg,
   },

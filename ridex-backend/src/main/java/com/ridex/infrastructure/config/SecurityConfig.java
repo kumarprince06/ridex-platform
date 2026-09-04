@@ -3,6 +3,9 @@ package com.ridex.infrastructure.config;
 import com.ridex.infrastructure.security.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -12,6 +15,9 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -35,10 +41,18 @@ public class SecurityConfig {
         "/api/v1/auth/reset-password"
     };
 
+    /**
+     * Browser origins allowed to call the API. The mobile apps are not browsers and are unaffected;
+     * this exists for the console, which cannot reach the API at all without it.
+     */
+    @Value("${app.cors.allowed-origins:http://localhost:5174}")
+    private List<String> allowedOrigins;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter)
             throws Exception {
         http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -50,6 +64,24 @@ public class SecurityConfig {
                 .anyRequest().authenticated());
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        // Listed origins only. setAllowedOrigins rather than the pattern variant, so a wildcard
+        // cannot be configured by accident.
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key"));
+        // The token travels in the Authorization header, not a cookie, so the browser never needs
+        // to send credentials - and leaving this off keeps the wildcard-with-credentials hole shut.
+        config.setAllowCredentials(false);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", config);
+        return source;
     }
 
 }

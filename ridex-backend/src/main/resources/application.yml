@@ -26,6 +26,11 @@ app:
     access-expiration-ms: 3600000
     refresh-expiration-ms: 604800000
 
+  # Comma-separated. The console in development; the deployed console origin in every
+  # other environment.
+  cors:
+    allowed-origins: ${RIDEX_CORS_ALLOWED_ORIGINS:http://localhost:5174}
+
   google:
     maps:
       # No default. A key committed here is a key someone else can bill, and the previous one

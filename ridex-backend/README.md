@@ -146,6 +146,10 @@ POST   /api/v1/driver/location          DRIVER
 GET    /api/v1/driver/offers            DRIVER
 POST   /api/v1/driver/offers/{id}/accept  DRIVER
 POST   /api/v1/driver/offers/{id}/reject  DRIVER
+GET    /api/v1/rides/{id}/receipt       RIDER
+POST   /api/v1/trips/{id}/arrive        DRIVER
+POST   /api/v1/trips/{id}/start         DRIVER
+POST   /api/v1/trips/{id}/complete      DRIVER
 GET    /api/v1/maps/geocode             authenticated
 GET    /api/v1/maps/route               authenticated
 GET    /actuator/health                 public
@@ -252,6 +256,31 @@ means the loser reads the new status and leaves, rather than both transactions d
 
 Positions live in Redis and never touch Postgres; duty status lives in Postgres because it is a
 decision that must survive a Redis restart.
+
+## Trips and the receipt
+
+`trips` records what happened; `ride_requests` records where it is. The trip has **no status of
+its own** - a second status column is a second source of truth that will disagree with the first.
+
+**Pickup verification is one code, two presentations.** The rider is shown six digits and a QR
+encoding the same value; the driver scans or types it and the same endpoint checks it. Two
+credentials would be two things to expire. Attempts are capped at five, counted on a separate
+transaction because the rejection rolls back the one that would have counted them.
+
+The final fare is recomputed from actual distance, duration and waiting - never copied from the
+quote - and stored as lines in the same shape. `GET /rides/{id}/receipt` puts the two side by side:
+
+```
+                    Quoted 08:41    Charged 09:07
+Base fare                  30.00           30.00
+Distance                   98.40          106.80   +0.7 km, driver rerouted
+Time                       27.00           39.00   +8 min, traffic
+Waiting                        -            8.00   4 min past the free 5
+TOTAL                     155.40          183.80   +28.40
+```
+
+That comparison is the reason the estimate is stored rather than overwritten, and it is the first
+of the differentiators in [docs/27](../docs/27-Unique-Feature-Set.md).
 
 ## Errors
 

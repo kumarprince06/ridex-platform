@@ -239,11 +239,33 @@ A third, found by the sweep test: **the wave has to be recorded, not derived.** 
 `MAX(wave)` over the offers, which never advances once every nearby driver has already been asked
 - no new row, no new wave, and the sweep re-runs the same radius forever.
 
-## T11 — Live trip (Phase 6)
+## T11 — Live trip (Phase 6) — **MOSTLY DONE**
 
-- [ ] `V6__trips.sql`: `trips`, `trip_locations`, `trip_status_history`
-- [ ] WebSocket/STOMP for status + driver location
-- [ ] arrive / start / complete + trip history
+- [x] `V10__trips.sql`: `trips`, `trip_status_history`, `trip_fare_lines`, `trip_locations`
+- [x] arrive / start / complete, each recorded in `trip_status_history` with its actor
+- [x] **Pickup verification by QR or OTP** - one server-issued code, attempt-capped at five
+- [x] Final fare recomputed from what actually happened, as lines in the same shape as the quote
+- [x] **The reconciling receipt**: quote against charge, line for line (docs/27 feature 1)
+- [x] Reported distance bounded at 2x the quoted route, so a broken odometer cannot price a ride
+- [ ] Live driver location during the trip over the socket
+- [ ] `trip_locations` is written by nothing yet; the simplified path lands with the polyline work
+
+### Design note: no second status column
+
+`trips` deliberately has **no status of its own**. The ride request already holds the machine, and
+a second status column is a second source of truth that will disagree with the first. The trip
+holds what happened - arrival, start, completion, waiting, actual distance, final fare - and the
+ride holds where it is.
+
+### A third rollback bug, same shape as the first two
+
+`start()` is transactional, so a wrong pickup code threw and **rolled back the attempt counter**
+with it. The cap counted nothing and the code could be guessed forever. Fixed the same way as the
+auth audit rows: a separate bean with `REQUIRES_NEW`.
+
+That is now three bugs from one root cause - **anything that must survive a rejection cannot be
+written on the transaction that is about to reject.** Worth checking for whenever a counter, an
+audit row or a lockout is written next to a `throw`.
 
 ## T12 — Rebuild payments correctly (Phase 7)
 

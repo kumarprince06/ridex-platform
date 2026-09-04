@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class RideController {
 
     private final RideRequestService rideRequestService;
+    private final com.ridex.trip.TripService tripService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -50,6 +51,16 @@ public class RideController {
     public CancellationQuote cancellationQuote(@AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable String rideId) {
         return rideRequestService.quoteCancellation(principal.userId(), rideId);
+    }
+
+    /** The rider's receipt: what was quoted against what was charged, line for line. */
+    @GetMapping("/{rideId}/receipt")
+    @ResponseStatus(HttpStatus.OK)
+    public com.ridex.trip.dto.FareComparisonResponse receipt(
+            @AuthenticationPrincipal JwtPrincipal principal, @PathVariable String rideId) {
+        // Ownership is checked first: the receipt itself is looked up by ride, not by caller.
+        rideRequestService.get(principal.userId(), rideId);
+        return tripService.receipt(rideId);
     }
 
     @PostMapping("/{rideId}/cancel")

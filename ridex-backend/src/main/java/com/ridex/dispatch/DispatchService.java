@@ -22,6 +22,7 @@ import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
+import com.ridex.trip.TripService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,7 @@ public class DispatchService {
     private final DriverProfileRepository driverProfileRepository;
     private final DriverPresence driverPresence;
     private final OfferNotifier offerNotifier;
+    private final TripService tripService;
 
     @Value("${app.dispatch.wave-radius-meters:3000}")
     private double waveRadiusMeters;
@@ -143,6 +145,10 @@ public class DispatchService {
         rideOfferRepository.supersedeOthers(
                 offer.getRideRequest().getId(), offerId, now,
                 OfferStatus.OFFERED, OfferStatus.SUPERSEDED);
+
+        // Same transaction as the assignment: a ride cannot be assigned without a pickup code,
+        // or the rider has nothing to show and the driver nothing to check.
+        tripService.createForAssignedRide(offer.getRideRequest().getId());
 
         OfferResponse response = toResponse(
                 rideOfferRepository.findById(offerId).orElseThrow());

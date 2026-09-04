@@ -81,3 +81,29 @@ shape and gain a data layer beneath them. Two things to know when that happens:
 - **Registration needs a role.** `POST /auth/register` takes `{ email, password, role: "RIDER" }`.
 
 Add types generated from the backend's OpenAPI rather than hand-writing them.
+
+## Dependency advisories
+
+`npm audit` reports advisories that all originate in **Expo's build tooling** — Metro, the Expo
+CLI, and the iOS project writers. None of them ship in the app binary or run on a user's device.
+
+Two are fixed here with `overrides`, both patch bumps inside their own major:
+
+| Package | Was | Now | Severity |
+|---|---|---|---|
+| `postcss` (via Metro) | 8.4.49 | 8.5.28 | high |
+| `@xmldom/xmldom` (via `@expo/plist`, `plist`) | 0.8.14 / 0.9.11 | 0.8.15 / 0.9.12 | moderate |
+
+Three are left alone, deliberately:
+
+| Package | Why not |
+|---|---|
+| `image-size` (via `metro`) | **No fixed version exists.** The latest release, 2.0.2, is itself in the vulnerable range |
+| `uuid@7` (via `xcode`) | The fix needs uuid ≥ 11 — four majors up, and v9 removed the default export that `xcode` calls. Overriding it breaks iOS builds to patch a build-time DoS |
+| `decode-uri-component` (via `query-string`, Expo CLI) | Fix requires 0.5.0 against 0.2.2 installed; on a 0.x package that is a breaking change |
+
+The real fix for all three is the Expo SDK 54 → 57 upgrade, which is a deliberate piece of work
+with device testing on both apps together — not something to do through a dependency patch.
+
+**Before merging a Dependabot PR here, check it against this table.** An automated bump of `uuid`
+or `image-size` will either break the build or change nothing.

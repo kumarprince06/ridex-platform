@@ -39,7 +39,20 @@ public class DispatchSweep {
     @Value("${app.dispatch.search-timeout-seconds:180}")
     private long searchTimeoutSeconds;
 
+    @Value("${app.dispatch.sweep-enabled:true}")
+    private boolean sweepEnabled;
+
+    /**
+     * The timer entry point. Off in tests, where background work firing inside every integration
+     * test races the context shutdown and eventually fails something unrelated.
+     */
     @Scheduled(fixedDelayString = "${app.dispatch.sweep-ms:5000}")
+    public void scheduledSweep() {
+        if (sweepEnabled) {
+            sweep();
+        }
+    }
+
     @Transactional
     public void sweep() {
         Instant now = Instant.now();

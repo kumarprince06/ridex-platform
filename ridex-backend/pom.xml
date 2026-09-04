@@ -165,6 +165,8 @@
 						<!-- Tests need a signing key like everything else; this one is only ever
 						     valid inside the build. -->
 						<RIDEX_JWT_SECRET>test-only-signing-key-long-enough-for-hmac-sha256</RIDEX_JWT_SECRET>
+						<!-- Tests drive the sweep themselves; on a timer it races context shutdown. -->
+						<app.dispatch.sweep-enabled>false</app.dispatch.sweep-enabled>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

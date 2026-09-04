@@ -267,16 +267,66 @@ That is now three bugs from one root cause - **anything that must survive a reje
 written on the transaction that is about to reject.** Worth checking for whenever a counter, an
 audit row or a lockout is written next to a `throw`.
 
-## T12 — Rebuild payments correctly (Phase 7)
+## T12 — Payments (Phase 7) — **MOSTLY DONE**
 
-The current gateway is subscription-shaped and has no idempotency.
+- [x] `V13__payments.sql`: `payments`, `payment_events`, `refunds`, `ledger_entries`,
+      `driver_earnings`
+- [x] `PaymentProvider` in the docs/13 shape, provider-neutral
+- [x] `CashPaymentProvider` - not a stub: cash is the majority method here and genuinely has no
+      gateway. The driver is handed the money, so the commission is what they owe back
+- [x] Idempotency key on every command; ledger entries deduplicated by key
+- [x] **Discounts are funded by the platform, never the driver.** Commission is taken on gross,
+      so a rider's points cost the platform and not the person driving. Proven by test
+- [x] Ledger is append-only; balances are sums
+- [ ] A card/UPI gateway - one more `PaymentProvider`, nothing above it changes
+- [ ] Webhook endpoint and dedup by provider event id (the table exists; cash has no webhooks)
+- [ ] Refund flow and the console screens for it
+- [ ] Payouts: `driver_payouts`, settlement batches, reconciliation
 
-- [ ] `V7__payments.sql`: `payments` (trip-scoped), `refunds`, `payment_events` (ledger)
-- [ ] Rewrite `PaymentGateway` to the `docs/13` shape:
-      `createPaymentIntent · confirmPayment · refundPayment · verifyWebhook · parseWebhook · getPayment`
-- [ ] Idempotency key on every externally initiated command
-- [ ] Webhook dedup by provider event ID
-- [ ] Immutable ledger rows, never a mutable balance field
+## T12b — Loyalty points and referrals — **DONE**
+
+- [x] `V12`: `point_entries` (append-only, no currency), `referrals`, referral codes on users
+- [x] Points are **not money**: no currency on the ledger, not withdrawable, and they cross into
+      money in exactly one place - a discount line priced by an admin-editable rate
+- [x] Redeemed at booking; only whole currency units, never more than the balance
+- [x] Riders earn points, **drivers earn cash** into their payout (ADR-011)
+- [x] Rider referral qualifies on the referee's first ride; driver referral on 25 trips in 30 days
+- [x] Every award carries an idempotency key, so a retried completion cannot pay twice
+- [ ] Points expiry, and the sweep that would apply it
+
+## T12c — Platform settings — **DONE**
+
+- [x] `V14`: `platform_settings`, read through `SettingsService` with a YAML fallback
+- [x] Point rewards, the redemption rate and the platform commission are all editable by
+      operations without a deploy, bounded so a typo cannot set a reward to a million
+- [x] Every change is audited
+
+## T12d — Support — **DONE (backend)**
+
+- [x] `V16`: `support_tickets`, `support_messages`
+- [x] Either side raises tickets; the role comes from the token, not the path
+- [x] The thread **is** the ticket - created with its first message, because a case with a status
+      and no conversation is a queue entry, not support
+- [x] Priority is derived from the category, never chosen by the reporter
+- [x] Internal agent notes never reach the person who raised it, and do not stop the SLA clock
+- [ ] Masked voice calls - needs a telephony provider (Twilio/Exotel) and number masking, which is
+      a real integration rather than a screen
+- [ ] Console support queue screens
+
+## T12e — Shuttle, seats and passes — **DONE (backend)**
+
+- [x] `V17`/`V18`: routes, stops, published stop-pair fares, schedules, departures, bookings,
+      pass products and passes
+- [x] **Riders choose their seat.** Labels are generated from capacity (4 across, lettered), and
+      a partial unique index on `(shuttle_trip_id, seat_label)` is what actually stops two people
+      being sold 4A - proven by a two-thread test
+- [x] Cancelling releases the seat and hands back a pass ride
+- [x] **Commuter passes** as prepaid entitlements, bound to the account, counted up rather than
+      down so usage reconciles against the bookings
+- [x] Fares are fixed per stop pair: a commute taken twice a day cannot surge
+- [ ] Assigning drivers and vehicles to departures
+- [ ] Charging for a pass - it records the price but the gateway is cash-only
+- [ ] Rider app screens for the seat picker and passes
 
 ## T13 — Earnings + payout (Phase 8)
 

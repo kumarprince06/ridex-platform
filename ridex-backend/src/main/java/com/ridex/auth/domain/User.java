@@ -88,6 +88,23 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    // One place, so rider and driver profile updates cannot disagree about normalisation.
+    public void updateIdentity(String firstName, String lastName, String phone) {
+        this.firstName = blankToNull(firstName);
+        this.lastName = blankToNull(lastName);
+        // Uniqueness is enforced by uk_users_phone; blank must become null or the second blank
+        // collides with the first.
+        this.phone = blankToNull(phone);
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (id == null) {

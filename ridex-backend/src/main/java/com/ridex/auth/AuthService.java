@@ -35,9 +35,11 @@ import com.ridex.auth.domain.User;
 import com.ridex.auth.domain.UserRole;
 import com.ridex.auth.domain.UserStatus;
 import com.ridex.auth.domain.UserToken;
+import com.ridex.driver.DriverProfileService;
 import com.ridex.notification.DeliveryChannel;
 import com.ridex.notification.Notifier;
 import com.ridex.platform.ratelimit.RateLimiter;
+import com.ridex.rider.RiderProfileService;
 import com.ridex.platform.ratelimit.TooManyRequestsException;
 import com.ridex.platform.security.JwtService;
 import com.ridex.shared.util.OtpGenerator;
@@ -65,6 +67,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final RateLimiter rateLimiter;
     private final Notifier notifier;
+    private final RiderProfileService riderProfileService;
+    private final DriverProfileService driverProfileService;
 
     @Value("${app.rate-limit.login-failures:8}")
     private int loginFailureLimit;
@@ -107,6 +111,14 @@ public class AuthService {
         user.setStatus(UserStatus.PENDING);
         user.setRoles(EnumSet.of(request.role()));
         userRepository.save(user);
+
+        // Same transaction as the account. An account with no profile row is a null check in every
+        // screen that follows.
+        switch (request.role()) {
+            case RIDER -> riderProfileService.createFor(user);
+            case DRIVER -> driverProfileService.createFor(user);
+            default -> throw new IllegalArgumentException("Accounts of that type cannot be self-registered.");
+        }
 
         issueOtp(user, TokenPurpose.EMAIL_VERIFICATION, "VERIFY_ACCOUNT");
     }

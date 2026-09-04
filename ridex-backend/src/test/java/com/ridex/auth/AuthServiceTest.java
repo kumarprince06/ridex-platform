@@ -26,9 +26,11 @@ import com.ridex.auth.dto.LoginRequest;
 import com.ridex.auth.dto.LoginResponse;
 import com.ridex.auth.dto.LogoutRequest;
 import com.ridex.auth.dto.RegisterRequest;
+import com.ridex.driver.DriverProfileService;
 import com.ridex.notification.DeliveryChannel;
 import com.ridex.notification.Notifier;
 import com.ridex.platform.ratelimit.RateLimiter;
+import com.ridex.rider.RiderProfileService;
 import com.ridex.platform.ratelimit.TooManyRequestsException;
 
 import com.ridex.auth.domain.AppContext;
@@ -63,6 +65,8 @@ class AuthServiceTest {
     private AuthSecurityService authSecurityService;
     private RateLimiter rateLimiter;
     private Notifier notifier;
+    private RiderProfileService riderProfileService;
+    private DriverProfileService driverProfileService;
     private AuthService authService;
 
     @BeforeEach
@@ -73,13 +77,15 @@ class AuthServiceTest {
         authSecurityService = mock(AuthSecurityService.class);
         rateLimiter = mock(RateLimiter.class);
         notifier = mock(Notifier.class);
+        riderProfileService = mock(RiderProfileService.class);
+        driverProfileService = mock(DriverProfileService.class);
         when(rateLimiter.tryConsume(any(), anyInt(), any())).thenReturn(true);
         jwtService = new JwtService("super-secret-key-which-is-very-long-for-jwt-signing", 3600000, 604800000);
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
         authService = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, passwordEncoder, rateLimiter, notifier);
+                jwtService, passwordEncoder, rateLimiter, notifier, riderProfileService, driverProfileService);
         authService.generateDecoyHash();
 
         when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
@@ -98,6 +104,9 @@ class AuthServiceTest {
         verify(userTokenRepository).save(any());
         verify(notifier).enqueue(eq(DeliveryChannel.EMAIL), eq("rider@example.com"),
                 eq("VERIFY_ACCOUNT"), any());
+        // Created in the same transaction, so an account can never exist without its profile.
+        verify(riderProfileService).createFor(any(User.class));
+        verify(driverProfileService, never()).createFor(any());
     }
 
     @Test
@@ -235,7 +244,7 @@ class AuthServiceTest {
         when(encoder.encode(any())).thenReturn("hashed");
         AuthService service = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, encoder, rateLimiter, notifier);
+                jwtService, encoder, rateLimiter, notifier, riderProfileService, driverProfileService);
         service.generateDecoyHash();
         when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
 
@@ -252,7 +261,7 @@ class AuthServiceTest {
         when(encoder.matches(any(), any())).thenReturn(false);
         AuthService service = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, encoder, rateLimiter, notifier);
+                jwtService, encoder, rateLimiter, notifier, riderProfileService, driverProfileService);
         service.generateDecoyHash();
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 

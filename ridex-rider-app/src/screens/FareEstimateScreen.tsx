@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { bookRide, estimate, formatMoney, type EstimateOption } from '../api/rides';
+import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { RouteStops } from '../components/RouteStops';
 import { Screen } from '../components/Screen';
@@ -19,10 +21,47 @@ const METHODS = [
 ];
 
 export function FareEstimateScreen({ navigation, route }: Props) {
-  const { destination, tierId } = route.params;
+  const { destination, tierId, estimateId } = route.params;
   const [methodId, setMethodId] = useState('visa');
+  const [quote, setQuote] = useState<EstimateOption | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const tier = RIDE_TIERS.find((item) => item.id === tierId) ?? RIDE_TIERS[0]!;
+
+  useEffect(() => {
+    if (!estimateId) {
+      return;
+    }
+    // Re-priced rather than passed through navigation params: a quote is short-lived, and a stale
+    // one in a route param is exactly the number a rider would be shown and then not charged.
+    void (async () => {
+      try {
+        const priced = await estimate([12.9352, 77.6245], [12.9784, 77.6408]);
+        setQuote(priced.find((option) => option.rideTypeCode === tierId) ?? priced[0] ?? null);
+      } catch (caught) {
+        setError(caught instanceof ApiError ? caught.userMessage : 'Could not price this trip.');
+      }
+    })();
+  }, [estimateId, tierId]);
+
+  async function onRequestRide() {
+    if (!quote) {
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const ride = await bookRide(quote.estimateId, 'Current location', destination);
+      navigation.replace('FindingDriver', { destination, rideId: ride.id });
+    } catch (caught) {
+      // An expired quote lands here: re-quoting is the rider's choice, not something to do
+      // silently at a price they never saw.
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not request the ride.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Screen
@@ -30,8 +69,15 @@ export function FareEstimateScreen({ navigation, route }: Props) {
       title="Fare Estimate"
       footer={
         <Button
-          label="Request Ride · $10.88"
-          onPress={() => navigation.navigate('FindingDriver', { destination })}
+          label={
+            busy
+              ? 'Requesting...'
+              : quote
+                ? `Request Ride · ${formatMoney(quote.totalMinor, quote.currency)}`
+                : 'Pricing...'
+          }
+          disabled={busy || !quote}
+          onPress={onRequestRide}
         />
       }
     >
@@ -57,18 +103,26 @@ export function FareEstimateScreen({ navigation, route }: Props) {
 
         <View style={styles.divider} />
 
-        {FARE_LINES.map((line) => (
-          <View key={line.label} style={styles.fareRow}>
+        {(quote?.lines ?? []).map((line, index) => (
+          <View key={`${line.type}-${index}`} style={styles.fareRow}>
             <Text style={styles.fareLabel}>{line.label}</Text>
-            <Text style={[styles.fareAmount, line.credit && styles.credit]}>{line.amount}</Text>
+            {/* Negative lines are discounts, and are shown as credits rather than as a figure
+                the reader has to know to subtract. */}
+            <Text style={[styles.fareAmount, line.amountMinor < 0 && styles.credit]}>
+              {formatMoney(line.amountMinor, quote!.currency)}
+            </Text>
           </View>
         ))}
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.divider} />
 
         <View style={styles.fareRow}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalAmount}>$10.88</Text>
+          <Text style={styles.totalAmount}>
+            {quote ? formatMoney(quote.totalMinor, quote.currency) : '—'}
+          </Text>
         </View>
       </View>
 
@@ -97,6 +151,11 @@ export function FareEstimateScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.md,
+  },
   flex: {
     flex: 1,
   },

@@ -3,6 +3,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { cancelRide } from '../api/rides';
+import { useRideStatus } from '../api/rideStatus';
 import { MapCanvas } from '../components/MapCanvas';
 import { PulseRings } from '../components/PulseRings';
 import { Sheet } from '../components/Sheet';
@@ -11,33 +13,43 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FindingDriver'>;
 
-const MATCH_DELAY_MS = 3200;
+// Long enough to read the confirmation before the screen changes under the rider.
 const FOUND_HOLD_MS = 1300;
 
 export function FindingDriverScreen({ navigation, route }: Props) {
-  const { destination } = route.params;
+  const { destination, rideId } = route.params;
+  const { ride } = useRideStatus(rideId ?? null);
+
   // Searching and found are the same screen: same map, same sheet, same cancel affordance. Only
   // the badge and the copy change, so this is a state rather than a second route.
-  const [found, setFound] = useState(false);
-
-  useEffect(() => {
-    // Stands in for the dispatch round trip.
-    const timer = setTimeout(() => setFound(true), MATCH_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, []);
+  const found = ride?.status === 'DRIVER_ASSIGNED';
+  const [gaveUp, setGaveUp] = useState(false);
 
   useEffect(() => {
     if (!found) {
       return;
     }
-    // Holds the confirmation long enough to read, then replaces so Cancel cannot land the user
-    // back on a search that has already been matched.
     const timer = setTimeout(
-      () => navigation.replace('DriverAssigned', { destination }),
+      () => navigation.replace('DriverAssigned', { destination, rideId }),
       FOUND_HOLD_MS,
     );
     return () => clearTimeout(timer);
-  }, [found, navigation, destination]);
+  }, [found, navigation, destination, rideId]);
+
+  useEffect(() => {
+    // The server gives up after four widening waves. Saying so beats a spinner that never stops.
+    if (ride?.status === 'EXPIRED' || ride?.status === 'CANCELLED_BY_SYSTEM') {
+      setGaveUp(true);
+    }
+  }, [ride?.status]);
+
+  async function onCancel() {
+    if (rideId) {
+      // Best effort: a failed cancel must not trap the rider on this screen.
+      await cancelRide(rideId, 'Cancelled while searching').catch(() => undefined);
+    }
+    navigation.goBack();
+  }
 
   return (
     <View style={styles.root}>
@@ -54,7 +66,13 @@ export function FindingDriverScreen({ navigation, route }: Props) {
           </View>
         </PulseRings>
 
-        <Text style={styles.title}>{found ? 'Driver Found!' : 'Finding your driver...'}</Text>
+        <Text style={styles.title}>
+          {gaveUp
+            ? 'No drivers available'
+            : found
+              ? 'Driver Found!'
+              : 'Finding your driver...'}
+        </Text>
 
         {found ? null : (
           <>
@@ -73,11 +91,11 @@ export function FindingDriverScreen({ navigation, route }: Props) {
         )}
 
         <Pressable
-          onPress={() => navigation.navigate('CancelRide')}
+          onPress={gaveUp ? () => navigation.goBack() : onCancel}
           accessibilityRole="button"
           style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
         >
-          <Text style={styles.cancelText}>Cancel Request</Text>
+          <Text style={styles.cancelText}>{gaveUp ? 'Try again' : 'Cancel Request'}</Text>
         </Pressable>
       </Sheet>
     </View>

@@ -36,14 +36,14 @@ export type RootStackParamList = {
   // Booking flow, in the order a rider walks it.
   SearchDestination: undefined;
   RoutePreview: { destination: string; destinationCoord?: [number, number] };
-  ChooseRide: { destination: string };
-  FareEstimate: { destination: string; tierId: string };
-  FindingDriver: { destination: string };
-  DriverAssigned: { destination: string };
+  ChooseRide: { destination: string; destinationCoord?: [number, number] };
+  FareEstimate: { destination: string; tierId: string; estimateId?: string };
+  FindingDriver: { destination: string; rideId?: string };
+  DriverAssigned: { destination: string; rideId?: string };
   DriverApproaching: { destination: string };
   DriverArrived: { destination: string };
   TripInProgress: { destination: string };
-  RideCompleted: { destination: string };
+  RideCompleted: { destination: string; rideId?: string };
   RateDriver: undefined;
   CancelRide: undefined;
   RideCancelled: undefined;

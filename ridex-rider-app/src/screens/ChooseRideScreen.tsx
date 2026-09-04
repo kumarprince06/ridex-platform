@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { estimate, formatMoney, type EstimateOption } from '../api/rides';
+import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { RIDE_TIERS } from '../data/mock';
@@ -12,11 +14,33 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChooseRide'>;
 
-export function ChooseRideScreen({ navigation, route }: Props) {
-  const { destination } = route.params;
-  const [selectedId, setSelectedId] = useState('comfort');
+// Fixed pickup until live location is wired; the destination comes from the search screen.
+const FALLBACK_PICKUP: [number, number] = [12.9352, 77.6245];
 
-  const selected = RIDE_TIERS.find((tier) => tier.id === selectedId) ?? RIDE_TIERS[0]!;
+export function ChooseRideScreen({ navigation, route }: Props) {
+  const { destination, destinationCoord } = route.params;
+  const [options, setOptions] = useState<EstimateOption[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const priced = await estimate(
+          FALLBACK_PICKUP,
+          destinationCoord ?? [12.9784, 77.6408],
+        );
+        setOptions(priced);
+        setSelectedId(priced[0]?.estimateId ?? null);
+      } catch (caught) {
+        setError(caught instanceof ApiError ? caught.userMessage : 'Could not price this trip.');
+      }
+    })();
+  }, [destinationCoord]);
+
+  const selected = options?.find((option) => option.estimateId === selectedId) ?? null;
+  // The server priced every option; anything the local mock adds is presentation only.
+  const iconFor = (index: number) => RIDE_TIERS[index % RIDE_TIERS.length]!;
 
   return (
     <View style={styles.root}>
@@ -35,16 +59,22 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
         <Text style={styles.title}>Choose your ride</Text>
-        <Text style={styles.subtitle}>{destination} · 2.4 km</Text>
+        <Text style={styles.subtitle}>
+          {destination}
+          {selected ? ` · ${(selected.distanceMeters / 1000).toFixed(1)} km` : ''}
+        </Text>
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
-          {RIDE_TIERS.map((tier) => {
-            const isSelected = tier.id === selectedId;
+          {(options ?? []).map((option, index) => {
+            const tier = iconFor(index);
+            const isSelected = option.estimateId === selectedId;
 
             return (
               <Pressable
-                key={tier.id}
-                onPress={() => setSelectedId(tier.id)}
+                key={option.estimateId}
+                onPress={() => setSelectedId(option.estimateId)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isSelected }}
                 style={[styles.tier, isSelected && styles.tierSelected]}
@@ -55,7 +85,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
                 <View style={styles.flex}>
                   <View style={styles.tierNameRow}>
-                    <Text style={styles.tierName}>{tier.name}</Text>
+                    <Text style={styles.tierName}>{option.displayName}</Text>
                     {tier.popular ? (
                       <View style={styles.popular}>
                         <Text style={styles.popularText}>Popular</Text>
@@ -63,18 +93,22 @@ export function ChooseRideScreen({ navigation, route }: Props) {
                     ) : null}
                   </View>
 
-                  <Text style={styles.tierBlurb}>{tier.blurb}</Text>
+                  <Text style={styles.tierBlurb}>{option.description ?? tier.blurb}</Text>
 
                   <View style={styles.tierMeta}>
                     <Ionicons name="time-outline" size={11} color={colors.textMuted} />
-                    <Text style={styles.tierMetaText}>{tier.eta}</Text>
+                    <Text style={styles.tierMetaText}>
+                      {Math.round(option.durationSeconds / 60)} min
+                    </Text>
                     <Ionicons name="people" size={11} color={colors.textMuted} />
-                    <Text style={styles.tierMetaText}>{tier.seats}</Text>
+                    <Text style={styles.tierMetaText}>{option.seatCapacity}</Text>
                   </View>
                 </View>
 
                 <View style={styles.tierRight}>
-                  <Text style={styles.tierPrice}>{tier.price}</Text>
+                  <Text style={styles.tierPrice}>
+                    {formatMoney(option.totalMinor, option.currency)}
+                  </Text>
                   {isSelected ? (
                     <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
                   ) : null}
@@ -85,8 +119,16 @@ export function ChooseRideScreen({ navigation, route }: Props) {
         </ScrollView>
 
         <Button
-          label={`Continue with ${selected.name}`}
-          onPress={() => navigation.navigate('FareEstimate', { destination, tierId: selected.id })}
+          label={selected ? `Continue with ${selected.displayName}` : 'Pricing your trip...'}
+          disabled={!selected}
+          onPress={() =>
+            selected &&
+            navigation.navigate('FareEstimate', {
+              destination,
+              tierId: selected.rideTypeCode,
+              estimateId: selected.estimateId,
+            })
+          }
           style={styles.action}
         />
       </SafeAreaView>
@@ -95,6 +137,11 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.sm,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.bg,

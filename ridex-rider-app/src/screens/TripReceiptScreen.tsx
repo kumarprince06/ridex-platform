@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '../components/Avatar';
 import { RouteStops } from '../components/RouteStops';
 import { Screen } from '../components/Screen';
+import { formatMoney, getReceipt, type Receipt } from '../api/rides';
 import { DRIVER, FARE_LINES } from '../data/mock';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -12,6 +14,17 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'TripReceipt'>;
 
 export function TripReceiptScreen({ navigation, route }: Props) {
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+
+  useEffect(() => {
+    // Falls back to the static lines when the ride has no finished trip, so an old mock id still
+    // renders rather than showing an empty card.
+    void getReceipt(route.params.rideId).then(setReceipt).catch(() => undefined);
+  }, [route.params.rideId]);
+
+  const lines = receipt?.chargedLines;
+  const overrun = receipt ? receipt.differenceMinor : 0;
+
   return (
     <Screen
       onBack={() => navigation.goBack()}
@@ -43,19 +56,49 @@ export function TripReceiptScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.card}>
-        {FARE_LINES.map((line) => (
-          <View key={line.label} style={styles.row}>
-            <Text style={styles.label}>{line.label}</Text>
-            <Text style={[styles.amount, line.credit && styles.credit]}>{line.amount}</Text>
-          </View>
-        ))}
+        {lines
+          ? lines.map((line, index) => (
+              <View key={`${line.type}-${index}`} style={styles.row}>
+                <Text style={styles.label}>{line.label}</Text>
+                <Text style={[styles.amount, line.amountMinor < 0 && styles.credit]}>
+                  {formatMoney(line.amountMinor, receipt!.currency)}
+                </Text>
+              </View>
+            ))
+          : FARE_LINES.map((line) => (
+              <View key={line.label} style={styles.row}>
+                <Text style={styles.label}>{line.label}</Text>
+                <Text style={[styles.amount, line.credit && styles.credit]}>{line.amount}</Text>
+              </View>
+            ))}
 
         <View style={styles.divider} />
 
         <View style={styles.row}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalAmount}>$10.88</Text>
+          <Text style={styles.totalAmount}>
+            {receipt ? formatMoney(receipt.chargedTotalMinor, receipt.currency) : '$10.88'}
+          </Text>
         </View>
+
+        {receipt && overrun !== 0 ? (
+          <View style={styles.compare}>
+            {/* The thing no competitor shows: what was quoted, against what was charged. */}
+            <View style={styles.row}>
+              <Text style={styles.label}>You were quoted</Text>
+              <Text style={styles.amount}>
+                {formatMoney(receipt.quotedTotalMinor, receipt.currency)}
+              </Text>
+            </View>
+            <Text style={styles.compareNote}>
+              {overrun > 0 ? 'Charged ' : 'Reduced by '}
+              {formatMoney(Math.abs(overrun), receipt.currency)}
+              {overrun > 0 ? ' more · ' : ' · '}
+              {(receipt.actualDistanceMeters / 1000).toFixed(1)} km driven against{' '}
+              {(receipt.quotedDistanceMeters / 1000).toFixed(1)} km quoted
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.card, styles.driverCard]}>
@@ -75,6 +118,17 @@ export function TripReceiptScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  compare: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  compareNote: {
+    ...type.caption,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
   flex: {
     flex: 1,
   },

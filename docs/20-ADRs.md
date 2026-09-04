@@ -85,3 +85,73 @@ on review.
 - **Keeping layer-first and only fixing the leaks** — cheaper today, but leaves each feature spread
   across four folders and module boundaries unenforceable.
 
+---
+
+## ADR-010 — Shuttle as its own tables, not a type on trips
+
+**Date:** 2026-09-05 · **Status:** accepted
+
+### Context
+
+Shuttle is a scheduled vehicle with numbered seats. On-demand is a search for a driver. They share
+riders, payments, points and support, and share nothing about how a seat or a car is allocated.
+
+The tempting shortcut is `trips.type = 'SHUTTLE'`.
+
+### Decision
+
+Separate tables: `routes`, `route_stops`, `route_fares`, `shuttle_schedules`, `shuttle_trips`,
+`shuttle_bookings`, plus `pass_products` and `passes`.
+
+### Consequences
+
+- Dispatch, offers and surge do not exist for shuttle, and no shuttle code has to explain why.
+- Seat allocation is a unique index on `(shuttle_trip_id, seat_label)`, which has no meaning at all
+  for an on-demand ride.
+- Payments, points, support and the QR/OTP boarding rule are shared, because those genuinely are
+  the same thing.
+- Cost: two booking flows to maintain, and two places that create a payment.
+
+### Rejected
+
+**A `type` column on `trips`.** It would put a conditional in every service in the codebase, and it
+is the kind of decision that ruins a codebase slowly enough that nobody can point at when it
+happened. The saving is a few tables; the cost is every future reader having to know which half of
+each method applies to them.
+
+---
+
+## ADR-011 — Riders earn points, drivers earn money
+
+**Date:** 2026-09-05 · **Status:** accepted
+
+### Context
+
+Both riders and drivers can refer. Paying both in the same currency is simpler.
+
+### Decision
+
+The **referrer's role** decides the reward. A rider referring anybody earns points; a driver
+referring anybody earns cash, credited to their earnings ledger and settled with their next payout.
+
+Rider referrals qualify on the referee's first completed ride. Driver referrals qualify on a run of
+completed trips (25 by default) inside a window (30 days), both admin-editable.
+
+### Consequences
+
+- A rider gets something they want - cheaper rides - and it costs the platform a discount it sets
+  the value of. Points never leave the platform.
+- A driver gets income, which is the only thing their relationship with the platform is about. Ride
+  discounts would be worthless to them.
+- Driver supply is the constraint in this business, so the referral that solves the expensive
+  problem is the one that pays real money.
+- Cash referrals are the first thing anyone farms, hence the much higher bar, the deadline, and
+  crediting the ledger rather than paying instantly - which is what makes a clawback possible.
+
+### Rejected
+
+- **Points for everyone.** A driver cannot use ride discounts, so the reward would not motivate the
+  referral that matters most.
+- **Cash for everyone.** A rider referral is cheap to manufacture and would be farmed immediately.
+- **Paying on signup.** That buys accounts, not riders or drivers.
+

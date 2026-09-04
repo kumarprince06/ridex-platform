@@ -209,11 +209,35 @@ console.
 2. **No `route_polyline` yet.** The Distance Matrix API does not return one; it arrives with the
    Directions API, and a column nothing writes is worse than no column.
 
-## T10 — Dispatch (Phase 5)
+## T10 — Dispatch (Phase 5) — **MOSTLY DONE**
 
-- [ ] `V5__dispatch.sql`: `ride_offers`
-- [ ] Eligible driver search, offer creation, accept/reject, timeout, reassignment
-- [ ] Concurrency protection — two drivers must not accept the same offer
+- [x] `V8__dispatch.sql`: `ride_offers`, driver duty, ride assignment. `V9` adds the search wave
+- [x] Driver duty and live position in Redis; positions never touch Postgres
+- [x] Offers in waves of five nearest, widening each sweep, not a broadcast
+- [x] Accept / reject / reconnect endpoints, with server-issued expiry
+- [x] STOMP push for delivery; the claim stays HTTP
+- [x] **Concurrency settled on the ride row**, proven by a two-thread test
+- [x] Sweep: expires overdue offers, widens the search, and expires a ride nobody takes
+- [ ] Redis pub/sub relay — the STOMP broker is in-memory, so this is single-node only
+- [ ] FCM fallback for a backgrounded app
+- [ ] Eligibility cannot yet check document validity or an active vehicle (needs T7)
+
+### What the concurrency test caught
+
+Neither is findable by a unit test, and both would have been intermittent in production.
+
+1. **The claim did not arbitrate.** A conditional `UPDATE` on the *offer* row is the textbook
+   answer and is wrong here: two drivers hold two different offer rows for one ride, so both
+   updates succeed. The partial unique index caught it as a **Postgres deadlock** rather than a
+   clean loss. The fix is to contend on the single `ride_requests` row first - the loser reads the
+   new status and leaves, and never reaches the offers index.
+2. **`afterCommit` silently discarded every write.** It runs while the old synchronization is
+   still active, so a plain `@Transactional` call there joins a *finished* transaction. No
+   exception, no rows, no clue. It needs `REQUIRES_NEW`.
+
+A third, found by the sweep test: **the wave has to be recorded, not derived.** It was
+`MAX(wave)` over the offers, which never advances once every nearby driver has already been asked
+- no new row, no new wave, and the sweep re-runs the same radius forever.
 
 ## T11 — Live trip (Phase 6)
 

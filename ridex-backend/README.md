@@ -141,6 +141,11 @@ GET    /api/v1/rides                    RIDER
 GET    /api/v1/rides/{id}               RIDER
 GET    /api/v1/rides/{id}/cancellation-quote  RIDER
 POST   /api/v1/rides/{id}/cancel        RIDER
+PUT    /api/v1/driver/duty              DRIVER
+POST   /api/v1/driver/location          DRIVER
+GET    /api/v1/driver/offers            DRIVER
+POST   /api/v1/driver/offers/{id}/accept  DRIVER
+POST   /api/v1/driver/offers/{id}/reject  DRIVER
 GET    /api/v1/maps/geocode             authenticated
 GET    /api/v1/maps/route               authenticated
 GET    /actuator/health                 public
@@ -225,6 +230,28 @@ against the final charge. The lines are asserted to sum to the total across ~400
 `FareCalculator` is pure: no Spring, no clock, no database. The maths that decides what people are
 charged is testable exhaustively in milliseconds, which is the whole reason `<feature>/domain/`
 exists.
+
+## Dispatch
+
+**The socket delivers; the database decides.** Offers are pushed over STOMP to
+`/user/{driverId}/queue/offers`, but accept and reject are HTTP - a socket message has no natural
+409 and no retry semantics. `GET /driver/offers` is the reconnect path, because a socket that
+dropped for eight seconds must not lose a ride.
+
+The claim contends on the **ride row**, not the offer:
+
+```sql
+UPDATE ride_requests SET status = 'DRIVER_ASSIGNED', assigned_driver_id = ?
+ WHERE id = ? AND status = 'SEARCHING'
+```
+
+Two drivers hold two *different* offer rows for one ride, so a conditional update on the offer
+cannot separate them - both would succeed. Only the single ride row can. Claiming it first also
+means the loser reads the new status and leaves, rather than both transactions deadlocking on the
+`uk_ride_offers_one_winner` index.
+
+Positions live in Redis and never touch Postgres; duty status lives in Postgres because it is a
+decision that must survive a Redis restart.
 
 ## Errors
 

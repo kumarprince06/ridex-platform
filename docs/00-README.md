@@ -60,3 +60,22 @@ Do not carry forward the old tenant_id architecture into the fresh B2C design. K
 16. Edge cases and error catalog
 17. Differentiating RideX ideas
 18. Future project ideas
+19. Technology stack
+20. ADRs
+21. Gap analysis and task list
+22. Partner app design
+23. Admin panel design
+24. High-level design (HLD)
+25. Low-level design (LLD)
+26. Build task list
+27. Unique feature set
+
+## Where to start
+
+| You want to | Read |
+|---|---|
+| Understand the product | 01, 02, 03 |
+| Understand the system | 24 (HLD), then 08 |
+| Build something | 26 (task list), then 25 (LLD) |
+| Know what is already done | 21 |
+| Know what makes RideX different | 27 |

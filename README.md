@@ -16,6 +16,7 @@ trips, and platform operations manage the marketplace. Built with Java 21 and Sp
 **Cache / transient state:** Redis
 
 Current work and known gaps are tracked in [docs/21-Gap-Tasks.md](docs/21-Gap-Tasks.md).
+The ordered next steps are [docs/26-Build-Task-List.md](docs/26-Build-Task-List.md).
 
 ---
 
@@ -65,7 +66,9 @@ com.ridex
 The domain must not depend on Spring MVC, mail SDKs, payment SDKs, or JPA details where
 avoidable. Application services depend on domain abstractions; infrastructure implements them.
 
-Full detail: [docs/08-Backend-Architecture.md](docs/08-Backend-Architecture.md).
+System-level design: [docs/24-HLD-High-Level-Design.md](docs/24-HLD-High-Level-Design.md).
+Class and table level: [docs/25-LLD-Low-Level-Design.md](docs/25-LLD-Low-Level-Design.md).
+Module conventions: [docs/08-Backend-Architecture.md](docs/08-Backend-Architecture.md).
 
 ---
 
@@ -182,6 +185,12 @@ cd ridex-backend
 | 19 | [Technology stack](docs/19-Technology-Stack.md) |
 | 20 | [ADRs](docs/20-ADRs.md) |
 | 21 | [Gap analysis and tasks](docs/21-Gap-Tasks.md) |
+| 22 | [Partner app design](docs/22-Partner-App-Design.md) |
+| 23 | [Admin panel design](docs/23-Admin-Panel-Design.md) |
+| 24 | [High-level design](docs/24-HLD-High-Level-Design.md) |
+| 25 | [Low-level design](docs/25-LLD-Low-Level-Design.md) |
+| 26 | [Build task list](docs/26-Build-Task-List.md) |
+| 27 | [Unique feature set](docs/27-Unique-Feature-Set.md) |
 
 ---
 

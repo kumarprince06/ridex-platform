@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,11 +27,26 @@ import lombok.RequiredArgsConstructor;
 public class DriverController {
 
     private final DriverProfileService driverProfileService;
+    private final DriverOnboardingService driverOnboardingService;
 
     @GetMapping("/profile")
     @ResponseStatus(HttpStatus.OK)
     public DriverProfileResponse getProfile(@AuthenticationPrincipal JwtPrincipal principal) {
         return driverProfileService.get(principal.userId());
+    }
+
+    @GetMapping("/onboarding")
+    @ResponseStatus(HttpStatus.OK)
+    public com.ridex.driver.dto.OnboardingResponse onboarding(
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        return driverOnboardingService.status(principal.userId());
+    }
+
+    @PostMapping("/onboarding/submit")
+    @ResponseStatus(HttpStatus.OK)
+    public com.ridex.driver.dto.OnboardingResponse submitForReview(
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        return driverOnboardingService.submitForReview(principal.userId());
     }
 
     @PutMapping("/profile")

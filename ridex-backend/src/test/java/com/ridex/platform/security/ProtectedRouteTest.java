@@ -38,6 +38,8 @@ class ProtectedRouteTest {
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/rider/profile")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/driver/profile")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/admin/drivers/awaiting-review"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

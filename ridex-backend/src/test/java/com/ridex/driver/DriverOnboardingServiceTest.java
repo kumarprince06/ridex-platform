@@ -1,0 +1,126 @@
+package com.ridex.driver;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
+
+import java.util.EnumSet;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.ridex.auth.UserRepository;
+import com.ridex.auth.domain.User;
+import com.ridex.auth.domain.UserRole;
+import com.ridex.auth.domain.UserStatus;
+import com.ridex.driver.domain.DriverOnboardingStatus;
+import com.ridex.driver.domain.DriverProfile;
+import com.ridex.location.DriverPresence;
+import com.ridex.shared.exception.ConflictException;
+
+@SpringBootTest
+@Transactional
+class DriverOnboardingServiceTest {
+
+    @MockitoBean private DriverPresence driverPresence;
+
+    @Autowired private DriverOnboardingService onboarding;
+    @Autowired private DriverProfileService driverProfileService;
+    @Autowired private DriverProfileRepository driverProfileRepository;
+    @Autowired private UserRepository userRepository;
+
+    @Test
+    void aNewDriverCannotDriveUntilSomebodyApprovesThem() {
+        String driverUserId = newDriver();
+
+        assertThat(onboarding.status(driverUserId).eligibleToDrive()).isFalse();
+
+        onboarding.submitForReview(driverUserId);
+        assertThat(onboarding.status(driverUserId).status())
+                .isEqualTo(DriverOnboardingStatus.UNDER_REVIEW);
+        assertThat(onboarding.status(driverUserId).eligibleToDrive()).isFalse();
+
+        onboarding.approve(driverId(driverUserId), newOpsAdmin());
+        assertThat(onboarding.status(driverUserId).eligibleToDrive()).isTrue();
+    }
+
+    @Test
+    void anApplicationCannotBeApprovedBeforeItIsReviewed() {
+        String driverUserId = newDriver();
+
+        // Straight from REGISTERED to APPROVED would skip the review the whole machine exists for.
+        assertThatThrownBy(() -> onboarding.approve(driverId(driverUserId), newOpsAdmin()))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void aRejectedApplicantIsTerminalRatherThanReopenable() {
+        String driverUserId = newDriver();
+        String reviewer = newOpsAdmin();
+        onboarding.submitForReview(driverUserId);
+        onboarding.reject(driverId(driverUserId), reviewer, "Licence photo was unreadable");
+
+        assertThat(onboarding.status(driverUserId).rejectionReason())
+                .isEqualTo("Licence photo was unreadable");
+        // Re-applying is a new submission, so the trail of why they were rejected survives.
+        assertThatThrownBy(() -> onboarding.approve(driverId(driverUserId), reviewer))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void suspendingTakesTheDriverOffDutyImmediately() {
+        String driverUserId = newDriver();
+        String reviewer = newOpsAdmin();
+        onboarding.submitForReview(driverUserId);
+        onboarding.approve(driverId(driverUserId), reviewer);
+
+        DriverProfile driver = driverProfileRepository.findByUserId(driverUserId).orElseThrow();
+        driver.setOnDuty(true);
+        driverProfileRepository.save(driver);
+
+        onboarding.suspend(driverId(driverUserId), reviewer, "Under investigation for a complaint");
+
+        // A suspension that leaves somebody taking rides for another twenty minutes is not one.
+        assertThat(driverProfileRepository.findByUserId(driverUserId).orElseThrow().isOnDuty())
+                .isFalse();
+        verify(driverPresence).goOffDuty(driver.getId());
+    }
+
+    @Test
+    void theReviewerIsRecordedOnTheDecision() {
+        String driverUserId = newDriver();
+        String reviewer = newOpsAdmin();
+        onboarding.submitForReview(driverUserId);
+        onboarding.approve(driverId(driverUserId), reviewer);
+
+        DriverProfile driver = driverProfileRepository.findByUserId(driverUserId).orElseThrow();
+        assertThat(driver.getReviewedBy().getId()).isEqualTo(reviewer);
+        assertThat(driver.getReviewedAt()).isNotNull();
+    }
+
+    private String driverId(String driverUserId) {
+        return driverProfileRepository.findByUserId(driverUserId).orElseThrow().getId();
+    }
+
+    private String newDriver() {
+        User user = newUser(UserRole.DRIVER);
+        driverProfileService.createFor(user);
+        return user.getId();
+    }
+
+    private String newOpsAdmin() {
+        return newUser(UserRole.OPS_ADMIN).getId();
+    }
+
+    private User newUser(UserRole role) {
+        User user = new User();
+        user.setEmail("onboarding-" + System.nanoTime() + "@example.com");
+        user.setPasswordHash("irrelevant");
+        user.setStatus(UserStatus.ACTIVE);
+        user.setRoles(EnumSet.of(role));
+        return userRepository.save(user);
+    }
+}

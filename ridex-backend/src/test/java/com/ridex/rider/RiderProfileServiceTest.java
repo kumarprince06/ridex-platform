@@ -14,7 +14,7 @@ import com.ridex.auth.domain.User;
 import com.ridex.rider.domain.RiderProfile;
 import com.ridex.rider.dto.UpdateRiderProfileRequest;
 
-import jakarta.persistence.EntityNotFoundException;
+import com.ridex.shared.exception.NotFoundException;
 
 class RiderProfileServiceTest {
 
@@ -53,7 +53,7 @@ class RiderProfileServiceTest {
     void anAccountWithNoProfileIsNotFound() {
         when(repository.findByUserId("user-9")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.get("user-9")).isInstanceOf(EntityNotFoundException.class);
+        assertThatThrownBy(() -> service.get("user-9")).isInstanceOf(NotFoundException.class);
     }
 
     private RiderProfile profileFor(String userId) {

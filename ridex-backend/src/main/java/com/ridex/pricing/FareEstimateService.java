@@ -18,7 +18,7 @@ import com.ridex.pricing.dto.FareLineResponse;
 import com.ridex.rider.RiderProfileRepository;
 import com.ridex.rider.domain.RiderProfile;
 
-import jakarta.persistence.EntityNotFoundException;
+import com.ridex.shared.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -41,7 +41,7 @@ public class FareEstimateService {
     @Transactional
     public List<EstimateOptionResponse> estimate(String riderUserId, EstimateRequest request) {
         RiderProfile rider = riderProfileRepository.findByUserId(riderUserId)
-                .orElseThrow(() -> new EntityNotFoundException("No rider profile for this account."));
+                .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
 
         // One route lookup for all options: the distance does not change with the car, and the
         // maps provider bills per call.

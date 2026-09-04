@@ -7,6 +7,11 @@ import java.util.Map;
 import jakarta.persistence.EntityNotFoundException;
 
 import com.ridex.platform.ratelimit.TooManyRequestsException;
+import com.ridex.shared.exception.ConflictException;
+import com.ridex.shared.exception.ForbiddenException;
+import com.ridex.shared.exception.NotFoundException;
+import com.ridex.shared.exception.ProviderUnavailableException;
+import com.ridex.shared.exception.ValidationException;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -44,9 +49,31 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ProblemDetail handleIllegalState(IllegalStateException ex) {
+    @ExceptionHandler(NotFoundException.class)
+    public ProblemDetail handleNotFoundDomain(NotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ProblemDetail handleDomainValidation(ValidationException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ProblemDetail handleForbidden(ForbiddenException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    /** 503, not 409: the caller did nothing wrong and retrying later may work. */
+    @ExceptionHandler(ProviderUnavailableException.class)
+    public ProblemDetail handleProviderUnavailable(ProviderUnavailableException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
+                "A service RideX depends on is unavailable. Please try again shortly.");
     }
 
     /**
@@ -62,11 +89,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

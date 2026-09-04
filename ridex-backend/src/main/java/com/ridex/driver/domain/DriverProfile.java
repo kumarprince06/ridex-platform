@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 import com.ridex.auth.domain.User;
+import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.util.UlidGenerator;
 
 import jakarta.persistence.Column;
@@ -88,7 +89,7 @@ public class DriverProfile {
      */
     public void transitionTo(DriverOnboardingStatus next) {
         if (!onboardingStatus.canTransitionTo(next)) {
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "Cannot move driver onboarding from " + onboardingStatus + " to " + next);
         }
         this.onboardingStatus = next;

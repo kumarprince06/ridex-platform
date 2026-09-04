@@ -8,7 +8,7 @@ import com.ridex.driver.domain.DriverProfile;
 import com.ridex.driver.dto.DriverProfileResponse;
 import com.ridex.driver.dto.UpdateDriverProfileRequest;
 
-import jakarta.persistence.EntityNotFoundException;
+import com.ridex.shared.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -40,7 +40,7 @@ public class DriverProfileService {
 
     private DriverProfile require(String userId) {
         return driverProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("No driver profile for this account."));
+                .orElseThrow(() -> new NotFoundException("No driver profile for this account."));
     }
 
     private DriverProfileResponse toResponse(DriverProfile profile) {

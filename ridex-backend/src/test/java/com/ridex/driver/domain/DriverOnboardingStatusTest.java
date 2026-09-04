@@ -8,6 +8,8 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import com.ridex.shared.exception.ConflictException;
+
 class DriverOnboardingStatusTest {
 
     @Test
@@ -29,7 +31,7 @@ class DriverOnboardingStatusTest {
 
         // The whole point of onboarding is that nobody reaches APPROVED without passing review.
         assertThatThrownBy(() -> driver.transitionTo(DriverOnboardingStatus.APPROVED))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ConflictException.class);
 
         assertThat(driver.isEligibleToDrive()).isFalse();
     }

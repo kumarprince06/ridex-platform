@@ -42,6 +42,7 @@ import com.ridex.platform.ratelimit.RateLimiter;
 import com.ridex.rider.RiderProfileService;
 import com.ridex.platform.ratelimit.TooManyRequestsException;
 import com.ridex.platform.security.JwtService;
+import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.shared.util.VerificationTokenGenerator;
 
@@ -90,7 +91,7 @@ public class AuthService {
     public void register(RegisterRequest request) {
         if (!request.role().isSelfRegisterable()) {
             // Otherwise a public request body decides who is staff.
-            throw new IllegalArgumentException("Accounts of that type cannot be self-registered.");
+            throw new ValidationException("Accounts of that type cannot be self-registered.");
         }
 
         String email = request.email().trim().toLowerCase(Locale.ROOT);
@@ -116,7 +117,7 @@ public class AuthService {
         switch (request.role()) {
             case RIDER -> riderProfileService.createFor(user);
             case DRIVER -> driverProfileService.createFor(user);
-            default -> throw new IllegalArgumentException("Accounts of that type cannot be self-registered.");
+            default -> throw new ValidationException("Accounts of that type cannot be self-registered.");
         }
 
         issueOtp(user, TokenPurpose.EMAIL_VERIFICATION, "VERIFY_ACCOUNT");

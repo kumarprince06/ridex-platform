@@ -30,6 +30,7 @@ import com.ridex.driver.DriverProfileService;
 import com.ridex.notification.DeliveryChannel;
 import com.ridex.notification.Notifier;
 import com.ridex.platform.ratelimit.RateLimiter;
+import com.ridex.shared.exception.ValidationException;
 import com.ridex.rider.RiderProfileService;
 import com.ridex.platform.ratelimit.TooManyRequestsException;
 
@@ -113,7 +114,7 @@ class AuthServiceTest {
     void refusesToSelfRegisterAStaffRole() {
         assertThatThrownBy(() -> authService.register(
                 new RegisterRequest("attacker@example.com", PASSWORD, UserRole.SUPER_ADMIN)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ValidationException.class);
 
         verify(userRepository, never()).save(any());
     }

@@ -15,6 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.ridex.shared.exception.NotFoundException;
+import com.ridex.shared.exception.ProviderUnavailableException;
+import com.ridex.shared.exception.ValidationException;
+
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -29,12 +33,12 @@ public class GoogleMapsProvider implements MapsProvider {
     @Override
     public GeoLocation geocode(String query) {
         if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Location query must not be blank");
+            throw new ValidationException("Location query must not be blank");
         }
 
         String apiKey = properties.getApiKey();
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("Google Maps API key is not configured");
+            throw new ProviderUnavailableException("Google Maps API key is not configured");
         }
 
         RestClient client = restClient();
@@ -48,7 +52,7 @@ public class GoogleMapsProvider implements MapsProvider {
                     .body(GoogleGeocodeResponse.class);
 
             if (response == null || response.results() == null || response.results().isEmpty()) {
-                throw new IllegalStateException("No geocoding result found for query: " + query);
+                throw new NotFoundException("No place found for that search.");
             }
 
             GoogleGeocodeResult result = response.results().get(0);
@@ -57,7 +61,7 @@ public class GoogleMapsProvider implements MapsProvider {
                     result.geometry().location().lng(),
                     result.formattedAddress());
         } catch (RestClientException ex) {
-            throw new IllegalStateException("Google Maps geocoding request failed", ex);
+            throw new ProviderUnavailableException("Google Maps geocoding request failed", ex);
         }
     }
 
@@ -65,7 +69,7 @@ public class GoogleMapsProvider implements MapsProvider {
     public RouteEstimate route(double pickupLat, double pickupLng, double destinationLat, double destinationLng) {
         String apiKey = properties.getApiKey();
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("Google Maps API key is not configured");
+            throw new ProviderUnavailableException("Google Maps API key is not configured");
         }
 
         RestClient client = restClient();
@@ -86,12 +90,12 @@ public class GoogleMapsProvider implements MapsProvider {
                     .body(GoogleDistanceMatrixResponse.class);
 
             if (response == null || response.rows() == null || response.rows().isEmpty()) {
-                throw new IllegalStateException("No route estimate returned from Google Maps");
+                throw new ProviderUnavailableException("No route estimate returned from Google Maps");
             }
 
             GoogleDistanceRow row = response.rows().get(0);
             if (row.elements() == null || row.elements().isEmpty()) {
-                throw new IllegalStateException("No route elements returned from Google Maps");
+                throw new ProviderUnavailableException("No route elements returned from Google Maps");
             }
 
             GoogleDistanceElement element = row.elements().get(0);
@@ -101,7 +105,7 @@ public class GoogleMapsProvider implements MapsProvider {
                     element.distance().text(),
                     element.duration().text());
         } catch (RestClientException ex) {
-            throw new IllegalStateException("Google Maps route request failed", ex);
+            throw new ProviderUnavailableException("Google Maps route request failed", ex);
         }
     }
 

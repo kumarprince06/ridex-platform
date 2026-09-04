@@ -8,7 +8,7 @@ import com.ridex.rider.domain.RiderProfile;
 import com.ridex.rider.dto.RiderProfileResponse;
 import com.ridex.rider.dto.UpdateRiderProfileRequest;
 
-import jakarta.persistence.EntityNotFoundException;
+import com.ridex.shared.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -42,7 +42,7 @@ public class RiderProfileService {
     // check to forget.
     private RiderProfile require(String userId) {
         return riderProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("No rider profile for this account."));
+                .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
     }
 
     private RiderProfileResponse toResponse(RiderProfile profile) {

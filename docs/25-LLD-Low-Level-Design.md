@@ -214,6 +214,28 @@ Expiry is server-issued. The countdown on the phone renders a server timestamp.
 
 ---
 
+## 5b. Pickup verification — QR and OTP
+
+Both, always, for on-demand and shuttle alike. **One server-issued secret, two ways to present it:**
+the QR encodes the same pickup code the rider is shown as six digits.
+
+```
+server issues pickup_code on assignment
+  driver scans rider's QR   ─┐
+                             ├─→ same code → same check → trip starts
+  driver types the 6 digits ─┘
+```
+
+Scan is faster and is the default. OTP is the fallback that always works: no camera permission, a
+cracked screen, bad light, a dead battery on one side, no data. Neither is optional - a QR-only
+flow strands people at the roadside.
+
+Two independent credentials would mean two things to issue, expire and revoke, and a revocation
+that missed one. One secret cannot drift from itself.
+
+The code is issued by the server and checked by the server. A client that decided when a code
+matched would let a driver start a trip nobody boarded, which is a fare.
+
 ## 6. Trip
 
 ```

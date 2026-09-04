@@ -203,6 +203,10 @@ Tables: `ride_types`, `pricing_rules`, `ride_requests`, `fare_breakdowns`.
 - Surge comes from `pricing_rules`, never from a client field.
 - An estimate is quoted with an expiry and stored. The final fare is recomputed server-side at
   completion from actual distance and time. The gap between quote and final is explained, not hidden.
+- **Waiting is charged only past a free allowance** (5 minutes by default), and only from the
+  driver's server-recorded arrival. A driver who arrives early must not start a meter on a rider
+  who is still on time. It is a line like any other, and the surge multiplier applies to it, or
+  the lines stop summing to the total.
 - Cancellation fees are a policy table — who cancelled, in which state, how long after assignment.
   They change as often as marketing does, so they are data, not `if` statements.
 - The rider's phone **displays** the fare; it never decides it.
@@ -214,6 +218,9 @@ Tables: `ride_types`, `pricing_rules`, `ride_requests`, `fare_breakdowns`.
 Table: `ride_offers`.
 
 **Business logic:**
+- **Pickup verification is QR *and* OTP**, never one or the other: the QR encodes the same
+  server-issued code the rider sees as six digits. Scan by default, type it when the scan fails.
+  One secret, two presentations - two credentials would be two things to revoke.
 - The claim is one conditional statement:
   `UPDATE ride_offers SET status='ACCEPTED' WHERE id=? AND status='OFFERED' AND expires_at>now()`.
   Zero rows means lost — 409. The database is the arbiter; a read-then-write loses this race at

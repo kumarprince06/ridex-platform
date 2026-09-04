@@ -11,13 +11,20 @@ import {
   stateTone,
   Table,
 } from '../components/ui';
-import { CASES, DRIVERS, METRICS, TRIPS, TRIPS_BY_STATE } from '../data/mock';
+import { formatMoney, getDashboard } from '../api/admin';
+import { useQuery } from '../api/useQuery';
+import { CASES, TRIPS, TRIPS_BY_STATE } from '../data/mock';
 
 /** FR-OPS-001. Answers "is the marketplace healthy right now", and every number links onward. */
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { can, session } = useSession();
-  const pendingApprovals = DRIVERS.filter((driver) => driver.onboarding === 'UNDER_REVIEW').length;
+  const { session } = useSession();
+  const { data: metrics, error } = useQuery(() => getDashboard(), []);
+
+  // Dashes until the numbers arrive: a zero that is really "not loaded yet" is worse than a blank,
+  // because an operator will act on it.
+  const value = (n: number | undefined) => (n === undefined ? '—' : String(n));
+  const pendingApprovals = metrics?.driversAwaitingReview ?? 0;
 
   return (
     <>
@@ -26,18 +33,27 @@ export function DashboardPage() {
         subtitle="Live marketplace health. Updated a few seconds ago."
       />
 
+      {error ? <p style={{ color: 'var(--danger)', marginBottom: 12 }}>{error}</p> : null}
+
       <Grid columns={4}>
-        <StatTile label="Live trips" value={METRICS.liveTrips} note="In flight right now" tone="primary" onClick={() => navigate('/trips')} />
-        <StatTile label="Drivers online" value={METRICS.driversOnline} note={`of ${METRICS.driversTotal} approved`} onClick={() => navigate('/drivers')} />
-        <StatTile label="Unmatched 15m" value={METRICS.unmatched15m} note="Requests with no driver" tone={METRICS.unmatched15m > 3 ? 'warning' : 'default'} onClick={() => navigate('/trips')} />
-        <StatTile label="Open cases" value={METRICS.openCases} note="Support queue" onClick={() => navigate(can('SUPPORT_CASE') ? '/cases' : '/')} />
+        <StatTile label="Live trips" value={value(metrics?.ridesInProgress)} note="In flight right now" tone="primary" onClick={() => navigate('/trips')} />
+        <StatTile label="Drivers on duty" value={value(metrics?.driversOnDuty)} note={`of ${value(metrics?.driversTotal)} registered`} onClick={() => navigate('/drivers')} />
+        <StatTile label="Awaiting review" value={value(metrics?.driversAwaitingReview)} note="Driver applications" tone={pendingApprovals > 0 ? 'warning' : 'default'} onClick={() => navigate('/approvals')} />
+        <StatTile label="Riders" value={value(metrics?.ridersTotal)} note="Registered accounts" onClick={() => navigate('/riders')} />
       </Grid>
 
       <Grid columns={4}>
-        <StatTile label="Cancellation rate" value={METRICS.cancellationRate} note="Last 24 hours" />
-        <StatTile label="Payment failures" value={METRICS.paymentFailureRate} note="Last 24 hours" tone="warning" />
-        <StatTile label="GMV today" value={METRICS.gmvToday} note="Gross rider fares" tone="success" />
-        <StatTile label="Platform fee today" value={METRICS.feeToday} note="Before adjustments" tone="success" />
+        <StatTile label="Rides today" value={value(metrics?.ridesToday)} note="Requested since midnight UTC" />
+        <StatTile label="Completed today" value={value(metrics?.ridesCompletedToday)} note="Finished trips" tone="success" />
+        <StatTile
+          label="Gross fares today"
+          value={metrics ? formatMoney(metrics.grossFaresTodayMinor, metrics.currency) : '—'}
+          note="Charged on completed trips"
+          tone="success"
+        />
+        {/* Not wired: the platform fee needs the payments ledger (T12). Showing a mock number
+            next to real ones is worse than showing none. */}
+        <StatTile label="Platform fee today" value="—" note="Needs payments (T12)" />
       </Grid>
 
       <Grid columns={2}>

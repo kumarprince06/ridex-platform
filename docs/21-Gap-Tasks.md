@@ -298,9 +298,31 @@ building delivery twice would have been worse than building it once in the right
 - [ ] `notification_preferences`, with a transactional set that ignores them
 - [ ] Templates in the database, once operations needs to edit them without a deploy
 
-## T15 — Admin/ops (Phase 10)
+## T15 — Admin/ops (Phase 10) — **STARTED**
 
-- [ ] Dashboard, live trip map, driver/rider management, payments, refunds, support, audit
+- [x] `V11__audit_log.sql` plus an `@Audited` aspect - written by an interceptor, not by each
+      endpoint remembering to. The one that forgets is always the refund
+- [x] Dashboard counts, paged rider / driver / trip search, audit log
+- [x] Driver review: approve, reject, suspend, each audited and each requiring a reason
+- [x] **Permission split proven by test**: support reads people and trips, cannot approve a driver
+      and cannot read the audit log. One person holding both case handling and financial authority
+      is the standard internal-fraud pattern in a marketplace
+- [x] Console wired: dashboard, riders, approvals
+- [ ] Payments, payouts, refunds - need T12
+- [ ] Cases, templates, flags, staff provisioning, pricing editing
+- [ ] Live trip map - needs driver positions over the socket
+
+### Console pages still on mock data
+
+29 of 33. Wired: dashboard, riders, approvals, plus sign-in. The rest are waiting on the endpoints
+above, and their pages say so rather than showing invented numbers next to real ones - the
+dashboard's platform-fee tile reads "Needs payments (T12)" instead of a plausible figure.
+
+### Approvals reviews the application, not the document
+
+The console was built to approve document by document. The API has no document review (T7), so the
+page now reviews the whole application. A per-document UI over a per-driver API would be recording
+decisions the server never made.
 
 ## T16 — Production hardening (Phase 12)
 

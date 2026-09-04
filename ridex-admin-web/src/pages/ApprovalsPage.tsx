@@ -1,121 +1,97 @@
 import { useState } from 'react';
 
+import { approveDriver, driversAwaitingReview, rejectDriver } from '../api/admin';
+import { useQuery } from '../api/useQuery';
 import { ConfirmWithReason } from '../components/ConfirmWithReason';
-import {
-  Button,
-  Card,
-  DetailList,
-  EmptyState,
-  humanState,
-  PageHeader,
-  Pill,
-  stateTone,
-  Table,
-} from '../components/ui';
-import { DRIVERS, DriverDoc } from '../data/mock';
+import { Button, Card, EmptyState, PageHeader, Pill, Table, humanState, stateTone } from '../components/ui';
 
-type Pending = { driverId: string; driverName: string; document: DriverDoc };
+type Pending = { driverId: string; email: string; status: string; eligibleToDrive: boolean };
 
 /**
- * FR-OPS-003. Oldest first, one document at a time, rejection reason mandatory per document.
+ * FR-OPS-003. Oldest first, rejection reason mandatory.
  *
- * The partner app renders whatever is typed here on its Rejected screen, so "docs unclear" is a
- * driver who cannot fix the problem and a support ticket that lands back here anyway.
+ * Reviews the whole application, not document by document: the backend has no document review yet
+ * (T7), and a per-document UI over a per-driver API would be a decision the server never recorded.
+ *
+ * The reason is shown to the driver word for word, so "docs unclear" is a driver who cannot fix
+ * the problem and a support ticket that lands back here anyway.
  */
 export function ApprovalsPage() {
-  const [decided, setDecided] = useState<Record<string, string>>({});
+  const { data, loading, error, refetch } = useQuery(() => driversAwaitingReview(), []);
   const [rejecting, setRejecting] = useState<Pending | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
 
-  const queue: Pending[] = DRIVERS.filter((driver) => driver.onboarding === 'UNDER_REVIEW').flatMap(
-    (driver) =>
-      driver.documents
-        .filter((document) => document.status === 'UNDER_REVIEW')
-        .map((document) => ({ driverId: driver.id, driverName: driver.name, document })),
-  );
+  const queue = data ?? [];
 
-  const key = (item: Pending) => `${item.driverId}:${item.document.type}`;
-  const outstanding = queue.filter((item) => !decided[key(item)]);
+  async function decide(driverId: string, action: () => Promise<unknown>) {
+    setBusy(driverId);
+    setFailure(null);
+    try {
+      await action();
+      refetch();
+    } catch {
+      setFailure('That decision did not go through. Nothing was changed.');
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <>
       <PageHeader
         title="Driver approvals"
-        subtitle={`${outstanding.length} documents waiting, oldest first`}
+        subtitle={loading ? 'Loading...' : `${queue.length} applications waiting, oldest first`}
       />
 
-      {DRIVERS.filter((driver) => driver.onboarding === 'UNDER_REVIEW').map((driver) => (
-        <Card
-          key={driver.id}
-          title={`${driver.name} · ${driver.id}`}
-          actions={<Pill tone={stateTone(driver.onboarding)}>{humanState(driver.onboarding)}</Pill>}
-        >
-          <DetailList
-            items={[
-              { label: 'Vehicle', value: `${driver.vehicle} · ${driver.plate}` },
-              { label: 'City', value: driver.city },
-              { label: 'Submitted', value: driver.submitted },
+      {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
+      {failure ? <p style={{ color: 'var(--danger)' }}>{failure}</p> : null}
+
+      {queue.length > 0 ? (
+        <Card>
+          <Table<Pending>
+            columns={[
+              { key: 'driverId', header: 'Driver', render: (row) => <span className="mono">{row.driverId.slice(-8)}</span> },
+              { key: 'email', header: 'Account', render: (row) => <span className="cell-strong">{row.email}</span> },
+              { key: 'status', header: 'Status', render: (row) => (
+                <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>
+              ) },
+              { key: 'actions', header: '', align: 'right', render: (row) => (
+                <span style={{ display: 'inline-flex', gap: 8 }}>
+                  <Button
+                    variant="secondary"
+                    disabled={busy === row.driverId}
+                    onClick={() => void decide(row.driverId, () => approveDriver(row.driverId))}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busy === row.driverId}
+                    onClick={() => setRejecting(row)}
+                  >
+                    Reject
+                  </Button>
+                </span>
+              ) },
             ]}
+            rows={queue}
+            empty="Nothing waiting."
           />
-
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <Table
-              columns={[
-                { key: 'type', header: 'Document', render: (row: DriverDoc) => row.type },
-                { key: 'detail', header: 'Detail', render: (row) => <span className="cell-muted">{row.detail}</span> },
-                {
-                  key: 'status',
-                  header: 'Status',
-                  render: (row) => {
-                    const decision = decided[`${driver.id}:${row.type}`];
-                    if (decision === 'approved') return <Pill tone="success">Approved</Pill>;
-                    if (decision) return <Pill tone="danger">Rejected</Pill>;
-                    return <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>;
-                  },
-                },
-                {
-                  key: 'actions',
-                  header: '',
-                  align: 'right',
-                  render: (row) => {
-                    if (row.status !== 'UNDER_REVIEW' || decided[`${driver.id}:${row.type}`]) {
-                      return null;
-                    }
-                    return (
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <Button
-                          variant="primary"
-                          onClick={() =>
-                            setDecided((prev) => ({ ...prev, [`${driver.id}:${row.type}`]: 'approved' }))
-                          }
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="danger"
-                          onClick={() => setRejecting({ driverId: driver.id, driverName: driver.name, document: row })}
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    );
-                  },
-                },
-              ]}
-              rows={driver.documents}
-            />
-          </div>
         </Card>
-      ))}
+      ) : null}
 
-      {queue.length === 0 ? (
-        <EmptyState title="Nothing waiting">Every submitted document has been reviewed.</EmptyState>
+      {!loading && queue.length === 0 ? (
+        <EmptyState title="Nothing waiting">
+          Every submitted application has been reviewed.
+        </EmptyState>
       ) : null}
 
       {rejecting ? (
         <ConfirmWithReason
-          title={`Reject ${rejecting.document.type}?`}
-          body={`${rejecting.driverName} sees this reason word for word in the partner app, and re-uploads against it.`}
-          confirmLabel="Reject document"
+          title={`Reject ${rejecting.email}?`}
+          body="The driver sees this reason word for word in the partner app, and re-applies against it. Rejection is final for this application."
+          confirmLabel="Reject application"
           danger
           presets={[
             'The expiry date is not readable in the photo',
@@ -125,8 +101,9 @@ export function ApprovalsPage() {
           ]}
           onCancel={() => setRejecting(null)}
           onConfirm={(reason) => {
-            setDecided((prev) => ({ ...prev, [key(rejecting)]: reason }));
+            const target = rejecting;
             setRejecting(null);
+            void decide(target.driverId, () => rejectDriver(target.driverId, reason));
           }}
         />
       ) : null}

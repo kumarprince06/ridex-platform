@@ -1,7 +1,11 @@
 package com.ridex.platform.security;
 
+import com.ridex.platform.ratelimit.RateLimitFilter;
+import com.ridex.platform.ratelimit.RateLimiter;
+
 import jakarta.servlet.DispatcherType;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -47,14 +51,37 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:5174}")
     private List<String> allowedOrigins;
 
+    @Value("${app.rate-limit.ip-requests:30}")
+    private int ipRequestLimit;
+
+    @Value("${app.rate-limit.ip-window:1m}")
+    private Duration ipWindow;
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter, RateLimiter rateLimiter) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
+            // Ahead of authentication: an unauthenticated flood must be turned away before it
+            // costs a BCrypt comparison each.
+            .addFilterBefore(new RateLimitFilter(rateLimiter, ipRequestLimit, ipWindow),
+                    UsernamePasswordAuthenticationFilter.class)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .headers(headers -> headers
+                // A year of HSTS with preload: after the first visit the browser refuses plain
+                // HTTP, which closes the downgrade window a redirect leaves open.
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .includeSubDomains(true)
+                    .preload(true)
+                    .maxAgeInSeconds(31536000))
+                // This API returns JSON only, so there is nothing to frame and nothing to sniff.
+                .frameOptions(frame -> frame.deny())
+                .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'"))
+                .referrerPolicy(referrer -> referrer.policy(
+                    org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
+                        .ReferrerPolicy.NO_REFERRER)))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()

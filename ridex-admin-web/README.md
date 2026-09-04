@@ -21,19 +21,30 @@ Node 20+, same as the two apps.
 
 ## Signing in
 
-The login screen is a role picker — the static stand-in for `POST /auth/login` with
-`app: "ADMIN"`. Pick a role to see the console as that role sees it:
+Real credentials against `POST /auth/login` with `app: "ADMIN"`. Riders and drivers are rejected at
+the login screen with "This account does not have administrative access" - the server decides that
+wording, because only it knows what is safe to say.
 
-| Role | Permissions | What disappears |
-|---|---|---|
-| Support agent | `SUPPORT_CASE` | Payments, payouts, approvals, config, audit |
-| Operations admin | `OPERATIONS`, `SUPPORT_CASE` | Payments, payouts, templates, flags, staff |
-| Finance | `FINANCE` | Approvals, live map, config, cases |
-| Super admin | all | nothing |
+Staff accounts cannot be self-registered. The first super admin is created by the backend at
+startup from `RIDEX_BOOTSTRAP_ADMIN_EMAIL` and `RIDEX_BOOTSTRAP_ADMIN_PASSWORD`, and only when no
+super admin exists yet.
 
-That picker exists so every permission path is walkable from day one. The fastest way to ship a
-console whose finance-only screens have never been looked at is to develop the whole thing as a
-super admin.
+```bash
+VITE_API_BASE_URL=http://localhost:8080 npm run dev
+```
+
+### Tokens
+
+The access token is held **in memory only** - this is the highest-value surface on the platform,
+and a token in `localStorage` survives every XSS payload that ever runs on the page. The refresh
+token sits in `sessionStorage` so a reload does not sign an operator out mid-investigation, which
+is a deliberate trade: still XSS-reachable, and the real fix is an httpOnly cookie the backend
+would have to set.
+
+### The role picker is gone
+
+It was the static stand-in for login. Walking every permission path now means creating an account
+per role, which needs the staff provisioning endpoints in T15.
 
 ## Permissions, not roles
 
@@ -72,7 +83,7 @@ src/
 
 | Area | Stand-in | Replace with |
 |---|---|---|
-| Auth | Role picker | `POST /auth/login` with `app: "ADMIN"`; permissions from the token |
+| Auth | **Done** | Real login; roles come from the token, permissions still expanded client-side |
 | All lists | `src/data/mock.ts` | Paged API queries via TanStack Query |
 | Live map | Four fixed positions | Driver location from Redis over the socket (T8, T11) |
 | Refunds and payouts | Form closes and shows a notice | `refundPayment` with an idempotency key (T12) |

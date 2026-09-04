@@ -15,7 +15,7 @@ export function ForbiddenPage({ permission }: { permission: Permission }) {
       <Card>
         <p>
           This screen needs the <code className="mono">{permission}</code> permission. You are signed
-          in as <strong>{session?.name}</strong>, whose role does not include it.
+          in as <strong>{session?.email}</strong>, whose role does not include it.
         </p>
         <p style={{ marginTop: 12, color: 'var(--text-muted)' }}>
           A super admin can grant it under Staff and roles. Access changes are recorded in the audit

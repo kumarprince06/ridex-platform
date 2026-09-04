@@ -126,8 +126,10 @@ export function Shell() {
 
           <div className="identity">
             <div className="identity-text">
-              <span className="identity-name">{session.name}</span>
-              <span className="identity-role">{ROLE_LABELS[session.role]}</span>
+              <span className="identity-name">{session.email}</span>
+              <span className="identity-role">
+                {session.roles.map((role) => ROLE_LABELS[role]).join(' · ')}
+              </span>
             </div>
             <button className="signout" type="button" onClick={signOut}>
               Sign out

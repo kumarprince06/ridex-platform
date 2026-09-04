@@ -22,7 +22,7 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={`Good evening, ${session?.name.split(' ')[0]}`}
+        title={`Good evening, ${session?.email.split('@')[0] ?? 'there'}`}
         subtitle="Live marketplace health. Updated a few seconds ago."
       />
 

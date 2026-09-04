@@ -31,6 +31,12 @@ public class AdminQueryController {
         return adminQueryService.dashboard();
     }
 
+    @GetMapping("/analytics")
+    @ResponseStatus(HttpStatus.OK)
+    public AnalyticsResponse analytics(@RequestParam(defaultValue = "14") int days) {
+        return adminQueryService.analytics(days);
+    }
+
     @GetMapping("/riders")
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<AdminRiderResponse> riders(
@@ -57,6 +63,18 @@ public class AdminQueryController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
         return adminQueryService.trips(status, page, size);
+    }
+
+    // Finance and operations see money; support does not. One person holding both case handling
+    // and financial authority is the standard internal-fraud pattern in a marketplace.
+    @GetMapping("/payments")
+    @PreAuthorize("hasAnyRole('OPS_ADMIN', 'SUPER_ADMIN')")
+    @ResponseStatus(HttpStatus.OK)
+    public PageResponse<AdminPaymentResponse> payments(
+            @RequestParam(required = false) com.ridex.payment.domain.PaymentStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return adminQueryService.payments(status, page, size);
     }
 
     // Super admin only: the audit log records what everyone else did, so it is not something an

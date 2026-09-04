@@ -1,11 +1,18 @@
 package com.ridex.auth.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record ResetPasswordRequest(
-        @NotBlank(message = "Reset token is required")
-        String token,
+        @NotBlank(message = "Email is required")
+        @Email(message = "Email must be valid")
+        String email,
+
+        @NotBlank(message = "Code is required")
+        @Pattern(regexp = "\\d{6}", message = "Code must be 6 digits")
+        String code,
 
         // Same bounds as registration, deliberately: two password policies in one codebase means
         // one of them is wrong. BCrypt truncates past 72 bytes.

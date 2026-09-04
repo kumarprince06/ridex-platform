@@ -13,6 +13,8 @@ public interface UserTokenRepository extends JpaRepository<UserToken, String> {
     // rather than salted, and why uk_user_tokens_token_hash exists.
     Optional<UserToken> findByTokenHash(String tokenHash);
 
-    // Purpose is part of the lookup: a reset token must never be redeemable as a verification one.
-    Optional<UserToken> findByTokenHashAndPurpose(String tokenHash, TokenPurpose purpose);
+    // Lookup is by account and purpose, never by the code: six digits hashed deterministically
+    // would be reversible from a database leak. Newest first - reissuing supersedes.
+    Optional<UserToken> findFirstByUserIdAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+            String userId, TokenPurpose purpose);
 }

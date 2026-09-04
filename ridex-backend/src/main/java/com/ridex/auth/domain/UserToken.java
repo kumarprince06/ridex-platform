@@ -2,6 +2,7 @@ package com.ridex.auth.domain;
 
 import java.time.Instant;
 
+import com.ridex.notification.DeliveryChannel;
 import com.ridex.shared.util.UlidGenerator;
 
 import jakarta.persistence.Column;
@@ -15,7 +16,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -31,12 +31,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(
-    name = "user_tokens",
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = "token_hash", name = "uk_user_tokens_token_hash")
-    }
-)
+@Table(name = "user_tokens")
 public class UserToken {
 
     @Id
@@ -56,11 +51,22 @@ public class UserToken {
     @Column(name = "purpose", nullable = false, length = 30, updatable = false)
     private TokenPurpose purpose;
 
+    // BCrypt, not SHA-256: lookup is by user and purpose, so the digest need not be
+    // deterministic, and a SHA-256 of six digits is reversed by a table of a million rows.
     @Column(name = "token_hash", nullable = false, length = 255, updatable = false)
     private String tokenHash;
 
     @Column(name = "expires_at", nullable = false, updatable = false)
     private Instant expiresAt;
+
+    // A six-digit code needs an attempt cap as well as an expiry, or it is brute forced in
+    // minutes. Spent at the cap, whether or not it was ever guessed right.
+    @Column(name = "attempts", nullable = false)
+    private short attempts;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_channel", length = 20)
+    private DeliveryChannel deliveryChannel;
 
     /** Stamped on redemption. Non-null means spent and unusable again. */
     @Column(name = "consumed_at")
@@ -69,8 +75,15 @@ public class UserToken {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    public static final short MAX_ATTEMPTS = 5;
+
     public boolean isRedeemable(Instant now) {
-        return consumedAt == null && expiresAt.isAfter(now);
+        return consumedAt == null && attempts < MAX_ATTEMPTS && expiresAt.isAfter(now);
+    }
+
+    /** Every guess counts, right or wrong, or the cap counts nothing. */
+    public void recordAttempt() {
+        this.attempts++;
     }
 
     @PrePersist

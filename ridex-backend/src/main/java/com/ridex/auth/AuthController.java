@@ -47,7 +47,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
-        return new RegisterResponse("Registration received. Check your email to verify your account.");
+        return new RegisterResponse("Registration received. Check your email for a 6-digit code.");
     }
 
     @PostMapping("/login")
@@ -88,7 +88,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public RegisterResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.requestPasswordReset(request);
-        return new RegisterResponse("If that address has an account, a reset link is on its way.");
+        return new RegisterResponse("If that address has an account, a reset code is on its way.");
     }
 
     @PostMapping("/reset-password")

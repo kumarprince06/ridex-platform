@@ -26,6 +26,8 @@ import com.ridex.auth.dto.LoginRequest;
 import com.ridex.auth.dto.LoginResponse;
 import com.ridex.auth.dto.LogoutRequest;
 import com.ridex.auth.dto.RegisterRequest;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
 import com.ridex.platform.ratelimit.RateLimiter;
 import com.ridex.platform.ratelimit.TooManyRequestsException;
 
@@ -60,6 +62,7 @@ class AuthServiceTest {
     private JwtService jwtService;
     private AuthSecurityService authSecurityService;
     private RateLimiter rateLimiter;
+    private Notifier notifier;
     private AuthService authService;
 
     @BeforeEach
@@ -69,13 +72,14 @@ class AuthServiceTest {
         refreshTokenRepository = mock(RefreshTokenRepository.class);
         authSecurityService = mock(AuthSecurityService.class);
         rateLimiter = mock(RateLimiter.class);
+        notifier = mock(Notifier.class);
         when(rateLimiter.tryConsume(any(), anyInt(), any())).thenReturn(true);
         jwtService = new JwtService("super-secret-key-which-is-very-long-for-jwt-signing", 3600000, 604800000);
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
         authService = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, passwordEncoder, rateLimiter);
+                jwtService, passwordEncoder, rateLimiter, notifier);
         authService.generateDecoyHash();
 
         when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
@@ -87,12 +91,13 @@ class AuthServiceTest {
     void registersARiderWithoutCreatingATenant() {
         when(userRepository.existsByEmail("rider@example.com")).thenReturn(false);
 
-        String rawToken = authService.register(
+        authService.register(
                 new RegisterRequest("Rider@Example.com ", PASSWORD, UserRole.RIDER));
 
-        assertThat(rawToken).isNotBlank();
         verify(userRepository).save(any(User.class));
         verify(userTokenRepository).save(any());
+        verify(notifier).enqueue(eq(DeliveryChannel.EMAIL), eq("rider@example.com"),
+                eq("VERIFY_ACCOUNT"), any());
     }
 
     @Test
@@ -217,11 +222,9 @@ class AuthServiceTest {
     void registrationDoesNotRevealThatAnAddressIsTaken() {
         when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
 
-        String token = authService.register(
-                new RegisterRequest("taken@example.com", PASSWORD, UserRole.RIDER));
+        authService.register(new RegisterRequest("taken@example.com", PASSWORD, UserRole.RIDER));
 
         // No token, no account, no exception: the controller answers 202 either way.
-        assertThat(token).isNull();
         verify(userRepository, never()).save(any(User.class));
         verify(userTokenRepository, never()).save(any());
     }
@@ -232,7 +235,7 @@ class AuthServiceTest {
         when(encoder.encode(any())).thenReturn("hashed");
         AuthService service = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, encoder, rateLimiter);
+                jwtService, encoder, rateLimiter, notifier);
         service.generateDecoyHash();
         when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
 
@@ -249,7 +252,7 @@ class AuthServiceTest {
         when(encoder.matches(any(), any())).thenReturn(false);
         AuthService service = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, encoder, rateLimiter);
+                jwtService, encoder, rateLimiter, notifier);
         service.generateDecoyHash();
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 
@@ -351,11 +354,11 @@ class AuthServiceTest {
     }
 
     @Test
-    void verifyingActivatesTheAccountAndSpendsTheToken() {
+    void theRightCodeActivatesTheAccount() {
         User user = pendingUser("owner-1");
-        UserToken token = redeemableToken(user, "raw-verify", TokenPurpose.EMAIL_VERIFICATION);
+        UserToken token = liveOtp(user, "418302", TokenPurpose.EMAIL_VERIFICATION);
 
-        authService.verifyEmail(new VerifyEmailRequest("raw-verify"));
+        authService.verifyEmail(new VerifyEmailRequest("owner-1@example.com", "418302"));
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(user.getEmailVerifiedAt()).isNotNull();
@@ -363,32 +366,61 @@ class AuthServiceTest {
     }
 
     @Test
-    void aVerificationTokenCannotBeSpentTwice() {
+    void aWrongCodeIsCountedAgainstTheAttemptCap() {
         User user = pendingUser("owner-1");
-        UserToken token = redeemableToken(user, "raw-verify", TokenPurpose.EMAIL_VERIFICATION);
-        token.setConsumedAt(java.time.Instant.now());
+        UserToken token = liveOtp(user, "418302", TokenPurpose.EMAIL_VERIFICATION);
 
-        assertThatThrownBy(() -> authService.verifyEmail(new VerifyEmailRequest("raw-verify")))
+        assertThatThrownBy(() -> authService.verifyEmail(
+                new VerifyEmailRequest("owner-1@example.com", "000000")))
+                .isInstanceOf(BadCredentialsException.class);
+
+        // Counting only successes would leave a million guesses available.
+        assertThat(token.getAttempts()).isEqualTo((short) 1);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING);
+    }
+
+    @Test
+    void aCodeStopsWorkingOnceTheAttemptCapIsReached() {
+        User user = pendingUser("owner-1");
+        UserToken token = liveOtp(user, "418302", TokenPurpose.EMAIL_VERIFICATION);
+        token.setAttempts(UserToken.MAX_ATTEMPTS);
+
+        // Even the correct code: five wrong guesses burn it, or the cap can be waited out.
+        assertThatThrownBy(() -> authService.verifyEmail(
+                new VerifyEmailRequest("owner-1@example.com", "418302")))
                 .isInstanceOf(BadCredentialsException.class);
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING);
     }
 
     @Test
-    void forgotPasswordIsSilentForAnUnknownAddress() {
+    void aSpentCodeCannotBeUsedAgain() {
+        User user = pendingUser("owner-1");
+        UserToken token = liveOtp(user, "418302", TokenPurpose.EMAIL_VERIFICATION);
+        token.setConsumedAt(java.time.Instant.now());
+
+        assertThatThrownBy(() -> authService.verifyEmail(
+                new VerifyEmailRequest("owner-1@example.com", "418302")))
+                .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void forgotPasswordIsSilentAndSendsNothingForAnUnknownAddress() {
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 
-        assertThat(authService.requestPasswordReset(
-                new ForgotPasswordRequest("nobody@example.com"))).isNull();
+        authService.requestPasswordReset(new ForgotPasswordRequest("nobody@example.com"));
+
         verify(userTokenRepository, never()).save(any());
+        verify(notifier, never()).enqueue(any(), any(), any(), any());
     }
 
     @Test
     void resettingAPasswordEndsEverySession() {
         User user = activeUser("owner-1");
-        redeemableToken(user, "raw-reset", TokenPurpose.PASSWORD_RESET);
+        liveOtp(user, "418302", TokenPurpose.PASSWORD_RESET);
 
-        authService.resetPassword(new ResetPasswordRequest("raw-reset", "a-new-password"));
+        authService.resetPassword(
+                new ResetPasswordRequest("owner-1@example.com", "418302", "a-new-password"));
 
         // A reset that leaves the attacker signed in is not a reset.
         verify(refreshTokenRepository).revokeAllForUser(eq("owner-1"), any());
@@ -397,13 +429,15 @@ class AuthServiceTest {
     }
 
     @Test
-    void aVerificationTokenIsNotRedeemableAsAPasswordReset() {
-        // Looked up by hash *and* purpose, so the wrong kind of token simply is not found.
-        when(userTokenRepository.findByTokenHashAndPurpose(any(), eq(TokenPurpose.PASSWORD_RESET)))
-                .thenReturn(Optional.empty());
+    void aVerificationCodeIsNotRedeemableAsAPasswordReset() {
+        User user = activeUser("owner-1");
+        liveOtp(user, "418302", TokenPurpose.EMAIL_VERIFICATION);
+        // Looked up by account *and* purpose, so a reset finds no code at all.
+        when(userTokenRepository.findFirstByUserIdAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "owner-1", TokenPurpose.PASSWORD_RESET)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.resetPassword(
-                new ResetPasswordRequest("raw-verify", "a-new-password")))
+                new ResetPasswordRequest("owner-1@example.com", "418302", "a-new-password")))
                 .isInstanceOf(BadCredentialsException.class);
     }
 
@@ -426,14 +460,15 @@ class AuthServiceTest {
         return user;
     }
 
-    private UserToken redeemableToken(User user, String raw, TokenPurpose purpose) {
+    private UserToken liveOtp(User user, String code, TokenPurpose purpose) {
         UserToken token = new UserToken();
         token.setUser(user);
         token.setPurpose(purpose);
-        token.setTokenHash(VerificationTokenGenerator.hash(raw));
-        token.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
-        when(userTokenRepository.findByTokenHashAndPurpose(
-                VerificationTokenGenerator.hash(raw), purpose)).thenReturn(Optional.of(token));
+        token.setTokenHash(new BCryptPasswordEncoder().encode(code));
+        token.setExpiresAt(java.time.Instant.now().plusSeconds(600));
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(userTokenRepository.findFirstByUserIdAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                user.getId(), purpose)).thenReturn(Optional.of(token));
         return token;
     }
 }

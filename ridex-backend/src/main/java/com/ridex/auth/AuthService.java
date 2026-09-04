@@ -35,9 +35,12 @@ import com.ridex.auth.domain.User;
 import com.ridex.auth.domain.UserRole;
 import com.ridex.auth.domain.UserStatus;
 import com.ridex.auth.domain.UserToken;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
 import com.ridex.platform.ratelimit.RateLimiter;
 import com.ridex.platform.ratelimit.TooManyRequestsException;
 import com.ridex.platform.security.JwtService;
+import com.ridex.shared.util.OtpGenerator;
 import com.ridex.shared.util.VerificationTokenGenerator;
 
 import io.jsonwebtoken.Claims;
@@ -47,10 +50,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final Duration VERIFICATION_TOKEN_VALIDITY = Duration.ofHours(24);
+    // Short, because six digits is small. Safety here is expiry plus the attempt cap.
+    private static final Duration OTP_VALIDITY = Duration.ofMinutes(10);
     private static final Duration REFRESH_TOKEN_VALIDITY = Duration.ofDays(7);
-    // Shorter than verification: a reset link is a live credential for the account.
-    private static final Duration RESET_TOKEN_VALIDITY = Duration.ofHours(1);
 
     // Hash of a random value, computed at startup so it always matches the configured cost factor.
     private String absentUserHash;
@@ -62,6 +64,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final RateLimiter rateLimiter;
+    private final Notifier notifier;
 
     @Value("${app.rate-limit.login-failures:8}")
     private int loginFailureLimit;
@@ -81,7 +84,7 @@ public class AuthService {
      * @return raw verification token, or null when the address already has an account.
      */
     @Transactional
-    public String register(RegisterRequest request) {
+    public void register(RegisterRequest request) {
         if (!request.role().isSelfRegisterable()) {
             // Otherwise a public request body decides who is staff.
             throw new IllegalArgumentException("Accounts of that type cannot be self-registered.");
@@ -93,9 +96,9 @@ public class AuthService {
         String passwordHash = passwordEncoder.encode(request.password());
 
         if (userRepository.existsByEmail(email)) {
-            // ponytail: a concurrent duplicate still 409s from the unique constraint. Closing that
-            // needs registration behind a queue - not worth it before there are users.
-            return null;
+            // The owner is told, not the caller. Same 202 either way.
+            notifier.enqueue(DeliveryChannel.EMAIL, email, "ACCOUNT_EXISTS", null);
+            return;
         }
 
         User user = new User();
@@ -105,16 +108,50 @@ public class AuthService {
         user.setRoles(EnumSet.of(request.role()));
         userRepository.save(user);
 
-        String rawToken = VerificationTokenGenerator.generateRawToken();
+        issueOtp(user, TokenPurpose.EMAIL_VERIFICATION, "VERIFY_ACCOUNT");
+    }
+
+    /** One place that mints a code, stores its hash and queues delivery. */
+    private void issueOtp(User user, TokenPurpose purpose, String eventType) {
+        String code = OtpGenerator.generate();
 
         UserToken token = new UserToken();
         token.setUser(user);
-        token.setPurpose(TokenPurpose.EMAIL_VERIFICATION);
-        token.setTokenHash(VerificationTokenGenerator.hash(rawToken));
-        token.setExpiresAt(Instant.now().plus(VERIFICATION_TOKEN_VALIDITY));
+        token.setPurpose(purpose);
+        token.setTokenHash(passwordEncoder.encode(code));
+        token.setDeliveryChannel(DeliveryChannel.EMAIL);
+        token.setExpiresAt(Instant.now().plus(OTP_VALIDITY));
         userTokenRepository.save(token);
 
-        return rawToken;
+        // Queued inside this transaction: the code is sent only if the account write commits.
+        notifier.enqueue(DeliveryChannel.EMAIL, user.getEmail(), eventType, code);
+    }
+
+    /**
+     * Finds the live code for an account and checks it. Every guess is counted, right or wrong -
+     * a cap that only counts failures is no cap at all.
+     */
+    private UserToken consumeOtp(String email, String code, TokenPurpose purpose) {
+        Instant now = Instant.now();
+        BadCredentialsException rejection = new BadCredentialsException("That code is not valid.");
+
+        User user = userRepository.findByEmail(email.trim().toLowerCase(Locale.ROOT))
+                .orElseThrow(() -> rejection);
+
+        UserToken token = userTokenRepository
+                .findFirstByUserIdAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(user.getId(), purpose)
+                .filter(candidate -> candidate.isRedeemable(now))
+                .orElseThrow(() -> rejection);
+
+        token.recordAttempt();
+        if (!passwordEncoder.matches(code, token.getTokenHash())) {
+            userTokenRepository.save(token);
+            throw rejection;
+        }
+
+        token.setConsumedAt(now);
+        userTokenRepository.save(token);
+        return token;
     }
 
     @Transactional
@@ -285,78 +322,40 @@ public class AuthService {
                 });
     }
 
-    /**
-     * Activates the account. Unknown, expired and already-spent tokens all get the same answer -
-     * telling them apart tells an attacker which links were once real.
-     */
+    /** Unknown address, wrong code, expired code and spent code all get the same answer. */
     @Transactional
     public void verifyEmail(VerifyEmailRequest request) {
-        UserToken token = userTokenRepository
-                .findByTokenHashAndPurpose(
-                        VerificationTokenGenerator.hash(request.token().trim()),
-                        TokenPurpose.EMAIL_VERIFICATION)
-                .filter(candidate -> candidate.isRedeemable(Instant.now()))
-                .orElseThrow(() -> new BadCredentialsException("That verification link is not valid."));
-
-        Instant now = Instant.now();
-        token.setConsumedAt(now);
-        userTokenRepository.save(token);
+        UserToken token = consumeOtp(request.email(), request.code(), TokenPurpose.EMAIL_VERIFICATION);
 
         User user = token.getUser();
         user.setStatus(UserStatus.ACTIVE);
-        user.setEmailVerifiedAt(now);
+        user.setEmailVerifiedAt(Instant.now());
         userRepository.save(user);
 
         authSecurityService.record(user.getId(), AuthEventType.EMAIL_VERIFIED, null, null, null);
     }
 
-    /**
-     * Always succeeds from the caller's point of view, whether or not the address exists. Any other
-     * behaviour is a membership oracle for every address an attacker cares to try.
-     *
-     * @return the raw reset token to deliver by email, or null when there is no such account.
-     */
+    /** Always succeeds from the caller's side, account or not, or it is a membership oracle. */
     @Transactional
-    public String requestPasswordReset(ForgotPasswordRequest request) {
-        String email = request.email().trim().toLowerCase(Locale.ROOT);
-
-        User user = userRepository.findByEmail(email).orElse(null);
-        if (user == null) {
-            return null;
-        }
-
-        String rawToken = VerificationTokenGenerator.generateRawToken();
-
-        UserToken token = new UserToken();
-        token.setUser(user);
-        token.setPurpose(TokenPurpose.PASSWORD_RESET);
-        token.setTokenHash(VerificationTokenGenerator.hash(rawToken));
-        token.setExpiresAt(Instant.now().plus(RESET_TOKEN_VALIDITY));
-        userTokenRepository.save(token);
-
-        authSecurityService.record(user.getId(), AuthEventType.PASSWORD_RESET_REQUESTED, null, null, null);
-        return rawToken;
+    public void requestPasswordReset(ForgotPasswordRequest request) {
+        userRepository.findByEmail(request.email().trim().toLowerCase(Locale.ROOT))
+                .ifPresent(user -> {
+                    issueOtp(user, TokenPurpose.PASSWORD_RESET, "RESET_PASSWORD");
+                    authSecurityService.record(user.getId(), AuthEventType.PASSWORD_RESET_REQUESTED,
+                            null, null, null);
+                });
     }
 
-    /** Ends every session: a reset after a compromise that left the attacker signed in is no reset. */
+    /** Ends every session: a reset that leaves the attacker signed in is no reset. */
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        Instant now = Instant.now();
-
-        UserToken token = userTokenRepository
-                .findByTokenHashAndPurpose(
-                        VerificationTokenGenerator.hash(request.token().trim()),
-                        TokenPurpose.PASSWORD_RESET)
-                .filter(candidate -> candidate.isRedeemable(now))
-                .orElseThrow(() -> new BadCredentialsException("That reset link is not valid."));
-
-        token.setConsumedAt(now);
-        userTokenRepository.save(token);
+        UserToken token = consumeOtp(request.email(), request.code(), TokenPurpose.PASSWORD_RESET);
 
         User user = token.getUser();
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         userRepository.save(user);
 
+        Instant now = Instant.now();
         refreshTokenRepository.revokeAllForUser(user.getId(), now);
         rateLimiter.reset("rl:login:" + user.getEmail());
 

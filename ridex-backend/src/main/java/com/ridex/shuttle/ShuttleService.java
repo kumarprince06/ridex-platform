@@ -17,6 +17,7 @@ import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.util.OtpGenerator;
+import com.ridex.shared.util.UlidGenerator;
 import com.ridex.shuttle.domain.*;
 import com.ridex.shuttle.dto.*;
 
@@ -178,15 +179,26 @@ public class ShuttleService {
         }
 
         return shuttleTripRepository.findByScheduleIdAndServiceDate(scheduleId, serviceDate)
-                .orElseGet(() -> {
-                    ShuttleTrip trip = new ShuttleTrip();
-                    trip.setSchedule(schedule);
-                    trip.setServiceDate(serviceDate);
-                    trip.setDepartsAt(serviceDate.atTime(schedule.getDepartureTime())
-                            .toInstant(ZoneOffset.UTC));
-                    trip.setSeatCapacity(schedule.getSeatCapacity());
-                    return shuttleTripRepository.save(trip);
-                });
+                .orElseGet(() -> createDeparture(schedule, serviceDate));
+    }
+
+    /**
+     * Find-or-create, which is a race: two riders booking the first seat on a departure both find
+     * nothing and both insert. uk_shuttle_trips_departure decides it, and the loser reads the row
+     * the winner just wrote rather than failing a booking over bookkeeping.
+     */
+    private ShuttleTrip createDeparture(ShuttleSchedule schedule, LocalDate serviceDate) {
+        shuttleTripRepository.insertIfAbsent(
+                UlidGenerator.generateUlid(),
+                schedule.getId(),
+                serviceDate,
+                serviceDate.atTime(schedule.getDepartureTime()).toInstant(ZoneOffset.UTC),
+                schedule.getSeatCapacity());
+
+        // Re-read rather than trusting the insert: whether this call created the row or found it
+        // already there, the row is the same one and its id came from whoever won.
+        return shuttleTripRepository.findByScheduleIdAndServiceDate(schedule.getId(), serviceDate)
+                .orElseThrow(() -> new ConflictException("That departure could not be opened."));
     }
 
     private RouteStop stopOn(ShuttleTrip trip, String stopId) {

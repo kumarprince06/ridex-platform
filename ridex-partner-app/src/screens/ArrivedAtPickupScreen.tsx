@@ -4,6 +4,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
+import { startTrip } from '../api/driver';
+import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
 import { RiderBar } from '../components/RiderBar';
 import { SwipeAction } from '../components/SwipeAction';
@@ -14,13 +16,14 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'ArrivedAtPickup'>;
 
-const CODE_LENGTH = 4;
+// Six, matching the code the server issues and the rider's screen shows.
+const CODE_LENGTH = 6;
 
 /**
  * Ride request state DRIVER_AT_PICKUP. The waiting timer starts here because the cancellation fee
  * depends on it - the server owns the authoritative clock, this only mirrors it.
  */
-export function ArrivedAtPickupScreen({ navigation }: Props) {
+export function ArrivedAtPickupScreen({ navigation, route }: Props) {
   const [waited, setWaited] = useState(0);
   const [code, setCode] = useState('');
   const [scannedCode, setScannedCode] = useState<string | null>(null);
@@ -36,12 +39,35 @@ export function ArrivedAtPickupScreen({ navigation }: Props) {
   // Either path verifies: the QR the rider's app shows, or the code they read out.
   const verified = scannedCode !== null || code.length === CODE_LENGTH;
 
-  const start = () => {
+  const [busy, setBusy] = useState(false);
+
+  const start = async () => {
     if (!verified) {
-      setError('Scan the rider\'s QR or enter their 4-digit code first.');
+      setError("Scan the rider's QR or enter their 6-digit code first.");
       return;
     }
-    navigation.replace('TripInProgress');
+
+    const tripId = route.params?.tripId;
+    if (!tripId) {
+      navigation.replace('TripInProgress', {});
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      // Whichever way it was captured, it is the same secret and the same check. The server
+      // decides it matches - a phone that decided would let a driver start a trip nobody boarded.
+      await startTrip(tripId, scannedCode ?? code);
+      navigation.replace('TripInProgress', { tripId });
+    } catch (caught) {
+      // Wrong code, or five wrong ones and the code is burned. Both say so plainly.
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not start the trip.');
+      setScannedCode(null);
+      setCode('');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -103,7 +129,11 @@ export function ArrivedAtPickupScreen({ navigation }: Props) {
           </>
         )}
 
-        <SwipeAction label="Swipe to start trip" icon="play" onComplete={start} />
+        <SwipeAction
+          label={busy ? 'Starting...' : 'Swipe to start trip'}
+          icon="play"
+          onComplete={() => void start()}
+        />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 

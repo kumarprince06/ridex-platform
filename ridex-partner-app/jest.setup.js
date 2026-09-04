@@ -36,11 +36,20 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 // Place search and routing are network calls; a screen test must not depend on the internet.
-global.fetch = jest.fn(async () => ({
-  ok: true,
-  status: 200,
-  json: async () => ({ features: [], routes: [] }),
-}));
+// Shaped by URL, because the two callers want different things: the RideX API returns lists,
+// the map providers return a features/routes object. One shape for both makes a screen fail on
+// `.find is not a function`, which reads like a screen bug and is not one.
+global.fetch = jest.fn(async (url) => {
+  const body = String(url).includes('/api/v1/') ? [] : { features: [], routes: [] };
+  return {
+    ok: true,
+    status: 200,
+    // text() as well as json(): the API client reads the body as text so it can tell an empty
+    // 204 from a JSON payload.
+    text: async () => JSON.stringify(body),
+    json: async () => body,
+  };
+});
 
 // The camera is a native view; a scanner screen is tested for its overlay, not its preview.
 jest.mock('expo-camera', () => {

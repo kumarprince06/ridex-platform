@@ -47,6 +47,25 @@ export async function primeLocation() {
 }
 
 /**
+ * A single fix, as latitude/longitude.
+ *
+ * Separate from the cached tuple the maps use: dispatch needs a position it can place a driver
+ * at, and a stale cache would put them on a street they left ten minutes ago.
+ */
+export async function currentPosition(): Promise<{ latitude: number; longitude: number }> {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    // Not silently defaulting: a driver placed at the city centre would be offered rides they
+    // cannot reach, which is worse than being told to turn location on.
+    throw new Error('Location permission is required to go on duty.');
+  }
+
+  const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+  cached = [fix.coords.longitude, fix.coords.latitude];
+  return { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+}
+
+/**
  * The device's position. Returns the cached fix synchronously on every screen after the first,
  * and refreshes in the background.
  */

@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
+import { arriveAtPickup } from '../api/driver';
+import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
 import { RiderBar } from '../components/RiderBar';
 import { SwipeAction } from '../components/SwipeAction';
@@ -13,7 +16,26 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = RootScreenProps<'NavigateToPickup'>;
 
 /** Ride request state DRIVER_ASSIGNED / DRIVER_ARRIVING. */
-export function NavigateToPickupScreen({ navigation }: Props) {
+export function NavigateToPickupScreen({ navigation, route }: Props) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function onArrive() {
+    const tripId = route.params?.tripId;
+    if (!tripId) {
+      // No trip on the route means this was opened outside the accept flow; the screen still
+      // demonstrates itself rather than crashing.
+      navigation.replace('ArrivedAtPickup', {});
+      return;
+    }
+    try {
+      await arriveAtPickup(tripId);
+      // The waiting clock starts server-side from here, which is why the API call comes first.
+      navigation.replace('ArrivedAtPickup', { tripId });
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not mark arrival.');
+    }
+  }
+
   return (
     <View style={styles.root}>
       <MapCanvas showRoute driverAt={0.2} driverLabel="You" pickupLabel={OFFER.pickup} />
@@ -44,10 +66,12 @@ export function NavigateToPickupScreen({ navigation }: Props) {
           app cannot infer it from a coordinate. Swipe, not tap: it starts the rider's waiting
           timer and the cancellation window, and it cannot be undone.
         */}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
         <SwipeAction
           label="Swipe when you arrive"
           icon="flag"
-          onComplete={() => navigation.replace('ArrivedAtPickup')}
+          onComplete={() => void onArrive()}
         />
 
         <Pressable
@@ -63,6 +87,11 @@ export function NavigateToPickupScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  errorText: {
+    ...type.body,
+    color: colors.danger,
+    marginBottom: spacing.sm,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.bg,

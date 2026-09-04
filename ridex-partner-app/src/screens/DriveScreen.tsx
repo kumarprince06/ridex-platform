@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { reportLocation, setDuty } from '../api/driver';
+import { ApiError } from '../api/problem';
+import { useOffers } from '../api/useOffers';
+import { currentPosition } from '../lib/location';
 import { DutyPill, DutyToggle } from '../components/DutyToggle';
 import { EarningsBar } from '../components/EarningsBar';
 import { MapCanvas } from '../components/MapCanvas';
@@ -14,21 +18,48 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = TabScreenProps<'Drive'>;
 
-/** How long the driver waits before dispatch "finds" a ride. Stand-in for the offer socket. */
-const OFFER_DELAY_MS = 6000;
+// While on duty the app reports position, which is what puts the driver in the dispatch pool.
+const LOCATION_PING_MS = 15000;
 
 export function DriveScreen({ navigation }: Props) {
   const [online, setOnline] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const today = EARNINGS.Today;
+
+  const { offer } = useOffers(online);
+
+  useEffect(() => {
+    if (offer) {
+      navigation.navigate('RideOffer', { offerId: offer.offerId });
+    }
+  }, [offer, navigation]);
 
   useEffect(() => {
     if (!online) {
       return;
     }
-    // Stand-in for T10 dispatch: an offer arrives over a WebSocket, it does not fire on a timer.
-    const timer = setTimeout(() => navigation.navigate('RideOffer'), OFFER_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [online, navigation]);
+    // A driver who stops reporting drops out of the pool after two minutes, so this has to keep
+    // running for as long as they are on duty.
+    const timer = setInterval(() => {
+      void currentPosition().then((position) =>
+        reportLocation(position.latitude, position.longitude).catch(() => undefined),
+      );
+    }, LOCATION_PING_MS);
+    return () => clearInterval(timer);
+  }, [online]);
+
+  async function toggleDuty(next: boolean) {
+    setError(null);
+    try {
+      const position = next ? await currentPosition() : null;
+      await setDuty(next, position?.latitude, position?.longitude);
+      setOnline(next);
+    } catch (caught) {
+      // "Your account is not approved to drive yet" arrives here, which is the message that
+      // matters most to a driver who just installed the app.
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not change duty status.');
+    }
+  }
 
   return (
     <View style={styles.root}>
@@ -79,7 +110,7 @@ export function DriveScreen({ navigation }: Props) {
               <Shift value={today.perHour} label="Per hour" />
             </View>
 
-            <DutyToggle online onToggle={() => setOnline(false)} />
+            <DutyToggle online onToggle={() => void toggleDuty(false)} />
           </View>
         ) : (
           <View style={styles.offlineBlock}>
@@ -97,7 +128,7 @@ export function DriveScreen({ navigation }: Props) {
               <Shift value={today.online} label="Online" />
             </View>
 
-            <DutyToggle online={false} onToggle={() => setOnline(true)} />
+            <DutyToggle online={false} onToggle={() => void toggleDuty(true)} />
           </View>
         )}
       </SafeAreaView>

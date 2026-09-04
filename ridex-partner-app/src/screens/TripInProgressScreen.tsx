@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { completeTrip } from '../api/driver';
+import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
 import { SwipeAction } from '../components/SwipeAction';
 import { OFFER } from '../data/mock';
@@ -18,7 +20,38 @@ type Props = RootScreenProps<'TripInProgress'>;
  * The fare shown here ticks on a timer as a stand-in. The device displays fare, it never decides
  * it - the server is authoritative on money.
  */
-export function TripInProgressScreen({ navigation }: Props) {
+export function TripInProgressScreen({ navigation, route }: Props) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const startedAt = useRef(Date.now());
+
+  async function onComplete() {
+    const tripId = route.params?.tripId;
+    if (!tripId) {
+      navigation.replace('TripCompleted', {});
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      // Distance from the trip's own tracking. ponytail: the odometer is not read yet, so this
+      // sends the quoted route length - the server bounds whatever arrives at 2x the quote, so a
+      // wrong figure cannot invent a fare. Replace with the driven distance once the trip tracks it.
+      const durationSeconds = Math.round((Date.now() - startedAt.current) / 1000);
+      const trip = await completeTrip(tripId, 8200, Math.max(60, durationSeconds));
+      navigation.replace('TripCompleted', {
+        tripId,
+        fareMinor: trip.finalFareMinor ?? undefined,
+        currency: trip.currency,
+      });
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not complete the trip.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -62,10 +95,12 @@ export function TripInProgressScreen({ navigation }: Props) {
           </View>
         </View>
 
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
         <SwipeAction
-          label="Swipe to complete trip"
+          label={busy ? 'Completing...' : 'Swipe to complete trip'}
           icon="checkmark"
-          onComplete={() => navigation.replace('TripCompleted')}
+          onComplete={() => void onComplete()}
         />
       </SafeAreaView>
     </View>
@@ -73,6 +108,11 @@ export function TripInProgressScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  errorText: {
+    ...type.body,
+    color: colors.danger,
+    marginBottom: spacing.sm,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.bg,

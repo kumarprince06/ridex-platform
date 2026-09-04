@@ -44,12 +44,12 @@ export type RootStackParamList = {
 
   // Offer and trip, in the order a driver walks it. Mirrors the ride request machine in docs/11
   // from the opposite side to the rider app.
-  RideOffer: undefined;
+  RideOffer: { offerId?: string };
   OfferLost: undefined;
-  NavigateToPickup: undefined;
-  ArrivedAtPickup: undefined;
-  TripInProgress: undefined;
-  TripCompleted: undefined;
+  NavigateToPickup: { tripId?: string; rideId?: string };
+  ArrivedAtPickup: { tripId?: string };
+  TripInProgress: { tripId?: string };
+  TripCompleted: { tripId?: string; fareMinor?: number; currency?: string };
   RateRider: undefined;
   CancelTrip: undefined;
   Safety: undefined;

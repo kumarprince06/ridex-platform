@@ -22,6 +22,7 @@ import com.ridex.auth.dto.RefreshTokenRequest;
 import com.ridex.auth.dto.RefreshTokenResponse;
 import com.ridex.auth.dto.RegisterRequest;
 import com.ridex.auth.domain.AppContext;
+import com.ridex.auth.domain.AuthEventType;
 import com.ridex.auth.domain.RefreshToken;
 import com.ridex.auth.domain.TokenPurpose;
 import com.ridex.auth.domain.User;
@@ -41,14 +42,13 @@ public class AuthService {
     private static final Duration VERIFICATION_TOKEN_VALIDITY = Duration.ofHours(24);
     private static final Duration REFRESH_TOKEN_VALIDITY = Duration.ofDays(7);
 
-    // Hash of a random value nobody holds, computed once at startup. Login compares against this
-    // when the address is unknown, so a miss costs the same ~200ms as a hit. Generated rather than
-    // hardcoded so it always matches whatever cost factor PasswordConfig is using.
+    // Hash of a random value, computed at startup so it always matches the configured cost factor.
     private String absentUserHash;
 
     private final UserRepository userRepository;
     private final UserTokenRepository userTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final AuthSecurityService authSecurityService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
@@ -58,17 +58,10 @@ public class AuthService {
     }
 
     /**
-     * Opens a rider or driver account and issues a verification token. No tenant is created or
-     * resolved - that conflict between the tenant boundary and public signup is exactly why the
-     * multi-tenant model was dropped (ADR-001).
+     * A taken address produces no account and no error - the caller always sees the same 202, or
+     * the response becomes a membership oracle. The owner is told by email instead.
      *
-     * <p>An address that already has an account produces no account and no error: the caller
-     * always sees the same 202. Telling the client "that email is taken" hands an attacker a
-     * membership oracle for any address they care to try. The existing owner is told by email
-     * instead, where only they can read it.
-     *
-     * @return the raw verification token for the caller to deliver, or null when the address
-     *         already has an account. Never persisted, never logged.
+     * @return raw verification token, or null when the address already has an account.
      */
     @Transactional
     public String register(RegisterRequest request) {
@@ -79,14 +72,12 @@ public class AuthService {
 
         String email = request.email().trim().toLowerCase(Locale.ROOT);
 
-        // Hash first, unconditionally. Skipping it on the taken-address path would make that path
-        // ~200ms faster and reintroduce the same oracle through timing.
+        // Unconditional: skipping this on the taken path is ~200ms faster and leaks by timing.
         String passwordHash = passwordEncoder.encode(request.password());
 
         if (userRepository.existsByEmail(email)) {
-            // ponytail: a concurrent duplicate still surfaces as a 409 from the unique constraint,
-            // which is a far weaker oracle than a deterministic one. Closing it needs the
-            // registration write moved behind a queue - not worth it before there are users.
+            // ponytail: a concurrent duplicate still 409s from the unique constraint. Closing that
+            // needs registration behind a queue - not worth it before there are users.
             return null;
         }
 
@@ -114,13 +105,15 @@ public class AuthService {
         String email = request.email().trim().toLowerCase(Locale.ROOT);
         User user = userRepository.findByEmail(email).orElse(null);
 
-        // Compare against a decoy hash rather than returning early, so an unknown address costs the
-        // same as a known one. An early return here is measurable from the internet and enumerates
-        // every account on the platform.
+        // Decoy hash rather than an early return, so an unknown address costs the same as a known
+        // one. The timing difference is measurable and enumerates every account.
         String storedHash = user == null ? absentUserHash : user.getPasswordHash();
         boolean passwordMatches = passwordEncoder.matches(request.password(), storedHash);
 
         if (user == null || !passwordMatches) {
+            // Recorded even with no account: those rows are what credential stuffing looks like.
+            authSecurityService.record(user == null ? null : user.getId(), AuthEventType.LOGIN_FAILED,
+                    ipAddress, userAgent, "bad credentials");
             throw new BadCredentialsException("Invalid email or password");
         }
 
@@ -129,6 +122,8 @@ public class AuthService {
         AppContext app = request.app();
         Set<UserRole> granted = app.grantableFrom(user.getRoles());
         if (granted.isEmpty()) {
+            authSecurityService.record(user.getId(), AuthEventType.LOGIN_BLOCKED, ipAddress, userAgent,
+                    "no role for surface " + app);
             // The password was correct, so this is an authorization answer, not an identity one -
             // and it is the message that stops a driver being told only "403" in the driver app.
             throw new AccessDeniedException(app.rejectionMessage());
@@ -151,6 +146,8 @@ public class AuthService {
 
         user.setLastLoginAt(now);
         userRepository.save(user);
+
+        authSecurityService.record(user.getId(), AuthEventType.LOGIN_SUCCEEDED, ipAddress, userAgent, "app=" + app);
 
         return new LoginResponse(
                 accessToken,
@@ -177,12 +174,19 @@ public class AuthService {
             throw new BadCredentialsException("Invalid refresh token");
         }
 
-        RefreshToken storedToken = refreshTokenRepository
-                .findByTokenHash(VerificationTokenGenerator.hash(rawRefreshToken))
-                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
-
+        String presentedHash = VerificationTokenGenerator.hash(rawRefreshToken);
         Instant now = Instant.now();
-        if (storedToken.getRevokedAt() != null || storedToken.getExpiresAt().isBefore(now)) {
+
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(presentedHash)
+                .orElseGet(() -> {
+                    // Not current: check whether it is the generation this row just replaced.
+                    refreshTokenRepository.findByPreviousTokenHash(presentedHash)
+                            .ifPresent(spent -> authSecurityService.respondToTokenReuse(
+                                    spent.getUser().getId(), now));
+                    throw new BadCredentialsException("Invalid refresh token");
+                });
+
+        if (!storedToken.isLiveAt(now)) {
             throw new BadCredentialsException("Refresh token expired or revoked");
         }
 
@@ -203,12 +207,12 @@ public class AuthService {
         String newAccessToken = jwtService.generateAccessToken(user.getId(), user.getEmail(), granted, app);
         String newRefreshToken = jwtService.generateRefreshToken(user.getId(), user.getEmail(), granted, app);
 
-        // Rotation in place: the row is the device session, so it keeps its identity and its
-        // user_agent while the secret it holds changes.
-        storedToken.setTokenHash(VerificationTokenGenerator.hash(newRefreshToken));
-        storedToken.setExpiresAt(now.plus(REFRESH_TOKEN_VALIDITY));
-        storedToken.setLastUsedAt(now);
+        // The row is the device session: same identity and user_agent, new secret, previous one kept.
+        storedToken.rotateTo(
+                VerificationTokenGenerator.hash(newRefreshToken), now, now.plus(REFRESH_TOKEN_VALIDITY));
         refreshTokenRepository.save(storedToken);
+
+        authSecurityService.record(user.getId(), AuthEventType.TOKEN_REFRESHED, null, null, "app=" + app);
 
         return new RefreshTokenResponse(
                 newAccessToken,
@@ -220,11 +224,8 @@ public class AuthService {
                 newRefreshToken);
     }
 
-    /**
-     * Ends one device session. Silent when the token is unknown, already revoked or owned by
-     * someone else - a logout that reported which of those it was would answer questions about
-     * other people's sessions.
-     */
+    // Silent on an unknown, revoked or someone else's token: distinguishing them would answer
+    // questions about other people's sessions.
     @Transactional
     public void logout(LogoutRequest request, String callerUserId) {
         refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(request.refreshToken().trim()))
@@ -233,6 +234,7 @@ public class AuthService {
                 .ifPresent(token -> {
                     token.setRevokedAt(Instant.now());
                     refreshTokenRepository.save(token);
+                    authSecurityService.record(callerUserId, AuthEventType.LOGOUT, null, null, "session revoked");
                 });
     }
 

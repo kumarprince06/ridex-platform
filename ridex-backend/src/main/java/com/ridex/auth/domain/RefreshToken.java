@@ -48,6 +48,11 @@ public class RefreshToken {
     @Column(name = "token_hash", nullable = false, length = 255)
     private String tokenHash;
 
+    // The secret before the last rotation, so a replay of it reads as theft rather than as an
+    // ordinary unknown token.
+    @Column(name = "previous_token_hash", length = 255)
+    private String previousTokenHash;
+
     /**
      * Device fingerprint, captured at login. A live row is a live session, so this is what
      * FR-AUTH-007 lists and revokes - a separate user_sessions table would hold the same rows.
@@ -72,6 +77,18 @@ public class RefreshToken {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    // One place, so no caller can replace the secret without keeping the generation it replaced.
+    public void rotateTo(String newTokenHash, Instant now, Instant newExpiry) {
+        this.previousTokenHash = this.tokenHash;
+        this.tokenHash = newTokenHash;
+        this.expiresAt = newExpiry;
+        this.lastUsedAt = now;
+    }
+
+    public boolean isLiveAt(Instant now) {
+        return revokedAt == null && expiresAt.isAfter(now);
+    }
 
     @PrePersist
     protected void onCreate() {

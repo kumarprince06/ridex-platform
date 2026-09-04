@@ -3,6 +3,7 @@ package com.ridex.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -25,6 +26,8 @@ import com.ridex.auth.dto.LoginResponse;
 import com.ridex.auth.dto.LogoutRequest;
 import com.ridex.auth.dto.RegisterRequest;
 import com.ridex.auth.domain.AppContext;
+import com.ridex.auth.dto.RefreshTokenRequest;
+import com.ridex.auth.domain.AuthEventType;
 import com.ridex.auth.domain.RefreshToken;
 import com.ridex.auth.domain.User;
 import com.ridex.auth.domain.UserRole;
@@ -46,6 +49,7 @@ class AuthServiceTest {
     private UserTokenRepository userTokenRepository;
     private RefreshTokenRepository refreshTokenRepository;
     private JwtService jwtService;
+    private AuthSecurityService authSecurityService;
     private AuthService authService;
 
     @BeforeEach
@@ -53,11 +57,13 @@ class AuthServiceTest {
         userRepository = mock(UserRepository.class);
         userTokenRepository = mock(UserTokenRepository.class);
         refreshTokenRepository = mock(RefreshTokenRepository.class);
+        authSecurityService = mock(AuthSecurityService.class);
         jwtService = new JwtService("super-secret-key-which-is-very-long-for-jwt-signing", 3600000, 604800000);
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
         authService = new AuthService(
-                userRepository, userTokenRepository, refreshTokenRepository, jwtService, passwordEncoder);
+                userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
+                jwtService, passwordEncoder);
         authService.generateDecoyHash();
 
         when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
@@ -202,8 +208,7 @@ class AuthServiceTest {
         String token = authService.register(
                 new RegisterRequest("taken@example.com", PASSWORD, UserRole.RIDER));
 
-        // No token, no account, and no exception: the controller answers 202 either way, so the
-        // caller cannot tell a fresh address from one that already has an account.
+        // No token, no account, no exception: the controller answers 202 either way.
         assertThat(token).isNull();
         verify(userRepository, never()).save(any(User.class));
         verify(userTokenRepository, never()).save(any());
@@ -214,13 +219,14 @@ class AuthServiceTest {
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         when(encoder.encode(any())).thenReturn("hashed");
         AuthService service = new AuthService(
-                userRepository, userTokenRepository, refreshTokenRepository, jwtService, encoder);
+                userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
+                jwtService, encoder);
         service.generateDecoyHash();
         when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
 
         service.register(new RegisterRequest("taken@example.com", PASSWORD, UserRole.RIDER));
 
-        // Skipping the hash on this path would make it measurably faster than a fresh signup.
+        // Skipping the hash here would make this path measurably faster than a fresh signup.
         verify(encoder).encode(PASSWORD);
     }
 
@@ -230,7 +236,8 @@ class AuthServiceTest {
         when(encoder.encode(any())).thenReturn("decoy-hash");
         when(encoder.matches(any(), any())).thenReturn(false);
         AuthService service = new AuthService(
-                userRepository, userTokenRepository, refreshTokenRepository, jwtService, encoder);
+                userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
+                jwtService, encoder);
         service.generateDecoyHash();
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 
@@ -238,8 +245,71 @@ class AuthServiceTest {
                 new LoginRequest("nobody@example.com", PASSWORD, AppContext.RIDER), null, null))
                 .isInstanceOf(BadCredentialsException.class);
 
-        // Returning early on an unknown address is measurable from the internet and enumerates
-        // every account on the platform.
+        // An early return here is measurable and enumerates every account.
         verify(encoder).matches(PASSWORD, "decoy-hash");
+    }
+
+    @Test
+    void replayingASpentRefreshTokenTriggersTheTheftResponse() {
+        User owner = activeUser("owner-1");
+        RefreshToken session = new RefreshToken();
+        session.setUser(owner);
+        session.setTokenHash(VerificationTokenGenerator.hash("current-secret"));
+        session.setPreviousTokenHash(VerificationTokenGenerator.hash("spent-secret"));
+        session.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
+
+        String spentToken = jwtService.generateRefreshToken(
+                "owner-1", "owner-1@example.com", EnumSet.of(UserRole.RIDER), AppContext.RIDER);
+        session.setPreviousTokenHash(VerificationTokenGenerator.hash(spentToken));
+
+        when(refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(spentToken)))
+                .thenReturn(Optional.empty());
+        when(refreshTokenRepository.findByPreviousTokenHash(VerificationTokenGenerator.hash(spentToken)))
+                .thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(spentToken)))
+                .isInstanceOf(BadCredentialsException.class);
+
+        // No way to tell which party is the owner, so every session ends.
+        verify(authSecurityService).respondToTokenReuse(eq("owner-1"), any());
+    }
+
+    @Test
+    void anUnknownRefreshTokenIsNotTreatedAsTheft() {
+        String strangerToken = jwtService.generateRefreshToken(
+                "nobody", "nobody@example.com", EnumSet.of(UserRole.RIDER), AppContext.RIDER);
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
+        when(refreshTokenRepository.findByPreviousTokenHash(any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(strangerToken)))
+                .isInstanceOf(BadCredentialsException.class);
+
+        verify(authSecurityService, never()).respondToTokenReuse(any(), any());
+    }
+
+    @Test
+    void rotationKeepsTheOutgoingHashSoAReplayIsDetectable() {
+        RefreshToken session = new RefreshToken();
+        session.setTokenHash("first-hash");
+        session.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
+
+        java.time.Instant now = java.time.Instant.now();
+        session.rotateTo("second-hash", now, now.plusSeconds(3600));
+
+        assertThat(session.getTokenHash()).isEqualTo("second-hash");
+        assertThat(session.getPreviousTokenHash()).isEqualTo("first-hash");
+    }
+
+    @Test
+    void aFailedLoginIsRecordedEvenThoughTheRequestThenFails() {
+        when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest("nobody@example.com", PASSWORD, AppContext.RIDER), "agent", "1.2.3.4"))
+                .isInstanceOf(BadCredentialsException.class);
+
+        // Null user id on purpose: that row is what credential stuffing looks like.
+        verify(authSecurityService).record(
+                eq(null), eq(AuthEventType.LOGIN_FAILED), eq("1.2.3.4"), eq("agent"), any());
     }
 }

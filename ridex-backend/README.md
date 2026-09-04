@@ -46,6 +46,8 @@ reads from the environment. Nothing secret belongs in that file.
 | `RIDEX_APP_PASSWORD` | yes | Postgres password for the `ridex_app` role |
 | `RIDEX_JWT_SECRET` | **always** | HMAC signing key, 32+ bytes. There is no default — the app refuses to start without one, and rejects the old placeholder outright. `openssl rand -base64 48` |
 | `GOOGLE_MAPS_API_KEY` | for `/maps/**` | Geocoding and distance-matrix key |
+| `RIDEX_BOOTSTRAP_ADMIN_EMAIL` / `_PASSWORD` | first deploy | Creates the first super admin at startup, and only when none exists. Staff roles are rejected at public signup, so without this there is no way to ever get one |
+| `RIDEX_CORS_ALLOWED_ORIGINS` | deployed envs | Browser origins allowed to call the API |
 
 Tests supply their own signing key through the surefire configuration, so `./mvnw test` needs only a database.
 

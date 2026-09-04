@@ -61,6 +61,12 @@ app:
   cors:
     allowed-origins: ${RIDEX_CORS_ALLOWED_ORIGINS:http://localhost:5174}
 
+  # The first super admin, created at startup only if none exists. Staff roles are rejected at
+  # public signup, so without this there is no way to ever get one.
+  bootstrap:
+    admin-email: ${RIDEX_BOOTSTRAP_ADMIN_EMAIL:}
+    admin-password: ${RIDEX_BOOTSTRAP_ADMIN_PASSWORD:}
+
   google:
     maps:
       # No default. A key committed here is a key someone else can bill, and the previous one

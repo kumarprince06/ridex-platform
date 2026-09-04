@@ -146,6 +146,17 @@
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<systemPropertyVariables>
+						<!-- Tests need a signing key like everything else; this one is only ever
+						     valid inside the build. -->
+						<RIDEX_JWT_SECRET>test-only-signing-key-long-enough-for-hmac-sha256</RIDEX_JWT_SECRET>
+					</systemPropertyVariables>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<executions>
 					<execution>

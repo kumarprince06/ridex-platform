@@ -44,8 +44,10 @@ reads from the environment. Nothing secret belongs in that file.
 | Variable | Required | Purpose |
 |---|---|---|
 | `RIDEX_APP_PASSWORD` | yes | Postgres password for the `ridex_app` role |
-| `RIDEX_JWT_SECRET` | outside local dev | HMAC signing key. The in-file default exists so a fresh clone boots; it must never reach a deployed environment |
+| `RIDEX_JWT_SECRET` | **always** | HMAC signing key, 32+ bytes. There is no default — the app refuses to start without one, and rejects the old placeholder outright. `openssl rand -base64 48` |
 | `GOOGLE_MAPS_API_KEY` | for `/maps/**` | Geocoding and distance-matrix key |
+
+Tests supply their own signing key through the surefire configuration, so `./mvnw test` needs only a database.
 
 A single Spring profile today, because there is a single environment. Split it when a second one
 exists — a `prod` block nobody runs only rots.

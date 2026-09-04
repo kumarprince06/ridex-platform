@@ -29,16 +29,43 @@ public class JwtService {
     public static final String TOKEN_TYPE_ACCESS = "access";
     public static final String TOKEN_TYPE_REFRESH = "refresh";
 
+    // HMAC-SHA256 gives no more security than the length of its key, so a shorter one silently
+    // weakens every token the platform issues.
+    private static final int MINIMUM_SECRET_BYTES = 32;
+
+    // The placeholder that used to be the default. It is in git history, so a deployment that
+    // still signs with it can be handed a forged SUPER_ADMIN token by anyone who reads the repo.
+    private static final String REJECTED_SECRET = "change-me-please-very-long-secret-key";
+
     private final SecretKey signingKey;
     private final long accessExpirationMs;
     private final long refreshExpirationMs;
 
-    public JwtService(@Value("${app.jwt.secret:change-me-please-very-long-secret-key}") String secret,
-            @Value("${app.jwt.access-expiration-ms:3600000}") long accessExpirationMs,
+    public JwtService(@Value("${app.jwt.secret}") String secret,
+            @Value("${app.jwt.access-expiration-ms:900000}") long accessExpirationMs,
             @Value("${app.jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs) {
+        requireStrongSecret(secret);
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessExpirationMs = accessExpirationMs;
         this.refreshExpirationMs = refreshExpirationMs;
+    }
+
+    /** Refuses to start rather than issuing forgeable tokens. A boot failure is the loud option. */
+    private static void requireStrongSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "RIDEX_JWT_SECRET is not set. Generate one with: openssl rand -base64 48");
+        }
+        if (REJECTED_SECRET.equals(secret)) {
+            throw new IllegalStateException(
+                    "RIDEX_JWT_SECRET is the placeholder from the repository. Generate a real one.");
+        }
+        int bytes = secret.getBytes(StandardCharsets.UTF_8).length;
+        if (bytes < MINIMUM_SECRET_BYTES) {
+            throw new IllegalStateException(
+                    "RIDEX_JWT_SECRET must be at least " + MINIMUM_SECRET_BYTES
+                            + " bytes for HMAC-SHA256; got " + bytes + ".");
+        }
     }
 
     public String generateAccessToken(String userId, String email, Set<UserRole> roles, AppContext app) {

@@ -119,7 +119,7 @@ Local mail UI: `http://localhost:8025`
 | Variable | Purpose |
 |---|---|
 | `RIDEX_APP_PASSWORD` | Postgres password for the `ridex_app` role |
-| `RIDEX_JWT_SECRET` | JWT signing key. Must be set outside local development |
+| `RIDEX_JWT_SECRET` | JWT signing key, 32+ bytes. Required always — no default, and the app refuses to boot without it |
 
 ---
 

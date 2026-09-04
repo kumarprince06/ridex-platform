@@ -22,8 +22,12 @@ spring:
 
 app:
   jwt:
-    secret: ${RIDEX_JWT_SECRET:change-me-please-very-long-secret-key}
-    access-expiration-ms: 3600000
+    # No default. The app refuses to start without a real key rather than signing tokens with a
+    # value that is published in this repository's history.
+    secret: ${RIDEX_JWT_SECRET}
+    # 15 minutes. Refresh rotation makes a short access token cheap, and it bounds how long a
+    # leaked one is useful - there is no revocation before expiry.
+    access-expiration-ms: 900000
     refresh-expiration-ms: 604800000
 
   # Comma-separated. The console in development; the deployed console origin in every

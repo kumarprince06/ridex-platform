@@ -71,6 +71,13 @@ app:
   # was under app.mail, so no JavaMailSender was ever created.
   mail:
     from: ${RIDEX_MAIL_FROM:no-reply@ridex.local}
+management:
+  health:
+    # The outbox exists so a mail outage cannot stop the platform. Letting it mark the app DOWN
+    # would pull every node out of a load balancer for the one failure that is already absorbed.
+    mail:
+      enabled: false
+
 springdoc:
   api-docs:
     path: /v3/api-docs

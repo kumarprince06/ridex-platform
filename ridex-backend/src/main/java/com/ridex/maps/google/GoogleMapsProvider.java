@@ -124,8 +124,10 @@ public class GoogleMapsProvider implements MapsProvider {
         requireBudget();
 
         RestClient client = restClient();
+        // departure_time=now is what makes Google return duration_in_traffic. Without it the
+        // answer is a free-flow road, which is the same number at 4am and at 6pm.
         String uri = String.format(
-                "%s?origins=%s,%s&destinations=%s,%s&key=%s",
+                "%s?origins=%s,%s&destinations=%s,%s&departure_time=now&key=%s",
                 DISTANCE_MATRIX_PATH,
                 pickupLat,
                 pickupLng,
@@ -155,7 +157,8 @@ public class GoogleMapsProvider implements MapsProvider {
                     element.distance().value(),
                     element.duration().value(),
                     element.distance().text(),
-                    element.duration().text());
+                    element.duration().text(),
+                    element.durationInTraffic() == null ? null : element.durationInTraffic().value());
         } catch (RestClientException ex) {
             throw new ProviderUnavailableException("Google Maps route request failed", ex);
         }
@@ -232,7 +235,11 @@ public class GoogleMapsProvider implements MapsProvider {
 
     private record GoogleDistanceRow(List<GoogleDistanceElement> elements) {}
 
-    private record GoogleDistanceElement(GoogleDistance distance, GoogleDuration duration) {}
+    private record GoogleDistanceElement(
+            GoogleDistance distance,
+            GoogleDuration duration,
+            @com.fasterxml.jackson.annotation.JsonProperty("duration_in_traffic")
+            GoogleDuration durationInTraffic) {}
 
     private record GoogleDistance(String text, double value) {}
 

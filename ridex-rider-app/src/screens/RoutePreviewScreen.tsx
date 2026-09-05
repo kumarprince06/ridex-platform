@@ -3,7 +3,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { routeEstimate } from '../api/maps';
+import { routeEstimate, trafficOf } from '../api/maps';
 import { useQuery } from '../api/useQuery';
 import { useCurrentLocation } from '../lib/location';
 
@@ -58,8 +58,8 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
       </SafeAreaView>
 
       <Sheet>
-        {/* Two tiles, not three: nothing in the platform reports traffic, and a "Light" that is
-            always Light is worse than no tile at all. */}
+        {/* The traffic tile appears only when the router actually reported traffic - the free
+            routers model an empty road, and a "Light" that is always Light says nothing. */}
         {loading && !leg ? (
           <ActivityIndicator color={colors.primary} style={styles.stats} />
         ) : (
@@ -70,9 +70,21 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
                 label: 'Distance',
               },
               {
-                value: leg ? `${Math.max(1, Math.round(leg.durationSeconds / 60))} min` : '—',
+                // The traffic-aware time when there is one: that is the minute the rider arrives.
+                value: leg
+                  ? `${Math.max(1, Math.round((leg.durationInTrafficSeconds ?? leg.durationSeconds) / 60))} min`
+                  : '—',
                 label: 'ETA',
               },
+              ...(leg && trafficOf(leg)
+                ? [
+                    {
+                      value: trafficOf(leg)!.label,
+                      label: 'Traffic',
+                      tone: trafficOf(leg)!.tone,
+                    },
+                  ]
+                : []),
             ]}
           />
         )}

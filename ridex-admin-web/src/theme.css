@@ -72,12 +72,44 @@
   --sidebar-width: 236px;
   --topbar-height: 60px;
 
+  /* Scrollbars are chrome too. These inherit, so a dark surface re-declares them rather than
+     needing its own selector. */
+  --scrollbar-thumb: #c3ccdb;
+  --scrollbar-thumb-hover: #8a94a6;
+
   --font: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: 'SFMono-Regular', 'JetBrains Mono', Menlo, monospace;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* The OS scrollbar is the one piece of the console nobody designed. Firefox and Chromium 121+
+   take the two standard properties; the WebKit block below is for Safari and older Chrome. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* The transparent border plus padding-box clip is what makes a 10px track hold a 4px thumb -
+   WebKit has no thumb-inset property. */
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 html,

@@ -109,9 +109,22 @@ public class RideRequestService {
         return toResponse(ride);
     }
 
+    /**
+     * The rider's ride history.
+     *
+     * <p>EXPIRED is left out: that is a search that found nobody, so from the rider's side no ride
+     * happened and there is nothing to look back at. The row stays - operations and the analytics
+     * that count unserved demand need exactly these, and they are the rows that say where the
+     * platform has too few drivers.
+     *
+     * <p>Only from the list. Fetching one by id still works, because the screen that is watching a
+     * search has to be able to read the ride at the moment it expires.
+     */
     @Transactional(readOnly = true)
     public List<RideResponse> list(String riderUserId) {
-        return rideRequestRepository.findByRiderIdOrderByRequestedAtDesc(requireRider(riderUserId).getId())
+        return rideRequestRepository
+                .findByRiderIdAndStatusNotOrderByRequestedAtDesc(
+                        requireRider(riderUserId).getId(), RideStatus.EXPIRED)
                 .stream().map(this::toResponse).toList();
     }
 

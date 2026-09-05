@@ -31,6 +31,12 @@ public interface ShuttleBookingRepository extends JpaRepository<ShuttleBooking, 
 
     List<ShuttleBooking> findByRiderIdOrderByCreatedAtDesc(String riderId);
 
+    /** Whether this rider already holds a live seat on this departure from the same stop. */
+    @Query("SELECT COUNT(b) > 0 FROM ShuttleBooking b WHERE b.shuttleTrip.id = :tripId "
+            + "AND b.rider.id = :riderId AND b.boardingSeq = :boardingSeq AND b.status = 'BOOKED'")
+    boolean hasLiveSeatOnLeg(@Param("tripId") String tripId, @Param("riderId") String riderId,
+            @Param("boardingSeq") short boardingSeq);
+
     /** Seats held for a checkout that never finished. */
     @Query("SELECT b FROM ShuttleBooking b WHERE b.paymentStatus = 'PENDING' "
             + "AND b.status = 'BOOKED' AND b.holdExpiresAt < :now")

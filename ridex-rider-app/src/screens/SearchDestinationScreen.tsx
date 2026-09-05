@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { RECENT_PLACES, SAVED_PLACES } from '../data/mock';
+import { listRides } from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { LngLat } from '../lib/location';
 import { Place, searchPlaces } from '../lib/places';
 import { RootStackParamList } from '../navigation/types';
@@ -30,6 +31,17 @@ export function SearchDestinationScreen({ navigation }: Props) {
   const [failed, setFailed] = useState(false);
   // One in-flight request at a time: an older, slower response must not overwrite a newer one.
   const inFlight = useRef<AbortController | null>(null);
+
+  // Past destinations, each with the coordinates it was actually ridden to. A shortcut that
+  // carries only a name is a shortcut that cannot be priced.
+  const { data: rides } = useQuery(listRides, []);
+  const recent = (rides ?? [])
+    .filter((ride) => ride.destinationAddress)
+    .filter(
+      (ride, index, all) =>
+        all.findIndex((other) => other.destinationAddress === ride.destinationAddress) === index,
+    )
+    .slice(0, 6);
 
   useEffect(() => {
     const query = destination.trim();
@@ -101,7 +113,9 @@ export function SearchDestinationScreen({ navigation }: Props) {
               autoFocus
               onSubmitEditing={() => {
                 const first = results[0];
-                choose(first?.name ?? (destination.trim() || 'Grand Central Terminal'), first?.coord);
+                if (first) {
+                  choose(first.name, first.coord);
+                }
               }}
               returnKeyType="search"
               style={styles.input}
@@ -150,15 +164,24 @@ export function SearchDestinationScreen({ navigation }: Props) {
           </>
         ) : null}
 
-        <SectionHeader title="SAVED PLACES" action="Manage" />
-        {SAVED_PLACES.map((place) => (
-          <PlaceRow key={place.name} {...place} onPress={() => choose(place.name)} />
-        ))}
-
-        <SectionHeader title="RECENT" action="See all" />
-        {RECENT_PLACES.map((place) => (
-          <PlaceRow key={place.name} {...place} chevron onPress={() => choose(place.name)} />
-        ))}
+        {recent.length > 0 ? (
+          <>
+            <SectionHeader title="RECENT" action="" />
+            {recent.map((ride) => (
+              <PlaceRow
+                key={ride.id}
+                icon="time-outline"
+                tone={colors.textMuted}
+                name={ride.destinationAddress!}
+                address="Previous trip"
+                chevron
+                onPress={() =>
+                  choose(ride.destinationAddress!, [ride.destinationLng, ride.destinationLat])
+                }
+              />
+            ))}
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

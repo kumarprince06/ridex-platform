@@ -40,13 +40,6 @@ type Props = {
 // (near-greyscale) and 'liberty' if the colour ever needs toning down - one URL, no other change.
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
 
-/**
- * Mock trip geometry, offset from wherever the device actually is rather than pinned to a fixed
- * city: a map that opens on Bengaluru while the driver stands in another country reads as broken.
- * Real pickup and dropoff coordinates arrive with the offer (T10).
- */
-const DESTINATION_OFFSET: [number, number] = [-0.006, 0.011];
-
 export function MapCanvas({
   showRoute = false,
   driverAt,
@@ -62,11 +55,17 @@ export function MapCanvas({
   const here = coord ?? FALLBACK_CENTER;
 
   // The rider's pickup is where the rider is, unless the caller knows the real one.
-  const PICKUP: [number, number] = pickupCoord ?? here;
-  const DESTINATION: [number, number] = destinationCoord ?? [
-    here[0] + DESTINATION_OFFSET[0],
-    here[1] + DESTINATION_OFFSET[1],
-  ];
+  const PICKUP: [number, number] | null = pickupCoord ?? coord;
+  const DESTINATION: [number, number] | null = destinationCoord ?? null;
+
+  /**
+   * A route is drawn only when both of its ends are real.
+   *
+   * The offset destination this used to invent drew a confident line to a place nobody was going,
+   * and a denied location fix drew it across a city the rider is not in. An empty map says "not
+   * known yet", which is true; a wrong line says something false.
+   */
+  const hasRoute = showRoute && PICKUP !== null && DESTINATION !== null;
 
   // Road geometry when the router answers, the straight line between the pins until then. The
   // map must draw something the moment it mounts - a blank map while a request is in flight looks
@@ -74,22 +73,23 @@ export function MapCanvas({
   const [road, setRoad] = useState<LngLat[] | null>(null);
 
   useEffect(() => {
-    if (!showRoute) {
+    if (!hasRoute) {
+      setRoad(null);
       return;
     }
 
     const controller = new AbortController();
-    fetchRoute(PICKUP, DESTINATION, controller.signal)
+    fetchRoute(PICKUP!, DESTINATION!, controller.signal)
       .then((route) => setRoad(route?.coordinates ?? null))
       .catch(() => setRoad(null));
 
     return () => controller.abort();
-  }, [showRoute, PICKUP[0], PICKUP[1], DESTINATION[0], DESTINATION[1]]);
+  }, [hasRoute, PICKUP?.[0], PICKUP?.[1], DESTINATION?.[0], DESTINATION?.[1]]);
 
-  const line = road ?? [PICKUP, DESTINATION];
+  const line = hasRoute ? (road ?? [PICKUP!, DESTINATION!]) : [];
 
   const driver: [number, number] | undefined =
-    driverAt === undefined
+    driverAt === undefined || line.length === 0
       ? undefined
       : line[Math.min(line.length - 1, Math.max(0, Math.round((line.length - 1) * driverAt)))];
 
@@ -111,12 +111,12 @@ export function MapCanvas({
           // of staying on the fallback centre it opened with.
           key={pickupCoord ? 'trip' : coord ? 'located' : 'fallback'}
           initialViewState={{
-            center: showRoute ? midpoint(PICKUP, DESTINATION) : here,
-            zoom: showRoute ? 12.5 : 14.5,
+            center: hasRoute ? midpoint(PICKUP!, DESTINATION!) : here,
+            zoom: hasRoute ? 12.5 : 14.5,
           }}
         />
 
-        {showRoute ? (
+        {hasRoute ? (
           <GeoJSONSource
             id="route"
             data={{
@@ -147,15 +147,15 @@ export function MapCanvas({
           )
         ) : null}
 
-        {showRoute ? (
+        {hasRoute ? (
           <>
-            <ViewAnnotation lngLat={PICKUP}>
+            <ViewAnnotation lngLat={PICKUP!}>
               <View style={styles.pickupMarker}>
                 <View style={styles.pickupCore} />
               </View>
             </ViewAnnotation>
 
-            <ViewAnnotation lngLat={DESTINATION}>
+            <ViewAnnotation lngLat={DESTINATION!}>
               <View style={styles.destMarker}>
                 <Ionicons name="location" size={14} color="#2B1A05" />
               </View>
@@ -172,7 +172,7 @@ export function MapCanvas({
         ) : null}
       </Map>
 
-      {showRoute ? (
+      {hasRoute ? (
         <View style={styles.labels} pointerEvents="none">
           <Label icon="ellipse" text={pickupLabel} tint={colors.primary} />
           <Label icon="location" text={destinationLabel} tint={colors.amber} />

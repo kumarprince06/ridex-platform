@@ -1,6 +1,9 @@
 package com.ridex.maps;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -34,7 +37,27 @@ public class MapsService {
     private final List<MapsProvider> providers;
 
     public List<GeoLocation> search(String query, int limit) {
-        return attempt("search", MapsProvider::canGeocode, provider -> provider.search(query, limit));
+        return dedupe(attempt("search", MapsProvider::canGeocode,
+                provider -> provider.search(query, limit)));
+    }
+
+    /**
+     * Drops results that name the same place twice.
+     *
+     * <p>Geocoders return one entry per matched feature, and a shop, its building and its street
+     * entrance are three features at one address - so "Big Bazaar" comes back three times with the
+     * same line of text. In a picker that reads as broken search, and picking any of them gives the
+     * same pin.
+     *
+     * <p>Compared on the address rather than the coordinates: the same place is often returned at
+     * points a few metres apart, which are different numbers and the same doorway.
+     */
+    private static List<GeoLocation> dedupe(List<GeoLocation> found) {
+        Set<String> seen = new HashSet<>();
+        return found.stream()
+                .filter(place -> place.formattedAddress() == null
+                        || seen.add(place.formattedAddress().toLowerCase(Locale.ROOT)))
+                .toList();
     }
 
     public GeoLocation geocode(String query) {

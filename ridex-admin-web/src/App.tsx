@@ -24,6 +24,7 @@ import { PricingPage } from './pages/PricingPage';
 import { PromotionsPage } from './pages/PromotionsPage';
 import { RiderDetailPage } from './pages/RiderDetailPage';
 import { RidersPage } from './pages/RidersPage';
+import { ShuttlePage } from './pages/ShuttlePage';
 import { StaffPage } from './pages/StaffPage';
 import { TemplatesPage } from './pages/TemplatesPage';
 import { TripDetailPage } from './pages/TripDetailPage';
@@ -67,6 +68,7 @@ function Routed() {
         <Route path="payouts" element={<Require permission="FINANCE"><PayoutsPage /></Require>} />
 
         <Route path="pricing" element={<Require permission="OPERATIONS"><PricingPage /></Require>} />
+        <Route path="shuttle" element={<Require permission="OPERATIONS"><ShuttlePage /></Require>} />
         <Route path="promotions" element={<Require permission="OPERATIONS"><PromotionsPage /></Require>} />
         <Route path="templates" element={<Require permission="SUPER_ADMIN"><TemplatesPage /></Require>} />
         <Route path="flags" element={<Require permission="SUPER_ADMIN"><FlagsPage /></Require>} />

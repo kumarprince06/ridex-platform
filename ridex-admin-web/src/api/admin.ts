@@ -293,3 +293,108 @@ export function failPayout(payoutId: string, reason: string) {
     body: { reason },
   });
 }
+
+/* ------------------------------------------------------------------ shuttle */
+
+export type RouteStop = {
+  id: string;
+  sequence: number;
+  name: string;
+  latitude: string;
+  longitude: string;
+  offsetMinutes: number;
+};
+
+export type RouteFare = {
+  id: string;
+  fromStopId: string;
+  toStopId: string;
+  currency: string;
+  fareMinor: number;
+};
+
+export type RouteSchedule = {
+  id: string;
+  departureTime: string;
+  daysOfWeek: string;
+  seatCapacity: number;
+  active: boolean;
+};
+
+export type ShuttleRoute = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  stops: RouteStop[];
+  fares: RouteFare[];
+  schedules: RouteSchedule[];
+};
+
+const SHUTTLE = '/api/v1/admin/shuttle/routes';
+
+export function listRoutes() {
+  return request<ShuttleRoute[]>(SHUTTLE);
+}
+
+export function createRoute(route: {
+  code: string;
+  name: string;
+  description?: string;
+  active: boolean;
+}) {
+  return request<ShuttleRoute>(SHUTTLE, { method: 'POST', body: route });
+}
+
+/** The code is not editable server-side: it is printed on tickets and quoted in operations. */
+export function updateRoute(
+  routeId: string,
+  route: { code: string; name: string; description?: string; active: boolean },
+) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}`, { method: 'PUT', body: route });
+}
+
+export function addStop(
+  routeId: string,
+  stop: { name: string; latitude: number; longitude: number; offsetMinutes: number },
+) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops`, { method: 'POST', body: stop });
+}
+
+/** Only the last one. Deleting from the middle would renumber stops the fares are keyed on. */
+export function removeLastStop(routeId: string) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops/last`, { method: 'DELETE' });
+}
+
+export function setFare(
+  routeId: string,
+  fare: { fromStopId: string; toStopId: string; currency: string; fareMinor: number },
+) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/fares`, { method: 'PUT', body: fare });
+}
+
+export function removeFare(routeId: string, fareId: string) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/fares/${fareId}`, { method: 'DELETE' });
+}
+
+export function addSchedule(
+  routeId: string,
+  schedule: { departureTime: string; daysOfWeek: string; seatCapacity: number; active: boolean },
+) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/schedules`, {
+    method: 'POST',
+    body: schedule,
+  });
+}
+
+export function updateSchedule(
+  routeId: string,
+  scheduleId: string,
+  schedule: { departureTime: string; daysOfWeek: string; seatCapacity: number; active: boolean },
+) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/schedules/${scheduleId}`, {
+    method: 'PUT',
+    body: schedule,
+  });
+}

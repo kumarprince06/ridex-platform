@@ -15,6 +15,8 @@ const PATHS: Record<string, string> = {
   cases: 'M3 7h18v13H3z M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
   payments: 'M2 7h20v12H2z M2 11h20',
   payouts: 'M12 3v14 M6 11l6 6 6-6 M4 21h16',
+  // A bus: a route with fixed stops, not a car somebody hailed.
+  shuttle: 'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9H4z M4 15h16 M7 19v.01 M17 19v.01 M8 8h8',
   pricing: 'M4 4h8l8 8-8 8-8-8z M8.5 8.5v.01',
   promotions: 'M3 9h18v11H3z M3 5h18v4H3z M12 5v15 M12 5S9.5 2 7.5 3.5 9 8 12 5z M12 5s2.5-3 4.5-1.5S15 8 12 5z',
   templates: 'M3 5h18v14H3z M3 9l9 5 9-5',

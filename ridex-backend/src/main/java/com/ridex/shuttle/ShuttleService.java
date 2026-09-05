@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.rider.RiderProfileRepository;
 import com.ridex.rider.domain.RiderProfile;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
@@ -39,8 +41,34 @@ public class ShuttleService {
     private final ShuttleBookingRepository bookingRepository;
     private final RouteFareRepository routeFareRepository;
     private final PassRepository passRepository;
+    private final Notifier notifier;
+    private final com.ridex.payment.OutstandingPayments outstandingPayments;
     private final RiderProfileRepository riderProfileRepository;
     private final PasswordEncoder passwordEncoder;
+
+    /**
+     * The rider's route list, mapped inside the transaction.
+     *
+     * <p>It used to return entities and let the controller walk {@code route.getStops()}, which is
+     * a lazy collection with no session by then - so this endpoint answered 500 for every caller.
+     * Anything that touches a lazy association has to finish before the transaction does.
+     */
+    @Transactional(readOnly = true)
+    public List<RouteResponse> routeResponses() {
+        return routeRepository.findByActiveTrueOrderByNameAsc().stream()
+                .map(route -> new RouteResponse(
+                        route.getId(), route.getCode(), route.getName(), route.getDescription(),
+                        route.getStops().stream()
+                                .map(stop -> new RouteResponse.StopResponse(
+                                        stop.getId(), stop.getSequence(), stop.getName(),
+                                        // Strings, not doubles: these are NUMERIC(9,6) and a
+                                        // double round-trip is how a pin drifts a few metres.
+                                        stop.getLatitude().toPlainString(),
+                                        stop.getLongitude().toPlainString(),
+                                        stop.getOffsetMinutes()))
+                                .toList()))
+                .toList();
+    }
 
     @Transactional(readOnly = true)
     public List<Route> routes() {
@@ -52,13 +80,38 @@ public class ShuttleService {
         return scheduleRepository.findByRouteIdAndActiveTrueOrderByDepartureTimeAsc(routeId);
     }
 
-    /** The seat picker. Shows every seat, marking the ones already gone. */
+    /**
+     * The seat picker, for the leg the rider is actually travelling.
+     *
+     * <p>Availability is per leg, not per departure. A seat sold from stop 1 to stop 2 is free
+     * again from stop 2 onwards - treating it as gone for the whole run empties the far end of a
+     * commuter route while telling people it is full.
+     *
+     * <p>With no leg given it falls back to the whole route, which is the honest answer to "what
+     * is free on this bus" and the wrong one to show somebody booking two stops of it.
+     */
     @Transactional
-    public SeatMapResponse seatMap(String scheduleId, LocalDate serviceDate) {
+    public SeatMapResponse seatMap(String scheduleId, LocalDate serviceDate,
+            String boardingStopId, String alightingStopId) {
         ShuttleTrip trip = departureFor(scheduleId, serviceDate);
-        Set<String> taken = Set.copyOf(bookingRepository.takenSeats(trip.getId()));
 
-        List<SeatMapResponse.SeatResponse> seats = SeatMap.labelsFor(trip.getSeatCapacity()).stream()
+        short fromSeq = 1;
+        short toSeq = Short.MAX_VALUE;
+        if (boardingStopId != null && alightingStopId != null) {
+            RouteStop boarding = stopOn(trip, boardingStopId);
+            RouteStop alighting = stopOn(trip, alightingStopId);
+            if (boarding.getSequence() >= alighting.getSequence()) {
+                throw new ValidationException("Choose a stop further along the route to get off at.");
+            }
+            fromSeq = boarding.getSequence();
+            toSeq = alighting.getSequence();
+        }
+
+        Set<String> taken = Set.copyOf(
+                bookingRepository.takenSeatsOverLeg(trip.getId(), fromSeq, toSeq));
+
+        List<SeatMapResponse.SeatResponse> seats =
+                SeatMap.labelsFor(trip.getSeatCapacity(), trip.getSeatsPerRow()).stream()
                 .map(label -> new SeatMapResponse.SeatResponse(label, !taken.contains(label)))
                 .toList();
 
@@ -67,8 +120,13 @@ public class ShuttleService {
                 trip.getSchedule().getRoute().getName(),
                 trip.getDepartsAt(),
                 trip.getSeatCapacity(),
+                trip.getSeatsPerRow(),
+                SeatMap.aisleAfter(trip.getSeatsPerRow()),
                 seats,
-                trip.getSeatCapacity() - taken.size());
+                // Counted off the seats being shown, not capacity minus bookings: a label that is
+                // no longer on the vehicle would otherwise subtract from a total it is not in, and
+                // the picker would show four free seats above a count of three.
+                (int) seats.stream().filter(SeatMapResponse.SeatResponse::available).count());
     }
 
     /**
@@ -82,13 +140,17 @@ public class ShuttleService {
         RiderProfile rider = riderProfileRepository.findByUserId(riderUserId)
                 .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
 
+        // The same rule as an on-demand ride: settle the last fare before starting another
+        // journey. A shuttle seat is a journey.
+        outstandingPayments.requireNoneFor(rider.getId());
+
         LocalDate serviceDate = LocalDate.parse(request.serviceDate());
         ShuttleTrip trip = departureFor(request.scheduleId(), serviceDate);
 
         if (trip.getDepartsAt().isBefore(Instant.now())) {
             throw new ConflictException("That departure has already left.");
         }
-        if (!SeatMap.isValid(request.seatLabel(), trip.getSeatCapacity())) {
+        if (!SeatMap.isValid(request.seatLabel(), trip.getSeatCapacity(), trip.getSeatsPerRow())) {
             throw new ValidationException("There is no seat " + request.seatLabel() + " on this shuttle.");
         }
 
@@ -114,6 +176,8 @@ public class ShuttleService {
         booking.setSeatLabel(request.seatLabel());
         booking.setBoardingStopId(boarding.getId());
         booking.setAlightingStopId(alighting.getId());
+        booking.setBoardingSeq(boarding.getSequence());
+        booking.setAlightingSeq(alighting.getSequence());
         booking.setCurrency(currencyFor(routeId, boarding, alighting));
         booking.setFareMinor(fare);
         booking.setPassId(pass == null ? null : pass.getId());
@@ -123,8 +187,9 @@ public class ShuttleService {
         try {
             bookingRepository.saveAndFlush(booking);
         } catch (DataIntegrityViolationException ex) {
-            // The partial unique index is what actually decides this. Two riders tapping 4A at the
-            // same instant both pass an availability check; only one survives the insert.
+            // The gist exclusion constraint is what actually decides this. Two riders tapping 4A
+            // for overlapping legs at the same instant both pass an availability check; only one
+            // survives the insert.
             throw new ConflictException("That seat has just been taken. Please pick another.");
         }
 
@@ -133,6 +198,9 @@ public class ShuttleService {
             pass.setRidesUsed((short) (pass.getRidesUsed() + 1));
             passRepository.save(pass);
         }
+
+        notifier.enqueue(DeliveryChannel.PUSH, rider.getUser().getId(), "SHUTTLE_BOOKED",
+                request.seatLabel());
 
         return toResponse(booking, boarding, alighting, boardingCode);
     }
@@ -193,7 +261,8 @@ public class ShuttleService {
                 schedule.getId(),
                 serviceDate,
                 serviceDate.atTime(schedule.getDepartureTime()).toInstant(ZoneOffset.UTC),
-                schedule.getSeatCapacity());
+                schedule.getSeatCapacity(),
+                schedule.getSeatsPerRow());
 
         // Re-read rather than trusting the insert: whether this call created the row or found it
         // already there, the row is the same one and its id came from whoever won.

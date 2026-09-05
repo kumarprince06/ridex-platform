@@ -3,6 +3,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ApiError } from '../api/problem';
+import { cancellationQuote, cancelRide, formatMoney } from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -18,8 +21,34 @@ const REASONS = [
   'Other',
 ];
 
-export function CancelRideScreen({ navigation }: Props) {
+export function CancelRideScreen({ navigation, route }: Props) {
+  const rideId = route.params?.rideId ?? null;
   const [reason, setReason] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Asked before the rider commits, so the fee is never a surprise afterwards. A ride that is
+  // already gone has nothing to quote.
+  const { data: quote } = useQuery(
+    () => (rideId ? cancellationQuote(rideId) : Promise.resolve(null)),
+    [rideId],
+  );
+
+  async function confirm() {
+    if (!rideId) {
+      navigation.replace('RideCancelled');
+      return;
+    }
+    setCancelling(true);
+    setError(null);
+    try {
+      await cancelRide(rideId, reason ?? undefined);
+      navigation.replace('RideCancelled');
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not cancel the ride.');
+      setCancelling(false);
+    }
+  }
 
   return (
     <Screen
@@ -38,30 +67,46 @@ export function CancelRideScreen({ navigation }: Props) {
           <Pressable
             // Destructive, so it stays inert until a reason is chosen - and it is the muted
             // rather than the loud button, because Keep Ride is the safer default.
-            disabled={!reason}
-            onPress={() => navigation.replace('RideCancelled')}
+            disabled={!reason || cancelling}
+            onPress={confirm}
             accessibilityRole="button"
-            accessibilityState={{ disabled: !reason }}
+            accessibilityState={{ disabled: !reason || cancelling }}
             style={({ pressed }) => [
               styles.cancel,
-              !reason && styles.cancelDisabled,
+              (!reason || cancelling) && styles.cancelDisabled,
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.cancelText}>Cancel Ride</Text>
+            <Text style={styles.cancelText}>{cancelling ? 'Cancelling...' : 'Cancel Ride'}</Text>
           </Pressable>
         </View>
       }
     >
-      <View style={styles.notice}>
-        <Ionicons name="warning" size={19} color={colors.amber} />
+      {/* The real quote, not a guess about two minutes: the fee is the server's decision and it
+          changes the moment a driver is assigned. */}
+      <View style={[styles.notice, quote?.free && styles.noticeFree]}>
+        <Ionicons
+          name={quote?.free ? 'checkmark-circle' : 'warning'}
+          size={19}
+          color={quote?.free ? colors.primary : colors.amber}
+        />
         <View style={styles.flex}>
-          <Text style={styles.noticeTitle}>Cancellation Fee May Apply</Text>
+          <Text style={[styles.noticeTitle, quote?.free && styles.noticeTitleFree]}>
+            {quote == null
+              ? 'Checking the cancellation fee'
+              : quote.free
+                ? 'Free to cancel'
+                : `Cancellation fee ${formatMoney(quote.feeMinor, quote.currency)}`}
+          </Text>
           <Text style={styles.noticeBody}>
-            You won&apos;t be charged since it&apos;s been less than 2 minutes.
+            {quote?.free === false
+              ? 'A driver is already on the way to you.'
+              : 'You will not be charged for this cancellation.'}
           </Text>
         </View>
       </View>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.sectionLabel}>REASON FOR CANCELLATION</Text>
 
@@ -100,10 +145,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(217, 160, 91, 0.4)',
   },
+  noticeFree: {
+    backgroundColor: 'rgba(46, 231, 199, 0.12)',
+    borderColor: 'rgba(46, 231, 199, 0.35)',
+  },
   noticeTitle: {
     ...type.button,
     fontSize: 14,
     color: colors.amber,
+  },
+  noticeTitleFree: {
+    color: colors.primary,
+  },
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.md,
   },
   noticeBody: {
     ...type.caption,

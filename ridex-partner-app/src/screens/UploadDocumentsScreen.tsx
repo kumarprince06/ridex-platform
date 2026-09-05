@@ -1,28 +1,73 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 
+import {
+  DOCUMENT_LABELS,
+  REQUIRED_TYPES,
+  listDocuments,
+  uploadDocument,
+  type DocumentType,
+} from '../api/documents';
+import { pickDocument } from '../api/pickDocument';
+import { ApiError } from '../api/problem';
+import { submitForReview } from '../api/driver';
+import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
-import { DocumentRow } from '../components/DocumentRow';
+import { DocumentRow, type RowStatus } from '../components/DocumentRow';
 import { Screen, ScreenTitle } from '../components/Screen';
 import { StepProgress } from '../components/StepProgress';
-import { DocumentStatus } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'UploadDocuments'>;
 
-/** One row per DriverDocumentType in the backend. Produces DOCUMENTS_SUBMITTED once all are in. */
-const REQUIRED = [
-  { type: "Driver's licence", hint: 'Front and back, all corners visible' },
-  { type: 'Vehicle registration', hint: 'Matching the plate you entered' },
-  { type: 'Insurance certificate', hint: 'Must be valid for the next 30 days' },
-  { type: 'Profile photo', hint: 'Clear face, no sunglasses' },
-];
+/**
+ * Only the two the backend gates review on. Vehicle paperwork is checked against the vehicle,
+ * which can be added or replaced after approval, so it is not a blocker here.
+ */
+const HINTS: Partial<Record<DocumentType, string>> = {
+  DRIVING_LICENCE: 'Front and back, all corners visible',
+  IDENTITY_PROOF: 'Aadhaar, passport or voter ID',
+};
 
 export function UploadDocumentsScreen({ navigation }: Props) {
-  const [uploaded, setUploaded] = useState<string[]>([]);
-  const complete = uploaded.length === REQUIRED.length;
+  const { data, refetch } = useQuery(listDocuments, []);
+  const documents = data ?? [];
+  const [busy, setBusy] = useState(false);
+
+  const missing = REQUIRED_TYPES.filter(
+    (documentType) => !documents.some((doc) => doc.documentType === documentType),
+  );
+
+  async function upload(documentType: DocumentType) {
+    try {
+      const file = await pickDocument();
+      if (!file) {
+        return;
+      }
+      setBusy(true);
+      await uploadDocument(documentType, file);
+      refetch();
+    } catch (caught) {
+      Alert.alert('Upload failed', message(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submit() {
+    setBusy(true);
+    try {
+      await submitForReview();
+      navigation.navigate('BankDetails');
+    } catch (caught) {
+      // The server checks the same list. If it disagrees with this screen, the server is right.
+      Alert.alert('Not ready for review', message(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Screen
@@ -30,9 +75,13 @@ export function UploadDocumentsScreen({ navigation }: Props) {
       title="Documents"
       footer={
         <Button
-          label={complete ? 'Submit for review' : `Upload ${REQUIRED.length - uploaded.length} more`}
-          disabled={!complete}
-          onPress={() => navigation.navigate('BankDetails')}
+          label={
+            missing.length === 0
+              ? 'Submit for review'
+              : `Upload ${missing.length} more`
+          }
+          disabled={missing.length > 0 || busy}
+          onPress={submit}
         />
       }
     >
@@ -43,19 +92,20 @@ export function UploadDocumentsScreen({ navigation }: Props) {
         subtitle="Operations reviews these before you can take trips. Clear photos get approved faster."
       />
 
-      {REQUIRED.map((doc) => {
-        const done = uploaded.includes(doc.type);
-        const status: DocumentStatus = done ? 'Under review' : 'Missing';
+      {REQUIRED_TYPES.map((documentType) => {
+        const held = documents.find((doc) => doc.documentType === documentType);
 
         return (
           <DocumentRow
-            key={doc.type}
-            type={doc.type}
-            status={status}
-            detail={done ? 'Uploaded just now' : doc.hint}
-            onPress={() =>
-              setUploaded((prev) => (done ? prev.filter((t) => t !== doc.type) : [...prev, doc.type]))
+            key={documentType}
+            type={DOCUMENT_LABELS[documentType]}
+            status={(held?.status ?? 'MISSING') as RowStatus}
+            detail={
+              held
+                ? `Uploaded ${new Date(held.createdAt).toLocaleDateString()}`
+                : (HINTS[documentType] ?? 'Tap to upload')
             }
+            onPress={() => upload(documentType)}
           />
         );
       })}
@@ -68,6 +118,12 @@ export function UploadDocumentsScreen({ navigation }: Props) {
       </Pressable>
     </Screen>
   );
+}
+
+function message(caught: unknown): string {
+  if (caught instanceof ApiError) return caught.userMessage;
+  if (caught instanceof Error) return caught.message;
+  return 'Something went wrong.';
 }
 
 const styles = StyleSheet.create({

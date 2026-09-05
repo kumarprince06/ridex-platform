@@ -1,3 +1,4 @@
+import { request } from '../api/client';
 import { LngLat } from './location';
 
 export type Place = {
@@ -7,52 +8,45 @@ export type Place = {
   coord: LngLat;
 };
 
-/**
- * Photon, Komoot's open geocoder over OpenStreetMap data. No key, no billing, and it is built for
- * search-as-you-type rather than one-shot geocoding.
- *
- * The public instance is fair-use. When this moves to production it goes behind the backend's
- * MapsProvider (T8) - the app should not be talking to a geocoder directly, and self-hosting
- * Photon is a container, not a contract change.
- */
-const ENDPOINT = 'https://photon.komoot.io/api/';
+/** What the backend's maps endpoint returns. */
+type GeoLocation = {
+  latitude: number;
+  longitude: number;
+  formattedAddress: string | null;
+};
 
-/** Results are ranked around the searcher, so "station" means the one down the road. */
-export async function searchPlaces(query: string, near: LngLat, signal?: AbortSignal) {
+/**
+ * Place search, through the backend.
+ *
+ * <p>It used to call Photon directly from the device. That worked, but it put a third party in
+ * front of every rider's search box and left the app unable to use the paid geocoder: an API key
+ * shipped inside an app is a key anybody can pull out of the APK and bill to us.
+ *
+ * <p>Going through the backend means the key stays on the server, the provider can be swapped
+ * without shipping a new build, and the daily call budget is enforced in one place.
+ */
+export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
   const trimmed = query.trim();
   if (trimmed.length < 3) {
     return [];
   }
 
-  const url =
-    `${ENDPOINT}?q=${encodeURIComponent(trimmed)}` +
-    `&lat=${near[1]}&lon=${near[0]}&limit=8&lang=en`;
+  const found = await request<GeoLocation[]>(
+    `/api/v1/maps/search?query=${encodeURIComponent(trimmed)}&limit=8`,
+    { signal },
+  );
 
-  const response = await fetch(url, { signal });
-  if (!response.ok) {
-    throw new Error(`Place search failed: ${response.status}`);
-  }
-
-  const body = (await response.json()) as {
-    features?: {
-      geometry: { coordinates: [number, number] };
-      properties: Record<string, string | undefined>;
-    }[];
-  };
-
-  return (body.features ?? []).map((feature, index) => {
-    const p = feature.properties;
-    // Photon returns whichever of these the OSM object happens to carry, so build the two lines
-    // from what is present rather than assuming a fixed shape.
-    const detail = [p.street, p.district, p.city, p.state, p.country]
-      .filter(Boolean)
-      .join(', ');
+  return found.map((place, index) => {
+    // "Sector V, Bidhannagar, Kolkata, West Bengal, India" - the first part is the place and the
+    // rest is where it is, which is exactly the two lines a result row wants.
+    const parts = (place.formattedAddress ?? trimmed).split(',').map((part) => part.trim());
 
     return {
-      id: `${p.osm_type ?? 'x'}${p.osm_id ?? index}`,
-      name: p.name ?? p.street ?? p.city ?? trimmed,
-      detail: detail || 'Nearby',
-      coord: feature.geometry.coordinates,
+      // Coordinates, not an id: the backend returns none, and two results never share a point.
+      id: `${place.latitude},${place.longitude},${index}`,
+      name: parts[0] ?? trimmed,
+      detail: parts.slice(1).join(', ') || 'Nearby',
+      coord: [place.longitude, place.latitude],
     } satisfies Place;
   });
 }

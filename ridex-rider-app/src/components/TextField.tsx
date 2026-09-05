@@ -4,6 +4,7 @@ import {
   KeyboardTypeOptions,
   StyleSheet,
   Text,
+  Pressable,
   TextInput,
   View,
   ViewStyle,
@@ -26,6 +27,8 @@ type Props = {
   autoCapitalize?: 'none' | 'words';
   /** Shown under the field and turns the border red, as in the mismatch mockup. */
   error?: string;
+  /** Off for a value the form shows but cannot change, such as the account's own email. */
+  editable?: boolean;
   style?: ViewStyle;
 };
 
@@ -39,9 +42,12 @@ export function TextField({
   keyboardType,
   autoCapitalize = 'none',
   error,
+  editable = true,
   style,
 }: Props) {
   const [focused, setFocused] = useState(false);
+  // A password nobody can read is a password typed wrong twice; the toggle starts hidden.
+  const [revealed, setRevealed] = useState(false);
 
   return (
     <View style={style}>
@@ -68,14 +74,30 @@ export function TextField({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={colors.textFaint}
-          secureTextEntry={secureTextEntry}
+          secureTextEntry={secureTextEntry && !revealed}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           autoCorrect={false}
+          editable={editable}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          style={styles.input}
+          style={[styles.input, !editable && styles.inputReadOnly]}
         />
+        {secureTextEntry ? (
+          <Pressable
+            onPress={() => setRevealed((shown) => !shown)}
+            hitSlop={spacing.md}
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
+          >
+            <Ionicons
+              name={revealed ? 'eye-off-outline' : 'eye-outline'}
+              size={18}
+              color={colors.textMuted}
+              style={styles.reveal}
+            />
+          </Pressable>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -84,6 +106,9 @@ export function TextField({
 }
 
 const styles = StyleSheet.create({
+  inputReadOnly: {
+    color: colors.textMuted,
+  },
   label: {
     ...type.label,
     color: colors.textMuted,
@@ -108,6 +133,9 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: spacing.md,
+  },
+  reveal: {
+    marginLeft: spacing.md,
   },
   input: {
     flex: 1,

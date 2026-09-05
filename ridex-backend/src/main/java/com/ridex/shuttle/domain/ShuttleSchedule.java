@@ -5,6 +5,8 @@ import java.time.LocalTime;
 
 import com.ridex.shared.util.UlidGenerator;
 
+import com.ridex.shuttle.SeatMap;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,6 +37,13 @@ public class ShuttleSchedule {
 
     @Column(name = "seat_capacity", nullable = false)
     private short seatCapacity;
+
+    /**
+     * How many seats abreast, so labels read A-D across. Four is a minibus; a 2+1 coach is 3, and
+     * an auto rickshaw is 2.
+     */
+    @Column(name = "seats_per_row", nullable = false)
+    private short seatsPerRow = SeatMap.DEFAULT_SEATS_PER_ROW;
 
     @Column(name = "active", nullable = false)
     private boolean active = true;

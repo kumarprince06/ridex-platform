@@ -14,7 +14,7 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverAssigned'>;
 
 export function DriverAssignedScreen({ navigation, route }: Props) {
-  const { destination } = route.params;
+  const { destination, rideId } = route.params;
 
   return (
     <View style={styles.root}>
@@ -88,7 +88,7 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
 
         <View style={styles.actions}>
           <Pressable
-            onPress={() => navigation.navigate('CancelRide')}
+            onPress={() => navigation.navigate('CancelRide', { rideId })}
             accessibilityRole="button"
             style={styles.cancel}
           >

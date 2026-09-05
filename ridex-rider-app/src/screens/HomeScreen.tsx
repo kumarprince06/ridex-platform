@@ -59,6 +59,23 @@ export function HomeScreen({ navigation }: Props) {
           <Ionicons name="sparkles" size={16} color={colors.primary} />
         </Pressable>
 
+        {/* Shuttle is not a destination search: the route is fixed and the question is which seat
+            on which departure, so it gets its own way in rather than a tier on the ride list. */}
+        <Pressable
+          onPress={() => navigation.navigate('ShuttleRoutes')}
+          accessibilityRole="button"
+          style={styles.shuttle}
+        >
+          <View style={styles.shuttleIcon}>
+            <Ionicons name="bus" size={18} color={colors.primary} />
+          </View>
+          <View style={styles.shuttleText}>
+            <Text style={styles.shuttleTitle}>Book a shuttle seat</Text>
+            <Text style={styles.shuttleNote}>Fixed routes, chosen seat, fare that never surges</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Pressable>
+
         <View style={styles.savedRow}>
           {SAVED.map((place) => (
             <Pressable
@@ -201,6 +218,38 @@ const styles = StyleSheet.create({
     ...type.body,
     flex: 1,
     color: colors.textFaint,
+  },
+  shuttle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  shuttleIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(46, 231, 199, 0.14)',
+  },
+  shuttleText: {
+    flex: 1,
+  },
+  shuttleTitle: {
+    ...type.label,
+    fontSize: 14,
+    color: colors.text,
+  },
+  shuttleNote: {
+    ...type.caption,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   savedRow: {
     flexDirection: 'row',

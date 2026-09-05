@@ -1,5 +1,6 @@
 package com.ridex.maps.google;
 
+import com.ridex.maps.DailyCallBudget;
 import com.ridex.maps.MapsProvider;
 import com.ridex.maps.domain.GeoLocation;
 import com.ridex.maps.domain.RouteEstimate;
@@ -21,7 +22,10 @@ import com.ridex.shared.exception.ValidationException;
 
 import lombok.RequiredArgsConstructor;
 
+// Ordered ahead of the free geocoder: when a key is configured, Google's ranking and coverage are
+// what was paid for.
 @Service
+@org.springframework.core.annotation.Order(1)
 @RequiredArgsConstructor
 public class GoogleMapsProvider implements MapsProvider {
 
@@ -29,20 +33,46 @@ public class GoogleMapsProvider implements MapsProvider {
     private static final String DISTANCE_MATRIX_PATH = "/maps/api/distancematrix/json";
 
     private final GoogleMapsProperties properties;
+    private final DailyCallBudget dailyCallBudget;
+
+    @Override
+    public boolean isConfigured() {
+        String apiKey = properties.getApiKey();
+        return apiKey != null && !apiKey.isBlank();
+    }
+
+    @Override
+    public boolean canGeocode() {
+        return isConfigured();
+    }
+
+    @Override
+    public boolean canRoute() {
+        return isConfigured();
+    }
 
     @Override
     public GeoLocation geocode(String query) {
+        List<GeoLocation> results = search(query, 1);
+        if (results.isEmpty()) {
+            throw new NotFoundException("No place found for that search.");
+        }
+        return results.get(0);
+    }
+
+    @Override
+    public List<GeoLocation> search(String query, int limit) {
         if (query == null || query.isBlank()) {
             throw new ValidationException("Location query must not be blank");
         }
-
-        String apiKey = properties.getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
+        if (!isConfigured()) {
             throw new ProviderUnavailableException("Google Maps API key is not configured");
         }
+        requireBudget();
 
         RestClient client = restClient();
-        String uri = String.format("%s?address=%s&key=%s", GEOCODE_PATH, encode(query), apiKey);
+        String uri = String.format("%s?address=%s&key=%s",
+                GEOCODE_PATH, encode(query), properties.getApiKey());
 
         try {
             GoogleGeocodeResponse response = client.get()
@@ -51,15 +81,20 @@ public class GoogleMapsProvider implements MapsProvider {
                     .retrieve()
                     .body(GoogleGeocodeResponse.class);
 
-            if (response == null || response.results() == null || response.results().isEmpty()) {
-                throw new NotFoundException("No place found for that search.");
+            if (response == null || response.results() == null) {
+                return List.of();
             }
+            requireUsable(response.status());
 
-            GoogleGeocodeResult result = response.results().get(0);
-            return new GeoLocation(
-                    result.geometry().location().lat(),
-                    result.geometry().location().lng(),
-                    result.formattedAddress());
+            // Google ranks its own results, so taking the first N is taking its ranking rather
+            // than imposing one.
+            return response.results().stream()
+                    .limit(Math.max(1, limit))
+                    .map(result -> new GeoLocation(
+                            result.geometry().location().lat(),
+                            result.geometry().location().lng(),
+                            result.formattedAddress()))
+                    .toList();
         } catch (RestClientException ex) {
             throw new ProviderUnavailableException("Google Maps geocoding request failed", ex);
         }
@@ -71,6 +106,7 @@ public class GoogleMapsProvider implements MapsProvider {
         if (apiKey == null || apiKey.isBlank()) {
             throw new ProviderUnavailableException("Google Maps API key is not configured");
         }
+        requireBudget();
 
         RestClient client = restClient();
         String uri = String.format(
@@ -89,6 +125,7 @@ public class GoogleMapsProvider implements MapsProvider {
                     .retrieve()
                     .body(GoogleDistanceMatrixResponse.class);
 
+            requireUsable(response == null ? null : response.status());
             if (response == null || response.rows() == null || response.rows().isEmpty()) {
                 throw new ProviderUnavailableException("No route estimate returned from Google Maps");
             }
@@ -109,6 +146,40 @@ public class GoogleMapsProvider implements MapsProvider {
         }
     }
 
+    /**
+     * Stops before the call when today's budget is spent.
+     *
+     * <p>Thrown as unavailable rather than as a hard error: the caller falls through to the free
+     * provider, so the platform keeps answering and only the bill stops.
+     */
+    private void requireBudget() {
+        if (!dailyCallBudget.tryConsume("google-maps", properties.getDailyCallLimit())) {
+            throw new ProviderUnavailableException("Google Maps daily call budget is spent");
+        }
+    }
+
+    /**
+     * Turns a quota or key problem into an availability failure, so the caller falls through.
+     *
+     * <p>Google answers 200 OK with a status field for these, which is exactly the shape that gets
+     * mistaken for an empty result - and a quota that ran out would silently look like "no such
+     * place" rather than "ask somebody else".
+     */
+    private static void requireUsable(String status) {
+        if (status == null) {
+            return;
+        }
+        switch (status) {
+            case "OVER_QUERY_LIMIT", "OVER_DAILY_LIMIT" ->
+                throw new ProviderUnavailableException("Google Maps quota is exhausted");
+            case "REQUEST_DENIED" ->
+                throw new ProviderUnavailableException("Google Maps rejected the key");
+            default -> {
+                // OK and ZERO_RESULTS both mean Google answered; the caller reads the payload.
+            }
+        }
+    }
+
     private RestClient restClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);
@@ -125,15 +196,24 @@ public class GoogleMapsProvider implements MapsProvider {
         return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    private record GoogleGeocodeResponse(List<GoogleGeocodeResult> results) {}
+    private record GoogleGeocodeResponse(String status, List<GoogleGeocodeResult> results) {}
 
-    private record GoogleGeocodeResult(String formattedAddress, GoogleGeometry geometry) {}
+    /**
+     * Google names it formatted_address.
+     *
+     * <p>Mapped explicitly because nothing else in this codebase talks snake_case, so there is no
+     * global naming strategy to lean on - and without this the field silently arrives null, which
+     * looks like a place with no address rather than a mapping mistake.
+     */
+    private record GoogleGeocodeResult(
+            @com.fasterxml.jackson.annotation.JsonProperty("formatted_address") String formattedAddress,
+            GoogleGeometry geometry) {}
 
     private record GoogleGeometry(GoogleLocation location) {}
 
     private record GoogleLocation(double lat, double lng) {}
 
-    private record GoogleDistanceMatrixResponse(List<GoogleDistanceRow> rows) {}
+    private record GoogleDistanceMatrixResponse(String status, List<GoogleDistanceRow> rows) {}
 
     private record GoogleDistanceRow(List<GoogleDistanceElement> elements) {}
 

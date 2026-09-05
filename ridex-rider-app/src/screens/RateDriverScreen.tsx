@@ -3,29 +3,52 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Avatar } from '../components/Avatar';
+import { ApiError } from '../api/problem';
+import { rateRide } from '../api/rides';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Stars } from '../components/Stars';
-import { DRIVER, RATING_TAGS } from '../data/mock';
+import { RATING_TAGS } from '../data/mock';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RateDriver'>;
 
-export function RateDriverScreen({ navigation }: Props) {
+export function RateDriverScreen({ navigation, route }: Props) {
+  const rideId = route.params?.rideId ?? null;
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggleTag = (tag: string) =>
     setTags((prev) => (prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]));
 
+  async function submit() {
+    if (!rideId) {
+      navigation.popToTop();
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Tags and the free note go to the server as one comment - there is one comment column,
+      // and a tag taxonomy nobody queries is not worth a table.
+      const comment = [tags.join(', '), note.trim()].filter(Boolean).join(' — ');
+      await rateRide(rideId, rating, comment || undefined);
+      navigation.popToTop();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not submit your rating.');
+      setSubmitting(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.body}>
-        <Avatar name={DRIVER.name} size={72} style={styles.avatar} />
-        <Text style={styles.name}>{DRIVER.name}</Text>
+        {/* No driver name or avatar: the ride endpoint carries neither, and a fixture name on a
+            screen that rates a real person is the wrong place to guess. */}
         <Text style={styles.prompt}>How was your ride?</Text>
 
         <Stars value={rating} onChange={setRating} size={34} />
@@ -51,7 +74,7 @@ export function RateDriverScreen({ navigation }: Props) {
             <TextInput
               value={note}
               onChangeText={setNote}
-              placeholder={`Add a note for ${DRIVER.name.split(' ')[0]}... (optional)`}
+              placeholder="Add a note for your driver... (optional)"
               placeholderTextColor={colors.textFaint}
               multiline
               style={styles.note}
@@ -61,10 +84,17 @@ export function RateDriverScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.footer}>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button
-          label={rating > 0 ? `Submit ${rating}-Star Rating` : 'Select a Rating'}
-          disabled={rating === 0}
-          onPress={() => navigation.popToTop()}
+          label={
+            submitting
+              ? 'Submitting...'
+              : rating > 0
+                ? `Submit ${rating}-Star Rating`
+                : 'Select a Rating'
+          }
+          disabled={rating === 0 || submitting}
+          onPress={submit}
         />
         <Pressable
           onPress={() => navigation.popToTop()}
@@ -79,6 +109,12 @@ export function RateDriverScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
   safe: {
     flex: 1,
     backgroundColor: colors.bg,

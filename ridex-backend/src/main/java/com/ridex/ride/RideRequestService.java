@@ -36,6 +36,7 @@ public class RideRequestService {
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final FareEstimateRepository fareEstimateRepository;
     private final RiderProfileRepository riderProfileRepository;
+    private final com.ridex.payment.OutstandingPayments outstandingPayments;
     private final DispatchTrigger dispatchTrigger;
     private final PointsService pointsService;
 
@@ -43,6 +44,10 @@ public class RideRequestService {
     @Transactional
     public RideResponse create(String riderUserId, CreateRideRequest request) {
         RiderProfile rider = requireRider(riderUserId);
+
+        // Checked first, before the estimate is even looked up: "you owe for your last ride" is a
+        // thing the rider can act on, and it is true whatever is wrong with the quote.
+        outstandingPayments.requireNoneFor(rider.getId());
 
         FareEstimate estimate = fareEstimateRepository.findById(request.estimateId())
                 .orElseThrow(() -> new NotFoundException("That estimate no longer exists."));
@@ -75,6 +80,10 @@ public class RideRequestService {
         ride.setDestinationLng(estimate.getDestinationLng());
         ride.setDestinationAddress(request.destinationAddress());
         ride.setCurrency(estimate.getCurrency());
+        // Null means cash: the app sent nothing, or it is an older build than this field.
+        ride.setPaymentMethod(request.paymentMethod() == null
+                ? com.ridex.payment.domain.PaymentMethod.CASH
+                : request.paymentMethod());
         ride.setQuotedFareMinor(estimate.getTotalMinor());
 
         // Straight to SEARCHING: a request nobody is looking for a driver for is a request that

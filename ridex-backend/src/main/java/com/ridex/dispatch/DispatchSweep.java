@@ -45,8 +45,13 @@ public class DispatchSweep {
     /**
      * The timer entry point. Off in tests, where background work firing inside every integration
      * test races the context shutdown and eventually fails something unrelated.
+     *
+     * <p>Transactional here as well as on sweep(): calling sweep() from inside this class goes
+     * straight to the method and never through the proxy, so without this the scheduled run had
+     * no transaction at all and every modifying query in it failed.
      */
     @Scheduled(fixedDelayString = "${app.dispatch.sweep-ms:5000}")
+    @Transactional
     public void scheduledSweep() {
         if (sweepEnabled) {
             sweep();

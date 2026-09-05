@@ -43,6 +43,11 @@ export type Ride = {
   discountMinor: number;
   cancellationFeeMinor: number | null;
   cancellationReason: string | null;
+  /**
+   * The digits the rider shows the driver, and what the QR encodes. Only while the ride is live:
+   * the server withholds it once the trip has ended.
+   */
+  pickupCode: string | null;
   requestedAt: string;
 };
 

@@ -47,6 +47,14 @@ public class Trip {
     @Column(name = "pickup_code_hash", nullable = false, length = 255)
     private String pickupCodeHash;
 
+    /**
+     * The digits themselves, for the rider who has to show them. Not a password: one journey, one
+     * pair of people, and it is on the rider's screen the whole time anyway. The hash above is the
+     * driver's side, which checks it rather than reads it.
+     */
+    @Column(name = "pickup_code", length = 6)
+    private String pickupCode;
+
     @Column(name = "pickup_code_attempts", nullable = false)
     private short pickupCodeAttempts;
 

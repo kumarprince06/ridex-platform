@@ -1,22 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { DocumentStatus } from '../data/mock';
+import { DocumentStatus } from '../api/documents';
 import { colors, IconName, radius, spacing, type } from '../theme';
 
 type Props = {
   type: string;
-  status: DocumentStatus;
+  status: RowStatus;
   detail: string;
   onPress?: () => void;
 };
 
-const TONE: Record<DocumentStatus, { colour: string; surface: string; icon: IconName }> = {
-  Approved: { colour: colors.success, surface: colors.successSurface, icon: 'checkmark-circle' },
-  'Under review': { colour: colors.warning, surface: colors.amberSurface, icon: 'hourglass' },
-  Rejected: { colour: colors.danger, surface: colors.dangerSurface, icon: 'close-circle' },
-  Expiring: { colour: colors.warning, surface: colors.amberSurface, icon: 'alert-circle' },
-  Missing: { colour: colors.textMuted, surface: colors.surfaceAlt, icon: 'cloud-upload-outline' },
+/** MISSING is not a server status - it is this app's word for a required document not yet sent. */
+export type RowStatus = DocumentStatus | 'MISSING';
+
+const TONE: Record<RowStatus, { label: string; colour: string; surface: string; icon: IconName }> = {
+  APPROVED: { label: 'Approved', colour: colors.success, surface: colors.successSurface, icon: 'checkmark-circle' },
+  PENDING_REVIEW: { label: 'Under review', colour: colors.warning, surface: colors.amberSurface, icon: 'hourglass' },
+  REJECTED: { label: 'Rejected', colour: colors.danger, surface: colors.dangerSurface, icon: 'close-circle' },
+  // Its own tone, not "rejected": an expired document was valid work that simply ran out, and the
+  // driver's next step is a renewal rather than an appeal.
+  EXPIRED: { label: 'Expired', colour: colors.danger, surface: colors.dangerSurface, icon: 'alert-circle' },
+  MISSING: { label: 'Missing', colour: colors.textMuted, surface: colors.surfaceAlt, icon: 'cloud-upload-outline' },
 };
 
 /**
@@ -29,7 +34,7 @@ export function DocumentRow({ type: docType, status, detail, onPress }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${docType}, ${status}`}
+      accessibilityLabel={`${docType}, ${tone.label}`}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
@@ -43,7 +48,7 @@ export function DocumentRow({ type: docType, status, detail, onPress }: Props) {
       </View>
 
       <View style={[styles.pill, { backgroundColor: tone.surface }]}>
-        <Text style={[styles.pillLabel, { color: tone.colour }]}>{status}</Text>
+        <Text style={[styles.pillLabel, { color: tone.colour }]}>{tone.label}</Text>
       </View>
     </Pressable>
   );

@@ -44,7 +44,10 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 async function send(path: string, options: Options, accessToken?: string): Promise<Response> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // FormData sets its own Content-Type with a boundary. Setting ours would strip the boundary and
+  // the server would read the whole upload as one unparseable blob.
+  const multipart = options.body instanceof FormData;
+  const headers: Record<string, string> = multipart ? {} : { 'Content-Type': 'application/json' };
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
@@ -53,7 +56,12 @@ async function send(path: string, options: Options, accessToken?: string): Promi
     return await fetch(`${API_BASE_URL}${path}`, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined
+          ? undefined
+          : multipart
+            ? (options.body as FormData)
+            : JSON.stringify(options.body),
     });
   } catch {
     // fetch rejects only on a transport failure, so this is always "cannot reach the server".

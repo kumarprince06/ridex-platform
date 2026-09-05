@@ -158,6 +158,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   content: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl,
   },
@@ -176,7 +177,8 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   spinner: {
-    marginTop: spacing.xl,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   wallet: {
     padding: spacing.lg,

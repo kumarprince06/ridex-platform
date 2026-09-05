@@ -182,7 +182,16 @@ public class GoogleMapsProvider implements MapsProvider {
 
     private record GoogleGeocodeResponse(String status, List<GoogleGeocodeResult> results) {}
 
-    private record GoogleGeocodeResult(String formattedAddress, GoogleGeometry geometry) {}
+    /**
+     * Google names it formatted_address.
+     *
+     * <p>Mapped explicitly because nothing else in this codebase talks snake_case, so there is no
+     * global naming strategy to lean on - and without this the field silently arrives null, which
+     * looks like a place with no address rather than a mapping mistake.
+     */
+    private record GoogleGeocodeResult(
+            @com.fasterxml.jackson.annotation.JsonProperty("formatted_address") String formattedAddress,
+            GoogleGeometry geometry) {}
 
     private record GoogleGeometry(GoogleLocation location) {}
 

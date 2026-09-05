@@ -12,6 +12,12 @@ public record RideResponse(
         String rideTypeCode,
         String pickupAddress,
         String destinationAddress,
+        // The map on the trip screen draws these. Without them a client can only guess a route,
+        // and a guessed route is a line the trip never followed.
+        double pickupLat,
+        double pickupLng,
+        double destinationLat,
+        double destinationLng,
         String currency,
         long quotedFareMinor,
         // Carried on the ride, not left behind with the estimate: "why am I paying this" is asked

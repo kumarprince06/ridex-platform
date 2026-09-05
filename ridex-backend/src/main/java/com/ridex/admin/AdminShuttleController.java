@@ -9,7 +9,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.ridex.shuttle.AdminShuttleService;
+import com.ridex.admin.dto.PageResponse;
 import com.ridex.shuttle.dto.AdminRouteResponse;
+import com.ridex.shuttle.dto.AdminRouteSummary;
 import com.ridex.shuttle.dto.AssignDepartureRequest;
 import com.ridex.shuttle.dto.FareRequest;
 import com.ridex.shuttle.dto.RouteRequest;
@@ -35,8 +37,11 @@ public class AdminShuttleController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<AdminRouteResponse> routes() {
-        return adminShuttleService.routes();
+    public PageResponse<AdminRouteSummary> routes(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return PageResponse.of(adminShuttleService.routes(page, size),
+                java.util.function.Function.identity());
     }
 
     @GetMapping("/{routeId}")

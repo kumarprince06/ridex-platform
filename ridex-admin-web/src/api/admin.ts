@@ -334,10 +334,29 @@ export type ShuttleRoute = {
   schedules: RouteSchedule[];
 };
 
+/**
+ * A route in the list: counts, not contents. The full route is three more queries per row, which
+ * the list does not need and a page of a hundred cannot afford.
+ */
+export type ShuttleRouteSummary = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  stopCount: number;
+  fareCount: number;
+  activeDepartures: number;
+};
+
 const SHUTTLE = '/api/v1/admin/shuttle/routes';
 
-export function listRoutes() {
-  return request<ShuttleRoute[]>(SHUTTLE);
+export function listRoutes(page = 0, size = DEFAULT_PAGE_SIZE) {
+  return request<Page<ShuttleRouteSummary>>(`${SHUTTLE}?page=${page}&size=${size}`);
+}
+
+export function getRoute(routeId: string) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}`);
 }
 
 export function createRoute(route: {

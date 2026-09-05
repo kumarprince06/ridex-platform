@@ -1,22 +1,33 @@
 import { useState } from 'react';
 
 import {
+  DEFAULT_PAGE_SIZE,
   addSchedule,
   addStop,
   createRoute,
   formatMoney,
+  getRoute,
   listRoutes,
   removeFare,
   removeLastStop,
   setFare,
   type RouteStop,
   type ShuttleRoute,
+  type ShuttleRouteSummary,
 } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 import { FormDialog } from '../components/FormDialog';
 import { RouteMap } from '../components/RouteMap';
 import { SeatLayout } from '../components/SeatLayout';
-import { Button, Card, EmptyState, PageHeader, Pill, Table } from '../components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  PageHeader,
+  Pagination,
+  Pill,
+  Table,
+} from '../components/ui';
 
 /** Which dialog is open. One at a time - these are all edits to the same route. */
 type Dialog = 'route' | 'stop' | 'fare' | 'schedule' | null;
@@ -28,23 +39,34 @@ type Dialog = 'route' | 'stop' | 'fare' | 'schedule' | null;
  * stops is a number. Building a route is one sitting, so it is one screen.
  */
 export function ShuttlePage() {
-  const { data, loading, error, refetch } = useQuery(listRoutes, []);
-  const routes = data ?? [];
-
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
 
-  // Re-read from the fresh list rather than holding the route object, or an edit would render
-  // against the copy taken before the write.
-  const selected = routes.find((route) => route.id === selectedId) ?? null;
+  const { data, loading, error, refetch } = useQuery(() => listRoutes(page, size), [page, size]);
+  const routes = data?.items ?? [];
+
+  // Fetched on its own rather than picked out of the list: the list rows are counts, and the
+  // stops, fares and departures below only exist on the full route.
+  const {
+    data: selected,
+    loading: loadingRoute,
+    refetch: refetchRoute,
+  } = useQuery(
+    () => (selectedId ? getRoute(selectedId) : Promise.resolve(null)),
+    [selectedId],
+  );
 
   async function act(what: () => Promise<unknown>) {
     setBusy(true);
     setNotice(null);
     try {
       await what();
+      // Both: a write changes the open route and the counts in its list row.
+      refetchRoute();
       refetch();
     } catch (caught) {
       setNotice(caught instanceof Error ? caught.message : 'That did not work.');
@@ -57,7 +79,7 @@ export function ShuttlePage() {
     <>
       <PageHeader
         title="Shuttle routes"
-        subtitle={data ? `${routes.length} routes` : loading ? 'Loading...' : ''}
+        subtitle={data ? `${data.totalItems} routes` : loading ? 'Loading...' : ''}
         actions={
           <Button variant="primary" disabled={busy} onClick={() => setDialog('route')}>
             New route
@@ -72,17 +94,17 @@ export function ShuttlePage() {
       ) : null}
 
       <Card title="Routes">
-        <Table<ShuttleRoute>
+        <Table<ShuttleRouteSummary>
           columns={[
             { key: 'code', header: 'Code', render: (row) => <span className="mono">{row.code}</span> },
             { key: 'name', header: 'Name', render: (row) => <span className="cell-strong">{row.name}</span> },
-            { key: 'stops', header: 'Stops', align: 'right', render: (row) => row.stops.length },
-            { key: 'fares', header: 'Fares', align: 'right', render: (row) => row.fares.length },
+            { key: 'stops', header: 'Stops', align: 'right', render: (row) => row.stopCount },
+            { key: 'fares', header: 'Fares', align: 'right', render: (row) => row.fareCount },
             {
               key: 'departures',
               header: 'Departures',
               align: 'right',
-              render: (row) => row.schedules.filter((schedule) => schedule.active).length,
+              render: (row) => row.activeDepartures,
             },
             {
               key: 'state',
@@ -96,6 +118,27 @@ export function ShuttlePage() {
           onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
           empty={error ?? (loading ? 'Loading routes...' : 'No routes yet. Create one to start.')}
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="routes"
+            onPage={(next) => {
+              setPage(next);
+              // The open route is almost certainly not on the page being moved to, and leaving its
+              // detail below an unrelated list reads as if it were selected there.
+              setSelectedId(null);
+            }}
+            onSize={(next) => {
+              setSize(next);
+              setPage(0);
+              setSelectedId(null);
+            }}
+          />
+        ) : null}
       </Card>
 
       {dialog === 'route' ? (
@@ -140,6 +183,8 @@ export function ShuttlePage() {
 
       {selected ? (
         <RouteDetail route={selected} busy={busy} act={act} />
+      ) : selectedId && loadingRoute ? (
+        <EmptyState title="Opening the route">One moment.</EmptyState>
       ) : routes.length > 0 ? (
         <EmptyState title="Pick a route">
           Open a route to add its stops, price the legs and set departures.

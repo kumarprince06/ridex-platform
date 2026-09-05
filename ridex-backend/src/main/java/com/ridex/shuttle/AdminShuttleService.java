@@ -16,7 +16,10 @@ import com.ridex.shuttle.domain.RouteFare;
 import com.ridex.shuttle.domain.RouteStop;
 import com.ridex.shuttle.domain.ShuttleSchedule;
 import com.ridex.shuttle.domain.ShuttleTrip;
+import org.springframework.data.domain.PageRequest;
+
 import com.ridex.shuttle.dto.AdminRouteResponse;
+import com.ridex.shuttle.dto.AdminRouteSummary;
 import com.ridex.shuttle.dto.AssignDepartureRequest;
 import com.ridex.shuttle.dto.FareRequest;
 import com.ridex.shuttle.dto.RouteRequest;
@@ -46,9 +49,11 @@ public class AdminShuttleService {
     private final DriverVehicleRepository driverVehicleRepository;
     private final DriverEligibility driverEligibility;
 
+    /** The list. Counts only - the full route comes back when somebody opens one. */
     @Transactional(readOnly = true)
-    public List<AdminRouteResponse> routes() {
-        return routeRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
+    public org.springframework.data.domain.Page<AdminRouteSummary> routes(int page, int size) {
+        return routeRepository.summaries(
+                PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100)));
     }
 
     @Transactional(readOnly = true)

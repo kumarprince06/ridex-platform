@@ -3,7 +3,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { routeEstimate, trafficOf } from '../api/maps';
+import { routeEstimate, trafficOf, useCurrentAddress } from '../api/maps';
 import { useQuery } from '../api/useQuery';
 import { useCurrentLocation } from '../lib/location';
 
@@ -19,6 +19,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'RoutePreview'>;
 export function RoutePreviewScreen({ navigation, route }: Props) {
   const { destination, destinationCoord, pickup } = route.params;
   const { coord } = useCurrentLocation();
+  const here = useCurrentAddress();
   // A chosen pickup wins over the device: the rider said where they are, and the phone guessed.
   const from = pickup?.coord ?? coord;
 
@@ -50,7 +51,7 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
             <View style={styles.stopRow}>
               <View style={styles.dotMint} />
               <Text style={styles.stopText} numberOfLines={1}>
-                {pickup?.name ?? 'Current location'}
+                {pickup?.name ?? here ?? 'Current location'}
               </Text>
             </View>
             <View style={styles.stopRow}>

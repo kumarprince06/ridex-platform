@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useCurrentAddress } from '../api/maps';
 import { listRides } from '../api/rides';
 import { useQuery } from '../api/useQuery';
-import { LngLat } from '../lib/location';
+import { LngLat, useCurrentLocation } from '../lib/location';
 import { Place, searchPlaces } from '../lib/places';
 import { RootStackParamList } from '../navigation/types';
 import { colors, IconName, radius, spacing, type } from '../theme';
@@ -33,6 +34,9 @@ export function SearchDestinationScreen({ navigation, route }: Props) {
   const [pickupText, setPickupText] = useState('');
   // Null pickup means the device's position, which is what most riders want and none have to type.
   const [pickup, setPickup] = useState<Chosen | null>(null);
+  // The address the phone is standing at, so the pickup box names a place rather than a phrase.
+  const here = useCurrentAddress();
+  const { coord } = useCurrentLocation();
   const [results, setResults] = useState<Place[]>([]);
   const [searching, setSearching] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -122,7 +126,9 @@ export function SearchDestinationScreen({ navigation, route }: Props) {
     navigation.navigate('RoutePreview', {
       destination: destination.name,
       destinationCoord: destination.coord,
-      pickup: pickup ?? undefined,
+      // The resolved address travels with the trip: the screens after this one have no reason
+      // to ask the geocoder the same question again.
+      pickup: pickup ?? (here && coord ? { name: here, coord } : undefined),
     });
   }
 
@@ -161,7 +167,7 @@ export function SearchDestinationScreen({ navigation, route }: Props) {
               />
             ) : (
               <Text style={styles.fieldValue} numberOfLines={1}>
-                {pickup?.name ?? 'Current location'}
+                {pickup?.name ?? here ?? 'Current location'}
               </Text>
             )}
             {pickup && field !== 'pickup' ? (

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useCurrentAddress } from '../api/maps';
 import { estimate, formatMoney, type EstimateOption } from '../api/rides';
 import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
@@ -19,6 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ChooseRide'>;
 export function ChooseRideScreen({ navigation, route }: Props) {
   const { destination, destinationCoord, pickup: chosenPickup } = route.params;
   const { coord } = useCurrentLocation();
+  const here = useCurrentAddress();
   // The rider is the pickup unless they named one. Until the device answers, the map's own
   // fallback centre is the only honest stand-in - a fixed city would price a trip nobody takes.
   const pickup = chosenPickup?.coord ?? coord ?? FALLBACK_CENTER;
@@ -74,7 +76,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
           <RouteStops
             compact
             style={styles.flex}
-            pickup={{ name: chosenPickup?.name ?? 'Current location' }}
+            pickup={{ name: chosenPickup?.name ?? here ?? 'Current location' }}
             dropoff={{ name: destination }}
           />
           {selected ? (
@@ -149,7 +151,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
               tierId: selected.rideTypeCode,
               estimateId: selected.estimateId,
               pickupCoord: pickup,
-              pickupName: chosenPickup?.name,
+              pickupName: chosenPickup?.name ?? here ?? undefined,
               destinationCoord,
             })
           }

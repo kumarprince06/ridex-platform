@@ -1,5 +1,56 @@
+import { useEffect, useState } from 'react';
+
 import { request } from './client';
-import { LngLat } from '../lib/location';
+import { LngLat, useCurrentLocation } from '../lib/location';
+
+/**
+ * The address the device is standing at.
+ *
+ * Cached per rounded position for the life of the process: every screen in the booking flow shows
+ * the pickup, and each one asking the geocoder again would spend the daily budget on the same
+ * answer. Rounded to five decimals - about a metre, which no address is narrower than.
+ */
+let cachedAddress: { key: string; address: string } | null = null;
+
+export function useCurrentAddress(): string | null {
+  const { coord } = useCurrentLocation();
+  const [address, setAddress] = useState<string | null>(
+    coord && cachedAddress?.key === keyOf(coord) ? cachedAddress.address : null,
+  );
+
+  useEffect(() => {
+    if (!coord) {
+      return;
+    }
+    const key = keyOf(coord);
+    if (cachedAddress?.key === key) {
+      setAddress(cachedAddress.address);
+      return;
+    }
+
+    let cancelled = false;
+    reverseGeocode(coord)
+      .then((place) => {
+        if (cancelled || !place.formattedAddress) {
+          return;
+        }
+        cachedAddress = { key, address: place.formattedAddress };
+        setAddress(place.formattedAddress);
+      })
+      // The caller falls back to "Current location", which is still true, just less useful.
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [coord?.[0], coord?.[1]]);
+
+  return address;
+}
+
+function keyOf(coord: LngLat) {
+  return `${coord[0].toFixed(5)},${coord[1].toFixed(5)}`;
+}
 
 export type RouteEstimate = {
   distanceMeters: number;

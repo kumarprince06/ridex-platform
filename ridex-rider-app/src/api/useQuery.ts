@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError } from './problem';
@@ -51,6 +52,21 @@ export function useQuery<T>(fetcher: () => Promise<T>, deps: unknown[] = []): St
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, nonce]);
+
+  // Tab screens are mounted once and never unmounted, so without this a balance loaded on first
+  // launch is the balance shown for the rest of the session - a rider who cancels a seat comes
+  // back to Rewards and sees the old number, which reads as the credit never arriving.
+  const focusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      // The first focus is the mount that already fetched; refetching there doubles every request.
+      if (!focusedOnce.current) {
+        focusedOnce.current = true;
+        return;
+      }
+      refetch();
+    }, [refetch]),
+  );
 
   return { ...state, refetch };
 }

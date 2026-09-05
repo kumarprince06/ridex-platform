@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { applyReferral, getPoints, reasonLabel } from '../api/points';
@@ -40,7 +40,18 @@ export function PaymentsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        // Pull to refresh, because a balance is the one screen people re-open expecting a change.
+        refreshControl={
+          <RefreshControl
+            refreshing={loading && points != null}
+            onRefresh={refetch}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.heading}>Rewards</Text>
         </View>

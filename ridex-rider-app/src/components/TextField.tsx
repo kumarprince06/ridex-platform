@@ -4,6 +4,7 @@ import {
   KeyboardTypeOptions,
   StyleSheet,
   Text,
+  Pressable,
   TextInput,
   View,
   ViewStyle,
@@ -45,6 +46,8 @@ export function TextField({
   style,
 }: Props) {
   const [focused, setFocused] = useState(false);
+  // A password nobody can read is a password typed wrong twice; the toggle starts hidden.
+  const [revealed, setRevealed] = useState(false);
 
   return (
     <View style={style}>
@@ -71,7 +74,7 @@ export function TextField({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={colors.textFaint}
-          secureTextEntry={secureTextEntry}
+          secureTextEntry={secureTextEntry && !revealed}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           autoCorrect={false}
@@ -80,6 +83,21 @@ export function TextField({
           onBlur={() => setFocused(false)}
           style={[styles.input, !editable && styles.inputReadOnly]}
         />
+        {secureTextEntry ? (
+          <Pressable
+            onPress={() => setRevealed((shown) => !shown)}
+            hitSlop={spacing.md}
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
+          >
+            <Ionicons
+              name={revealed ? 'eye-off-outline' : 'eye-outline'}
+              size={18}
+              color={colors.textMuted}
+              style={styles.reveal}
+            />
+          </Pressable>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -115,6 +133,9 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: spacing.md,
+  },
+  reveal: {
+    marginLeft: spacing.md,
   },
   input: {
     flex: 1,

@@ -93,6 +93,11 @@ public class RideRequest {
     @Column(name = "cancellation_reason", length = 500)
     private String cancellationReason;
 
+    /** The code the rider picked. The free text beside it is their own wording. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancellation_reason_code", length = 40)
+    private CancellationReason cancellationReasonCode;
+
     @Column(name = "cancellation_fee_minor")
     private Long cancellationFeeMinor;
 

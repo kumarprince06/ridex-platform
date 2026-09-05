@@ -65,6 +65,20 @@ public class RideController {
         return paymentService.forRider(principal.userId(), rideId);
     }
 
+    /** The cancel screen's reason list, so the app never invents a code the server refuses. */
+    @GetMapping("/cancellation-reasons")
+    @ResponseStatus(HttpStatus.OK)
+    public java.util.List<com.ridex.ride.dto.CancellationReasonResponse> cancellationReasons() {
+        return rideRequestService.cancellationReasons();
+    }
+
+    /** What an earlier cancellation left owing, added to the next fare. */
+    @GetMapping("/dues")
+    @ResponseStatus(HttpStatus.OK)
+    public com.ridex.ride.dto.CancellationQuote dues(@AuthenticationPrincipal JwtPrincipal principal) {
+        return rideRequestService.outstandingDues(principal.userId());
+    }
+
     /** Called after checkout closes. The gateway is asked; the app is not believed. */
     @PostMapping("/{rideId}/payment/confirm")
     @ResponseStatus(HttpStatus.OK)

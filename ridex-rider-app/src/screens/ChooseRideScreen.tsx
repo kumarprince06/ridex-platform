@@ -4,21 +4,26 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useCurrentAddress } from '../api/maps';
 import { estimate, formatMoney, type EstimateOption } from '../api/rides';
 import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
+import { RouteStops } from '../components/RouteStops';
 import { RIDE_TIERS } from '../data/mock';
+import { FALLBACK_CENTER, useCurrentLocation } from '../lib/location';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChooseRide'>;
 
-// Fixed pickup until live location is wired; the destination comes from the search screen.
-const FALLBACK_PICKUP: [number, number] = [12.9352, 77.6245];
-
 export function ChooseRideScreen({ navigation, route }: Props) {
-  const { destination, destinationCoord } = route.params;
+  const { destination, destinationCoord, pickup: chosenPickup } = route.params;
+  const { coord } = useCurrentLocation();
+  const here = useCurrentAddress();
+  // The rider is the pickup unless they named one. Until the device answers, the map's own
+  // fallback centre is the only honest stand-in - a fixed city would price a trip nobody takes.
+  const pickup = chosenPickup?.coord ?? coord ?? FALLBACK_CENTER;
   const [options, setOptions] = useState<EstimateOption[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,17 +31,18 @@ export function ChooseRideScreen({ navigation, route }: Props) {
   useEffect(() => {
     void (async () => {
       try {
-        const priced = await estimate(
-          FALLBACK_PICKUP,
-          destinationCoord ?? [12.9784, 77.6408],
-        );
+        if (!destinationCoord) {
+          setError('Pick a destination from the search results to price this trip.');
+          return;
+        }
+        const priced = await estimate(pickup, destinationCoord);
         setOptions(priced);
         setSelectedId(priced[0]?.estimateId ?? null);
       } catch (caught) {
         setError(caught instanceof ApiError ? caught.userMessage : 'Could not price this trip.');
       }
     })();
-  }, [destinationCoord]);
+  }, [destinationCoord, pickup[0], pickup[1]]);
 
   const selected = options?.find((option) => option.estimateId === selectedId) ?? null;
   // The server priced every option; anything the local mock adds is presentation only.
@@ -44,7 +50,11 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute />
+      <MapCanvas
+        showRoute
+        pickupCoord={pickup}
+        destinationCoord={destinationCoord}
+      />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <Pressable
@@ -59,10 +69,23 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
         <Text style={styles.title}>Choose your ride</Text>
-        <Text style={styles.subtitle}>
-          {destination}
-          {selected ? ` · ${(selected.distanceMeters / 1000).toFixed(1)} km` : ''}
-        </Text>
+
+        {/* Both ends, in the sheet where there is room to read them. The map used to draw its own
+            pair of pills over the back button, which said the same thing twice and badly. */}
+        <View style={styles.stops}>
+          <RouteStops
+            compact
+            style={styles.flex}
+            pickup={{ name: chosenPickup?.name ?? here ?? 'Current location' }}
+            dropoff={{ name: destination }}
+          />
+          {selected ? (
+            <Text style={styles.leg}>
+              {(selected.distanceMeters / 1000).toFixed(1)} km ·{' '}
+              {Math.max(1, Math.round(selected.durationSeconds / 60))} min
+            </Text>
+          ) : null}
+        </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -127,6 +150,9 @@ export function ChooseRideScreen({ navigation, route }: Props) {
               destination,
               tierId: selected.rideTypeCode,
               estimateId: selected.estimateId,
+              pickupCoord: pickup,
+              pickupName: chosenPickup?.name ?? here ?? undefined,
+              destinationCoord,
             })
           }
           style={styles.action}
@@ -174,15 +200,25 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: colors.border,
   },
+  stops: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.md,
+  },
+  leg: {
+    ...type.caption,
+    color: colors.textMuted,
+  },
   title: {
     ...type.title,
     fontSize: 22,
     color: colors.text,
-  },
-  subtitle: {
-    ...type.caption,
-    color: colors.textMuted,
-    marginTop: 2,
   },
   list: {
     paddingVertical: spacing.lg,

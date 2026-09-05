@@ -24,7 +24,7 @@ type Props = {
   icon?: IconName;
   secureTextEntry?: boolean;
   keyboardType?: KeyboardTypeOptions;
-  autoCapitalize?: 'none' | 'words';
+  autoCapitalize?: 'none' | 'words' | 'characters';
   /** Shown under the field and turns the border red, as in the mismatch mockup. */
   error?: string;
   /** Off for a value the form shows but cannot change, such as the account's own email. */

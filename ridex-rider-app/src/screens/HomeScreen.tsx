@@ -2,23 +2,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { listRides } from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { MapCanvas } from '../components/MapCanvas';
 import { TabScreenProps } from '../navigation/types';
-import { colors, IconName, radius, spacing, type } from '../theme';
+import { colors, radius, spacing, type } from '../theme';
 
 type Props = TabScreenProps<'Home'>;
 
-const SAVED: { icon: IconName; name: string; detail: string }[] = [
-  { icon: 'home', name: 'Home', detail: '742 Evergreen Terrace' },
-  { icon: 'business', name: 'Work', detail: 'Midtown Tower' },
-];
-
-const RECENT: { icon: IconName; name: string; detail: string }[] = [
-  { icon: 'wine', name: 'The Alchemist Bar', detail: '45 Bleecker St, New York' },
-  { icon: 'leaf', name: 'Union Square', detail: 'Union Square Park, Manhattan' },
-];
-
 export function HomeScreen({ navigation }: Props) {
+  // Where this rider has actually been, newest first. One address appears once however many
+  // times it was ridden to - a list of the same trip four times is not a shortcut.
+  const { data: rides } = useQuery(listRides, []);
+  const recent = (rides ?? [])
+    .filter((ride) => ride.destinationAddress)
+    .filter(
+      (ride, index, all) =>
+        all.findIndex((other) => other.destinationAddress === ride.destinationAddress) === index,
+    )
+    .slice(0, 4);
+
   return (
     <View style={styles.root}>
       <MapCanvas showUserDot />
@@ -29,8 +32,8 @@ export function HomeScreen({ navigation }: Props) {
             <Image source={require('../../assets/logo-mark.png')} style={styles.brandMark} />
           </View>
           <View style={styles.locationText}>
-            <Text style={styles.locationLabel}>Current Location</Text>
-            <Text style={styles.locationValue}>Midtown, New York</Text>
+            <Text style={styles.locationLabel}>Pickup</Text>
+            <Text style={styles.locationValue}>Current location</Text>
           </View>
           <Pressable
             onPress={() => navigation.navigate('Notifications')}
@@ -76,38 +79,28 @@ export function HomeScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </Pressable>
 
-        <View style={styles.savedRow}>
-          {SAVED.map((place) => (
-            <Pressable
-              key={place.name}
-              onPress={() => navigation.navigate('RoutePreview', { destination: place.name })}
-              accessibilityRole="button"
-              style={styles.savedChip}
-            >
-              <Ionicons name={place.icon} size={17} color={colors.primary} />
-              <View style={styles.flexShrink}>
-                <Text style={styles.savedName}>{place.name}</Text>
-                <Text style={styles.savedDetail} numberOfLines={1}>
-                  {place.detail}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-
-        {RECENT.map((place) => (
+        {recent.map((ride) => (
           <Pressable
-            key={place.name}
-            onPress={() => navigation.navigate('RoutePreview', { destination: place.name })}
+            key={ride.id}
+            onPress={() =>
+              navigation.navigate('RoutePreview', {
+                destination: ride.destinationAddress!,
+                // The ride's own coordinates, so a repeat trip prices against the same point
+                // rather than whatever a name search happens to match.
+                destinationCoord: [ride.destinationLng, ride.destinationLat],
+              })
+            }
             accessibilityRole="button"
             style={styles.recentRow}
           >
             <View style={styles.recentIcon}>
-              <Ionicons name={place.icon} size={18} color={colors.textMuted} />
+              <Ionicons name="time-outline" size={18} color={colors.textMuted} />
             </View>
             <View style={styles.flexShrink}>
-              <Text style={styles.recentName}>{place.name}</Text>
-              <Text style={styles.recentDetail}>{place.detail}</Text>
+              <Text style={styles.recentName} numberOfLines={1}>
+                {ride.destinationAddress}
+              </Text>
+              <Text style={styles.recentDetail}>Previous trip</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
           </Pressable>
@@ -251,34 +244,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
-  savedRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  savedChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   flexShrink: {
     flex: 1,
-  },
-  savedName: {
-    ...type.button,
-    fontSize: 14,
-    color: colors.text,
-  },
-  savedDetail: {
-    ...type.caption,
-    fontSize: 11,
-    color: colors.textMuted,
   },
   recentRow: {
     flexDirection: 'row',

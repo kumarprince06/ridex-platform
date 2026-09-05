@@ -15,6 +15,8 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
 
     Optional<Payment> findByProviderPaymentId(String providerPaymentId);
 
+    Optional<Payment> findByShuttleBookingId(String shuttleBookingId);
+
     Page<Payment> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<Payment> findByStatusOrderByCreatedAtDesc(PaymentStatus status, Pageable pageable);
@@ -25,10 +27,16 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
      * <p>Cash never appears here: the driver was handed the money, so those rows are SUCCEEDED the
      * moment they are written. These are online fares where checkout was abandoned, failed, or
      * never confirmed - the rider got out of the car without paying.
+     *
+     * <p>Shuttle seats never appear here either, and that is the difference between the two: a
+     * trip is charged after it has been taken, so an unpaid one is a debt. A seat is charged
+     * before it is used - abandon checkout and the hold simply expires, nothing was consumed.
+     * Counting one blocked every later booking over a seat the rider never got.
      */
     @org.springframework.data.jpa.repository.Query("""
             SELECT p FROM Payment p
             WHERE p.rider.id = :riderId
+              AND p.shuttleBookingId IS NULL
               AND p.netAmountMinor > 0
               AND p.status IN (
                   com.ridex.payment.domain.PaymentStatus.CREATED,

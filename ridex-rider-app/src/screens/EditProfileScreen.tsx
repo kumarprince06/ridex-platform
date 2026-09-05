@@ -114,7 +114,8 @@ export function EditProfileScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   spinner: {
-    marginTop: spacing.xl,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   error: {
     ...type.body,

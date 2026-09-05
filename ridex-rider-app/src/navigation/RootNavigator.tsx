@@ -7,6 +7,7 @@ import { RootStackParamList } from './types';
 
 import { SplashScreen } from '../screens/SplashScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
+import { PickOnMapScreen } from '../screens/PickOnMapScreen';
 import { SignInScreen } from '../screens/SignInScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { CheckInboxScreen } from '../screens/CheckInboxScreen';
@@ -87,6 +88,7 @@ export function RootNavigator() {
         <Stack.Screen name="MainTabs" component={MainTabs} />
 
         <Stack.Screen name="SearchDestination" component={SearchDestinationScreen} />
+        <Stack.Screen name="PickOnMap" component={PickOnMapScreen} />
         <Stack.Screen name="RoutePreview" component={RoutePreviewScreen} />
         <Stack.Screen name="ChooseRide" component={ChooseRideScreen} />
         <Stack.Screen name="FareEstimate" component={FareEstimateScreen} />

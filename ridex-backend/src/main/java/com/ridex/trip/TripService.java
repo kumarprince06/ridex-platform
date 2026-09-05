@@ -79,6 +79,7 @@ public class TripService {
         trip.setRideRequest(ride);
         trip.setDriver(driver);
         trip.setPickupCodeHash(passwordEncoder.encode(pickupCode));
+        trip.setPickupCode(pickupCode);
         trip.setCurrency(ride.getCurrency());
         tripRepository.save(trip);
 

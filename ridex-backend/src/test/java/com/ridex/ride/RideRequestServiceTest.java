@@ -27,6 +27,7 @@ import com.ridex.pricing.FareEstimateService;
 import com.ridex.pricing.domain.FareEstimate;
 import com.ridex.pricing.dto.EstimateRequest;
 import com.ridex.ride.domain.RideStatus;
+import com.ridex.ride.domain.CancellationReason;
 import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CreateRideRequest;
 import com.ridex.ride.dto.RideResponse;
@@ -54,7 +55,7 @@ class RideRequestServiceTest {
     @BeforeEach
     void setUp() {
         when(mapsProvider.route(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                .thenReturn(new RouteEstimate(8200, 1080, "8.2 km", "18 mins"));
+                .thenReturn(new RouteEstimate(8200, 1080, "8.2 km", "18 mins", null));
         riderId = newRider();
         otherRiderId = newRider();
     }
@@ -112,7 +113,7 @@ class RideRequestServiceTest {
 
         var quote = rideRequestService.quoteCancellation(riderId, ride.id());
         RideResponse cancelled = rideRequestService.cancel(riderId, ride.id(),
-                new CancelRideRequest("Changed my mind"));
+                new CancelRideRequest(CancellationReason.PLANS_CHANGED, "Changed my mind"));
 
         // Nothing has been spent on the rider's behalf until a driver is on the way.
         assertThat(quote.free()).isTrue();
@@ -124,10 +125,10 @@ class RideRequestServiceTest {
     @Test
     void aRideCannotBeCancelledTwice() {
         RideResponse ride = book(riderId);
-        rideRequestService.cancel(riderId, ride.id(), new CancelRideRequest(null));
+        rideRequestService.cancel(riderId, ride.id(), new CancelRideRequest(CancellationReason.PLANS_CHANGED, null));
 
         assertThatThrownBy(() -> rideRequestService.cancel(riderId, ride.id(),
-                new CancelRideRequest(null)))
+                new CancelRideRequest(CancellationReason.PLANS_CHANGED, null)))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("already ended");
     }
@@ -139,7 +140,7 @@ class RideRequestServiceTest {
         assertThatThrownBy(() -> rideRequestService.get(otherRiderId, ride.id()))
                 .isInstanceOf(NotFoundException.class);
         assertThatThrownBy(() -> rideRequestService.cancel(otherRiderId, ride.id(),
-                new CancelRideRequest(null)))
+                new CancelRideRequest(CancellationReason.PLANS_CHANGED, null)))
                 .isInstanceOf(NotFoundException.class);
     }
 

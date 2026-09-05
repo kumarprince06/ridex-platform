@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { RECENT_PLACES, SAVED_PLACES } from '../data/mock';
-import { LngLat } from '../lib/location';
+import { useCurrentAddress } from '../api/maps';
+import { listRides } from '../api/rides';
+import { useQuery } from '../api/useQuery';
+import { LngLat, useCurrentLocation } from '../lib/location';
 import { Place, searchPlaces } from '../lib/places';
 import { RootStackParamList } from '../navigation/types';
 import { colors, IconName, radius, spacing, type } from '../theme';
@@ -23,17 +25,55 @@ type Props = NativeStackScreenProps<RootStackParamList, 'SearchDestination'>;
 /** Long enough that a fast typist does not fire a request per keystroke, short enough to feel live. */
 const DEBOUNCE_MS = 350;
 
-export function SearchDestinationScreen({ navigation }: Props) {
-  const [destination, setDestination] = useState('');
+type Chosen = { name: string; coord: LngLat };
+
+export function SearchDestinationScreen({ navigation, route }: Props) {
+  // Which of the two boxes the typing and the results belong to.
+  const [field, setField] = useState<'pickup' | 'destination'>('destination');
+  const [query, setQuery] = useState('');
+  const [pickupText, setPickupText] = useState('');
+  // Null pickup means the device's position, which is what most riders want and none have to type.
+  const [pickup, setPickup] = useState<Chosen | null>(null);
+  // The address the phone is standing at, so the pickup box names a place rather than a phrase.
+  const here = useCurrentAddress();
+  const { coord } = useCurrentLocation();
   const [results, setResults] = useState<Place[]>([]);
   const [searching, setSearching] = useState(false);
   const [failed, setFailed] = useState(false);
   // One in-flight request at a time: an older, slower response must not overwrite a newer one.
   const inFlight = useRef<AbortController | null>(null);
 
+  // A point pinned on the map comes back as a route param rather than a callback, so the picker
+  // stays a plain screen that can be opened from anywhere.
+  const picked = route.params?.picked;
   useEffect(() => {
-    const query = destination.trim();
-    if (query.length < 3) {
+    if (!picked) {
+      return;
+    }
+    if (picked.field === 'pickup') {
+      setPickup({ name: picked.name, coord: picked.coord });
+      setPickupText(picked.name);
+      setField('destination');
+    } else {
+      go({ name: picked.name, coord: picked.coord });
+    }
+    navigation.setParams({ picked: undefined });
+  }, [picked]);
+
+  // Past destinations, each with the coordinates it was actually ridden to. A shortcut that
+  // carries only a name is a shortcut that cannot be priced.
+  const { data: rides } = useQuery(listRides, []);
+  const recent = (rides ?? [])
+    .filter((ride) => ride.destinationAddress)
+    .filter(
+      (ride, index, all) =>
+        all.findIndex((other) => other.destinationAddress === ride.destinationAddress) === index,
+    )
+    .slice(0, 6);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 3) {
       setResults([]);
       setSearching(false);
       setFailed(false);
@@ -46,7 +86,7 @@ export function SearchDestinationScreen({ navigation }: Props) {
       const controller = new AbortController();
       inFlight.current = controller;
 
-      searchPlaces(query, controller.signal)
+      searchPlaces(trimmed, controller.signal)
         .then((found) => {
           setResults(found);
           setFailed(false);
@@ -64,12 +104,33 @@ export function SearchDestinationScreen({ navigation }: Props) {
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [destination]);
+  }, [query]);
 
   useEffect(() => () => inFlight.current?.abort(), []);
 
-  const choose = (name: string, coordinate?: LngLat) =>
-    navigation.navigate('RoutePreview', { destination: name, destinationCoord: coordinate });
+  /** Sets whichever box is active. Only a chosen destination moves the rider on. */
+  function choose(name: string, coordinate?: LngLat) {
+    if (field === 'pickup') {
+      if (coordinate) {
+        setPickup({ name, coord: coordinate });
+        setPickupText(name);
+      }
+      setQuery('');
+      setField('destination');
+      return;
+    }
+    go(coordinate ? { name, coord: coordinate } : { name, coord: [0, 0] });
+  }
+
+  function go(destination: Chosen) {
+    navigation.navigate('RoutePreview', {
+      destination: destination.name,
+      destinationCoord: destination.coord,
+      // The resolved address travels with the trip: the screens after this one have no reason
+      // to ask the geocoder the same question again.
+      pickup: pickup ?? (here && coord ? { name: here, coord } : undefined),
+    });
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -84,29 +145,76 @@ export function SearchDestinationScreen({ navigation }: Props) {
         </Pressable>
 
         <View style={styles.fields}>
-          <View style={styles.field}>
+          {/* Editable, because the rider is not always at the pickup: booking for somebody else,
+              or standing at a gate the phone puts on the wrong side of the road. */}
+          <Pressable
+            onPress={() => {
+              setField('pickup');
+              setQuery(pickupText);
+            }}
+            style={[styles.field, field === 'pickup' && styles.fieldActive]}
+          >
             <View style={styles.dotMint} />
-            {/* Not a hardcoded city: the pickup is wherever the phone is, and naming a place the
-                rider is not in is the fastest way to lose trust in the whole screen. */}
-            <Text style={styles.fieldValue}>Current location</Text>
-          </View>
+            {field === 'pickup' ? (
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Pickup point"
+                placeholderTextColor={colors.textFaint}
+                autoFocus
+                returnKeyType="search"
+                style={styles.input}
+              />
+            ) : (
+              <Text style={styles.fieldValue} numberOfLines={1}>
+                {pickup?.name ?? here ?? 'Current location'}
+              </Text>
+            )}
+            {pickup && field !== 'pickup' ? (
+              <Pressable
+                onPress={() => {
+                  setPickup(null);
+                  setPickupText('');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Use current location"
+                hitSlop={spacing.md}
+              >
+                <Ionicons name="close" size={16} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </Pressable>
 
-          <View style={[styles.field, styles.fieldActive]}>
+          <Pressable
+            onPress={() => {
+              setField('destination');
+              setQuery('');
+            }}
+            style={[styles.field, field === 'destination' && styles.fieldActive]}
+          >
             <View style={styles.dotAmber} />
-            <TextInput
-              value={destination}
-              onChangeText={setDestination}
-              placeholder="Where to?"
-              placeholderTextColor={colors.textFaint}
-              autoFocus
-              onSubmitEditing={() => {
-                const first = results[0];
-                choose(first?.name ?? (destination.trim() || 'Grand Central Terminal'), first?.coord);
-              }}
-              returnKeyType="search"
-              style={styles.input}
-            />
-          </View>
+            {field === 'destination' ? (
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Where to?"
+                placeholderTextColor={colors.textFaint}
+                autoFocus
+                onSubmitEditing={() => {
+                  const first = results[0];
+                  if (first) {
+                    choose(first.name, first.coord);
+                  }
+                }}
+                returnKeyType="search"
+                style={styles.input}
+              />
+            ) : (
+              <Text style={styles.fieldValue} numberOfLines={1}>
+                Where to?
+              </Text>
+            )}
+          </Pressable>
         </View>
       </View>
 
@@ -115,7 +223,21 @@ export function SearchDestinationScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {destination.trim().length >= 3 ? (
+        {/* Always offered: no search can name an unmarked gate, a building site or a field. */}
+        <PlaceRow
+          icon="map"
+          tone={colors.primary}
+          name={`Set ${field} on the map`}
+          address="Drop a pin where the search cannot reach"
+          onPress={() =>
+            navigation.navigate('PickOnMap', {
+              mode: field,
+              initial: field === 'pickup' ? pickup?.coord : undefined,
+            })
+          }
+        />
+
+        {query.trim().length >= 3 ? (
           <>
             <SectionHeader title="RESULTS" action={searching ? '' : `${results.length}`} />
 
@@ -133,7 +255,7 @@ export function SearchDestinationScreen({ navigation }: Props) {
             ) : null}
 
             {!searching && !failed && results.length === 0 ? (
-              <Text style={styles.statusText}>Nothing found for “{destination.trim()}”.</Text>
+              <Text style={styles.statusText}>Nothing found for “{query.trim()}”.</Text>
             ) : null}
 
             {results.map((place) => (
@@ -150,15 +272,24 @@ export function SearchDestinationScreen({ navigation }: Props) {
           </>
         ) : null}
 
-        <SectionHeader title="SAVED PLACES" action="Manage" />
-        {SAVED_PLACES.map((place) => (
-          <PlaceRow key={place.name} {...place} onPress={() => choose(place.name)} />
-        ))}
-
-        <SectionHeader title="RECENT" action="See all" />
-        {RECENT_PLACES.map((place) => (
-          <PlaceRow key={place.name} {...place} chevron onPress={() => choose(place.name)} />
-        ))}
+        {recent.length > 0 ? (
+          <>
+            <SectionHeader title="RECENT" action="" />
+            {recent.map((ride) => (
+              <PlaceRow
+                key={ride.id}
+                icon="time-outline"
+                tone={colors.textMuted}
+                name={ride.destinationAddress!}
+                address="Previous trip"
+                chevron
+                onPress={() =>
+                  choose(ride.destinationAddress!, [ride.destinationLng, ride.destinationLat])
+                }
+              />
+            ))}
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

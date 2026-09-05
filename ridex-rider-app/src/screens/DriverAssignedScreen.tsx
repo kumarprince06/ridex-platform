@@ -97,7 +97,7 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
 
           <Button
             label="Track your driver"
-            onPress={() => navigation.navigate('DriverApproaching', { destination })}
+            onPress={() => navigation.navigate('DriverApproaching', { destination, rideId })}
             style={styles.track}
           />
         </View>

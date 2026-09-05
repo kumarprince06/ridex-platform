@@ -51,7 +51,7 @@ class FareEstimateServiceTest {
     void setUp() {
         // 8.2 km, 18 minutes.
         when(mapsProvider.route(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                .thenReturn(new RouteEstimate(8200, 1080, "8.2 km", "18 mins"));
+                .thenReturn(new RouteEstimate(8200, 1080, "8.2 km", "18 mins", null));
 
         User rider = new User();
         rider.setEmail("estimate-" + Instant.now().toEpochMilli() + "@example.com");

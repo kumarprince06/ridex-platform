@@ -1,4 +1,5 @@
 import { request } from './client';
+import { LngLat } from '../lib/location';
 
 export type FareLineType =
   | 'BASE' | 'DISTANCE' | 'TIME' | 'WAITING' | 'SURGE'
@@ -31,6 +32,10 @@ export type Ride = {
   rideTypeCode: string;
   pickupAddress: string | null;
   destinationAddress: string | null;
+  pickupLat: number;
+  pickupLng: number;
+  destinationLat: number;
+  destinationLng: number;
   currency: string;
   quotedFareMinor: number;
   fareLines: FareLine[];
@@ -38,6 +43,11 @@ export type Ride = {
   discountMinor: number;
   cancellationFeeMinor: number | null;
   cancellationReason: string | null;
+  /**
+   * The digits the rider shows the driver, and what the QR encodes. Only while the ride is live:
+   * the server withholds it once the trip has ended.
+   */
+  pickupCode: string | null;
   requestedAt: string;
 };
 
@@ -54,25 +64,49 @@ export type Receipt = {
   chargedLines: FareLine[];
 };
 
-/** Every active ride type priced for one route. The client never sends a fare. */
-export function estimate(pickup: [number, number], destination: [number, number]) {
+/**
+ * Every active ride type priced for one route. The client never sends a fare.
+ *
+ * Takes LngLat, the order the map and the search results use. Reading index 0 as the latitude is
+ * what priced a Bengaluru trip from a point in the Arabian Sea.
+ */
+export function estimate(pickup: LngLat, destination: LngLat) {
   return request<EstimateOption[]>('/api/v1/rides/estimate', {
     method: 'POST',
     body: {
-      pickupLat: pickup[0],
-      pickupLng: pickup[1],
-      destinationLat: destination[0],
-      destinationLng: destination[1],
+      pickupLat: pickup[1],
+      pickupLng: pickup[0],
+      destinationLat: destination[1],
+      destinationLng: destination[0],
     },
   });
 }
 
-/** Books the quote the rider chose. Sending the estimate id, not a price, is the whole point. */
-export function bookRide(estimateId: string, pickupAddress?: string, destinationAddress?: string) {
-  return request<Ride>('/api/v1/rides', {
-    method: 'POST',
-    body: { estimateId, pickupAddress, destinationAddress },
-  });
+/** The ride's two ends, in the LngLat order every map in this app takes. */
+export function rideRoute(ride: Ride): { pickup: LngLat; destination: LngLat } {
+  return {
+    pickup: [ride.pickupLng, ride.pickupLat],
+    destination: [ride.destinationLng, ride.destinationLat],
+  };
+}
+
+/** CASH or UPI. Both card and UPI open the same checkout, so the app only sends these two. */
+export type PaymentMethod = 'CASH' | 'UPI';
+
+/**
+ * Books the quote the rider chose. Sending the estimate id, not a price, is the whole point.
+ *
+ * `redeemPoints` is a request, not an instruction: the server decides how many are actually
+ * spendable and what they are worth, so a client can never name its own discount.
+ */
+export function bookRide(options: {
+  estimateId: string;
+  pickupAddress?: string;
+  destinationAddress?: string;
+  redeemPoints?: number;
+  paymentMethod?: PaymentMethod;
+}) {
+  return request<Ride>('/api/v1/rides', { method: 'POST', body: options });
 }
 
 export function getRide(rideId: string) {
@@ -88,8 +122,23 @@ export function cancellationQuote(rideId: string) {
   return request<CancellationQuote>(`/api/v1/rides/${rideId}/cancellation-quote`);
 }
 
-export function cancelRide(rideId: string, reason?: string) {
-  return request<Ride>(`/api/v1/rides/${rideId}/cancel`, { method: 'POST', body: { reason } });
+/** One choice on the cancel screen. The list comes from the server so the two cannot drift. */
+export type CancellationReason = { code: string; label: string; needsDetail: boolean };
+
+export function cancellationReasons() {
+  return request<CancellationReason[]>('/api/v1/rides/cancellation-reasons');
+}
+
+/** What an earlier cancellation left owing. It is added to the next fare. */
+export function outstandingDues() {
+  return request<CancellationQuote>('/api/v1/rides/dues');
+}
+
+export function cancelRide(rideId: string, reasonCode: string, reason?: string) {
+  return request<Ride>(`/api/v1/rides/${rideId}/cancel`, {
+    method: 'POST',
+    body: { reasonCode, reason },
+  });
 }
 
 export function getReceipt(rideId: string) {

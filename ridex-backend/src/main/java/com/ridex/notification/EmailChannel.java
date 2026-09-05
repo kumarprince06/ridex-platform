@@ -78,6 +78,13 @@ public class EmailChannel implements NotificationChannel {
                 helper.addInline(EmailLayout.LOGO_CID, new ClassPathResource(LOGO_PATH), "image/png");
             }
 
+            if (rendered.attachment() != null) {
+                NotificationTemplates.Attachment file = rendered.attachment();
+                helper.addAttachment(file.filename(),
+                        new org.springframework.core.io.ByteArrayResource(file.bytes()),
+                        file.contentType());
+            }
+
             mailSender.send(message);
         } catch (MessagingException | java.io.UnsupportedEncodingException ex) {
             // Wrapped so the outbox sees a failure and retries: a swallowed exception here is a

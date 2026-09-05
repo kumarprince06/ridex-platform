@@ -8,6 +8,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import com.ridex.platform.security.JwtPrincipal;
+import com.ridex.rating.RatingService;
+import com.ridex.rating.dto.RateRideRequest;
 import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CancellationQuote;
 import com.ridex.ride.dto.CreateRideRequest;
@@ -24,6 +26,7 @@ public class RideController {
 
     private final RideRequestService rideRequestService;
     private final com.ridex.trip.TripService tripService;
+    private final RatingService ratingService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -43,6 +46,14 @@ public class RideController {
     public RideResponse get(@AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable String rideId) {
         return rideRequestService.get(principal.userId(), rideId);
+    }
+
+    /** One rating per ride, and only after it completed. */
+    @PostMapping("/{rideId}/rating")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void rate(@AuthenticationPrincipal JwtPrincipal principal, @PathVariable String rideId,
+            @Valid @RequestBody RateRideRequest request) {
+        ratingService.rate(principal.userId(), rideId, request);
     }
 
     // Read-only, so the rider sees the fee before confirming rather than discovering it after.

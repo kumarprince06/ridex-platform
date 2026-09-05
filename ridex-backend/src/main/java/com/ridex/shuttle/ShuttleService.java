@@ -230,10 +230,26 @@ public class ShuttleService {
         }
     }
 
+    /**
+     * The rider's shuttle seats, newest first.
+     *
+     * <p>Without this a booked seat existed only on the screen that booked it - the rider had no
+     * way back to their own departure time or seat number, and no way to cancel it later.
+     *
+     * <p>No boarding code: only its hash is stored, on purpose. The code is shown once, at
+     * booking, and a list that could reprint it would be a list worth stealing a phone for.
+     */
     @Transactional(readOnly = true)
-    public List<ShuttleBooking> myBookings(String riderUserId) {
+    public List<ShuttleBookingResponse> myBookings(String riderUserId) {
         return riderProfileRepository.findByUserId(riderUserId)
-                .map(rider -> bookingRepository.findByRiderIdOrderByCreatedAtDesc(rider.getId()))
+                .map(rider -> bookingRepository.findByRiderIdOrderByCreatedAtDesc(rider.getId())
+                        .stream()
+                        .map(booking -> toResponse(
+                                booking,
+                                stopOn(booking.getShuttleTrip(), booking.getBoardingStopId()),
+                                stopOn(booking.getShuttleTrip(), booking.getAlightingStopId()),
+                                null))
+                        .toList())
                 .orElse(List.of());
     }
 

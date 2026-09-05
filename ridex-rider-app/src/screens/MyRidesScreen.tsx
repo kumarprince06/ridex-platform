@@ -19,6 +19,7 @@ import {
   rideStatusLabel,
   type Ride,
 } from '../api/rides';
+import { listBookings, type ShuttleBooking } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { BrandLoader } from '../components/BrandLoader';
 import { Chip } from '../components/Chip';
@@ -33,12 +34,21 @@ const FILTERS = ['All', 'Completed', 'Cancelled'] as const;
 export function MyRidesScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
   const { data, loading, error, refetch } = useQuery(listRides, []);
+  // Shuttle seats are booked through a different endpoint, but a rider does not think of them as
+  // a different thing: they are trips they paid for, and they belong on the same list.
+  const { data: shuttle, refetch: refetchShuttle } = useQuery(listBookings, []);
 
   // Filtered here rather than server-side: the endpoint returns this rider's own history, which
   // is tens of rows, not the thousands that would make a round trip worth it.
   const rides = (data ?? []).filter((ride) => {
     if (filter === 'Completed') return ride.status === 'COMPLETED';
     if (filter === 'Cancelled') return isCancelled(ride.status);
+    return true;
+  });
+
+  const seats = (shuttle ?? []).filter((booking) => {
+    if (filter === 'Completed') return booking.status === 'BOARDED';
+    if (filter === 'Cancelled') return booking.status === 'CANCELLED';
     return true;
   });
 
@@ -63,7 +73,14 @@ export function MyRidesScreen({ navigation }: Props) {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading && data != null} onRefresh={refetch} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={loading && data != null}
+            onRefresh={() => {
+              refetch();
+              refetchShuttle();
+            }}
+            tintColor={colors.primary}
+          />
         }
       >
         {loading && data == null ? <BrandLoader size={72} label="Loading your rides" style={styles.spinner} /> : null}
@@ -75,13 +92,17 @@ export function MyRidesScreen({ navigation }: Props) {
           </Pressable>
         ) : null}
 
-        {!loading && !error && rides.length === 0 ? (
+        {!loading && !error && rides.length === 0 && seats.length === 0 ? (
           <View style={styles.notice}>
             <Text style={styles.noticeText}>
               {filter === 'All' ? 'No rides yet.' : `No ${filter.toLowerCase()} rides.`}
             </Text>
           </View>
         ) : null}
+
+        {seats.map((booking) => (
+          <ShuttleCard key={booking.id} booking={booking} />
+        ))}
 
         {rides.map((ride) => (
           <RideCard
@@ -92,6 +113,45 @@ export function MyRidesScreen({ navigation }: Props) {
         ))}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * A booked shuttle seat.
+ *
+ * Not a Pressable: there is no shuttle trip screen to open, and a card that does nothing when
+ * tapped is worse than one that plainly does not.
+ */
+function ShuttleCard({ booking }: { booking: ShuttleBooking }) {
+  const cancelled = booking.status === 'CANCELLED';
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <View style={[styles.status, cancelled && styles.statusCancelled]}>
+          <Ionicons
+            name={cancelled ? 'close' : 'bus'}
+            size={11}
+            color={cancelled ? colors.danger : colors.primary}
+          />
+          <Text style={[styles.statusText, cancelled && styles.statusTextCancelled]}>
+            {cancelled ? 'Cancelled' : `Seat ${booking.seatLabel}`}
+          </Text>
+        </View>
+        <Text style={styles.tier}>{booking.routeName}</Text>
+        <Text style={styles.fare}>
+          {booking.passId ? 'Pass' : formatMoney(booking.fareMinor, booking.currency)}
+        </Text>
+      </View>
+
+      <RouteStops
+        compact
+        pickup={{ name: booking.boardingStopName }}
+        dropoff={{ name: booking.alightingStopName }}
+      />
+
+      <Text style={styles.when}>{formatWhen(booking.departsAt)}</Text>
+    </View>
   );
 }
 

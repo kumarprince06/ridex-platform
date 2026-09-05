@@ -57,8 +57,8 @@ export type ShuttleBooking = {
   /** Set when a pass covered the seat, so nothing was charged. */
   passId: string | null;
   status: string;
-  /** The six digits the rider shows the driver. */
-  boardingCode: string;
+  /** The six digits the rider shows the driver. Null in the list: only its hash is stored. */
+  boardingCode: string | null;
 };
 
 export type PassProduct = {
@@ -115,6 +115,11 @@ export function bookSeat(booking: {
   seatLabel: string;
 }) {
   return request<ShuttleBooking>('/api/v1/shuttle/bookings', { method: 'POST', body: booking });
+}
+
+/** This rider's shuttle seats. Newest first, and without the boarding code - see the backend. */
+export function listBookings() {
+  return request<ShuttleBooking[]>('/api/v1/shuttle/bookings');
 }
 
 export function cancelBooking(bookingId: string) {

@@ -49,6 +49,13 @@ public class ShuttleController {
                 boardingStopId, alightingStopId);
     }
 
+    /** The rider's own seats. Booking one and never seeing it again is not a booking. */
+    @GetMapping("/bookings")
+    @ResponseStatus(HttpStatus.OK)
+    public List<ShuttleBookingResponse> myBookings(@AuthenticationPrincipal JwtPrincipal principal) {
+        return shuttleService.myBookings(principal.userId());
+    }
+
     @PostMapping("/bookings")
     @ResponseStatus(HttpStatus.CREATED)
     public ShuttleBookingResponse book(@AuthenticationPrincipal JwtPrincipal principal,

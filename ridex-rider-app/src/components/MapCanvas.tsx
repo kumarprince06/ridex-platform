@@ -21,7 +21,9 @@ type Props = {
   showUserDot?: boolean;
   pickupLabel?: string;
   destinationLabel?: string;
-  /** A real searched place, when the rider picked one. Overrides the mock dropoff offset. */
+  /** The trip's real ends, when the caller knows them. A past trip did not start where the
+   *  rider is standing now, so the device position is the wrong pickup for it. */
+  pickupCoord?: [number, number];
   destinationCoord?: [number, number];
   style?: ViewStyle;
 };
@@ -52,14 +54,15 @@ export function MapCanvas({
   showUserDot = false,
   pickupLabel = 'Pickup',
   destinationLabel = 'Destination',
+  pickupCoord,
   destinationCoord,
   style,
 }: Props) {
   const { coord } = useCurrentLocation();
   const here = coord ?? FALLBACK_CENTER;
 
-  // The rider's pickup is where the rider is, not an offset from it.
-  const PICKUP: [number, number] = here;
+  // The rider's pickup is where the rider is, unless the caller knows the real one.
+  const PICKUP: [number, number] = pickupCoord ?? here;
   const DESTINATION: [number, number] = destinationCoord ?? [
     here[0] + DESTINATION_OFFSET[0],
     here[1] + DESTINATION_OFFSET[1],
@@ -106,7 +109,7 @@ export function MapCanvas({
         <Camera
           // key, so the camera re-mounts and recentres once the device position arrives instead
           // of staying on the fallback centre it opened with.
-          key={coord ? 'located' : 'fallback'}
+          key={pickupCoord ? 'trip' : coord ? 'located' : 'fallback'}
           initialViewState={{
             center: showRoute ? midpoint(PICKUP, DESTINATION) : here,
             zoom: showRoute ? 12.5 : 14.5,

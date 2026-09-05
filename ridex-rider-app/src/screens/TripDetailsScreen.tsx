@@ -8,6 +8,7 @@ import {
   getRide,
   isCancelled,
   isLive,
+  rideRoute,
   rideStatusLabel,
 } from '../api/rides';
 import { useQuery } from '../api/useQuery';
@@ -52,7 +53,13 @@ export function TripDetailsScreen({ navigation, route }: Props) {
     >
       {/* MapCanvas fills its parent absolutely, so it needs a sized box to live in. */}
       <View style={styles.mapBox}>
-        <MapCanvas showRoute />
+        <MapCanvas
+          showRoute
+          pickupCoord={rideRoute(ride).pickup}
+          destinationCoord={rideRoute(ride).destination}
+          pickupLabel={ride.pickupAddress ?? 'Pickup'}
+          destinationLabel={ride.destinationAddress ?? 'Destination'}
+        />
       </View>
 
       <View style={styles.metaRow}>

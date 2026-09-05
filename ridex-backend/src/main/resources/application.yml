@@ -104,6 +104,11 @@ app:
     directory: ${RIDEX_DOCUMENTS_DIR:./var/documents}
     expiry-sweep-ms: 3600000
 
+  # Road routing without a billing account: OpenRouteService gives 2,000 requests a day on a free
+  # key with no card. Only used when no Google key is set.
+  ors:
+    api-key: ${ORS_API_KEY:}
+
   payments:
     # Which gateway clears cards and UPI. Cash never routes here - the driver is handed the money.
     gateway: ${RIDEX_PAYMENT_GATEWAY:RAZORPAY}

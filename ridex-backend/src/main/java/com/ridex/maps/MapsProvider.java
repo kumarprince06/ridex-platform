@@ -23,6 +23,15 @@ public interface MapsProvider {
     boolean isConfigured();
 
     /**
+     * Whether it can turn a query into places.
+     *
+     * <p>Separate from routing because a provider can genuinely do one and not the other: the free
+     * router geocodes through a different product with its own quota, and the free geocoder cannot
+     * route at all.
+     */
+    boolean canGeocode();
+
+    /**
      * Whether it can do road distances, not just places.
      *
      * <p>Separate from {@link #isConfigured()} because they differ: the free geocoder needs no key

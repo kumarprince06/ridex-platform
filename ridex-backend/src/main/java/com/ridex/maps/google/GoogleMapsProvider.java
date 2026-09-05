@@ -40,6 +40,11 @@ public class GoogleMapsProvider implements MapsProvider {
     }
 
     @Override
+    public boolean canGeocode() {
+        return isConfigured();
+    }
+
+    @Override
     public boolean canRoute() {
         return isConfigured();
     }

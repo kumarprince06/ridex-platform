@@ -49,7 +49,7 @@ public class MapsService {
 
     private MapsProvider geocoder() {
         return providers.stream()
-                .filter(MapsProvider::isConfigured)
+                .filter(provider -> provider.isConfigured() && provider.canGeocode())
                 .findFirst()
                 .orElseThrow(() -> new ProviderUnavailableException(
                         "No maps provider is available."));

@@ -30,7 +30,7 @@ import com.ridex.shared.exception.ValidationException;
  * provider - a straight-line fallback would quote a fare against a distance no car drives.
  */
 @Service
-@org.springframework.core.annotation.Order(2)
+@org.springframework.core.annotation.Order(3)
 public class NominatimMapsProvider implements MapsProvider {
 
     private static final int MAX_RESULTS = 8;
@@ -49,6 +49,11 @@ public class NominatimMapsProvider implements MapsProvider {
     @Override
     public boolean isConfigured() {
         // Nothing to configure. That is the point of it.
+        return true;
+    }
+
+    @Override
+    public boolean canGeocode() {
         return true;
     }
 

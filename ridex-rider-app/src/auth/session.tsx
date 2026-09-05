@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import * as authApi from '../api/auth';
 import { setSessionExpiredHandler } from '../api/client';
 import { getProfile, type RiderProfile } from '../api/profile';
+import { registerForPush, unregisterPush } from '../api/push';
 import { clearTokens, loadTokens } from './tokens';
 
 type SessionState = {
@@ -20,7 +21,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [profile, setProfile] = useState<RiderProfile | null>(null);
 
+  // The token this device registered, so sign-out can take it back off the account.
+  const pushToken = useRef<string | null>(null);
+
   const signOut = useCallback(async () => {
+    if (pushToken.current) {
+      await unregisterPush(pushToken.current).catch(() => undefined);
+      pushToken.current = null;
+    }
+
     const tokens = await loadTokens();
     if (tokens) {
       // Best effort: a failed revoke must not trap the user in a signed-in state on this device.
@@ -38,6 +47,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string) => {
       await authApi.login(email, password);
       await refreshProfile();
+      // Best effort, and after the profile: a denied permission or a device with no push
+      // support must not turn a successful sign-in into a failed one.
+      pushToken.current = await registerForPush().catch(() => null);
     },
     [refreshProfile],
   );
@@ -55,6 +67,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         // Tokens on disk are not proof of a live session - the account may have been suspended
         // or every session revoked. One call settles it.
         await refreshProfile().catch(() => clearTokens());
+        pushToken.current = await registerForPush().catch(() => null);
       }
       setReady(true);
     })();

@@ -8,7 +8,7 @@ import type { ShuttleBooking } from '../api/shuttle';
 export type TabParamList = {
   Home: undefined;
   MyRides: undefined;
-  Wallet: undefined;
+  Rewards: undefined;
   Profile: undefined;
 };
 

@@ -54,7 +54,7 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
 
         <Button
           label="Choose Ride Type"
-          onPress={() => navigation.navigate('ChooseRide', { destination })}
+          onPress={() => navigation.navigate('ChooseRide', { destination, destinationCoord })}
           style={styles.action}
         />
       </Sheet>

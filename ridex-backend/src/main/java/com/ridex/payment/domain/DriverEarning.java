@@ -56,6 +56,15 @@ public class DriverEarning {
     @Column(name = "net_amount_minor", nullable = false, updatable = false)
     private long netAmountMinor;
 
+    /**
+     * The payout that settled this line, null while it is still owed.
+     *
+     * <p>The id rather than the entity: a batch reads thousands of these and never needs to walk
+     * back to the payout it is in the middle of creating.
+     */
+    @Column(name = "payout_id", length = 26)
+    private String payoutId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

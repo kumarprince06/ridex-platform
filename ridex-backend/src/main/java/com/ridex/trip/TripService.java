@@ -13,6 +13,8 @@ import com.ridex.driver.domain.DriverProfile;
 import com.ridex.pricing.PricingRuleRepository;
 import com.ridex.pricing.domain.Fare;
 import com.ridex.pricing.domain.FareCalculator;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
 import com.ridex.pricing.domain.FareLine;
 import com.ridex.pricing.dto.FareLineResponse;
 import com.ridex.ride.RideRequestRepository;
@@ -56,6 +58,7 @@ public class TripService {
     private final PickupCodeAttempts pickupCodeAttempts;
     private final PointsService pointsService;
     private final PaymentService paymentService;
+    private final Notifier notifier;
 
     /**
      * Creates the trip and its pickup code the moment a driver is assigned.
@@ -185,6 +188,8 @@ public class TripService {
         // ponytail: cash only. A card gateway is another PaymentProvider, not a change here.
         paymentService.settleTrip(trip.getId(), ride.getDiscountMinor(), PaymentMethod.CASH);
 
+        emailReceipt(trip, fare);
+
         // A driver referral is progress, not a payment: the referrer is paid only after the
         // referred driver has done a run of real trips inside the window.
         long referralPayout = pointsService.recordDriverTripForReferral(
@@ -250,6 +255,35 @@ public class TripService {
         history.setActorId(actorId);
         history.setReason(reason);
         tripStatusHistoryRepository.save(history);
+    }
+
+    /**
+     * Queues the receipt.
+     *
+     * <p>The lines are flattened into the outbox payload rather than looked up at send time: the
+     * dispatcher may run hours later after a mail outage, and a receipt must say what was charged
+     * then, not what the pricing rules say now.
+     */
+    private void emailReceipt(Trip trip, Fare fare) {
+        String currency = fare.total().currency().getCurrencyCode();
+        StringBuilder payload = new StringBuilder(money(fare.total().amountMinor(), currency))
+                .append('\n');
+
+        for (FareLine line : fare.lines()) {
+            payload.append(line.label()).append('|')
+                    .append(money(line.amount().amountMinor(), currency)).append('\n');
+        }
+        payload.append("Total|").append(money(fare.total().amountMinor(), currency));
+
+        notifier.enqueue(DeliveryChannel.EMAIL,
+                trip.getRideRequest().getRider().getUser().getEmail(),
+                "RIDE_RECEIPT", payload.toString());
+    }
+
+    /** Minor units to a display string. The currency is on the fare, never assumed. */
+    private static String money(long amountMinor, String currency) {
+        return "%s %s".formatted(currency,
+                java.math.BigDecimal.valueOf(amountMinor, 2).toPlainString());
     }
 
     private Trip requireOwnTrip(String driverUserId, String tripId) {

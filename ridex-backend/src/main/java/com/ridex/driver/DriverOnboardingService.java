@@ -13,6 +13,8 @@ import com.ridex.driver.domain.DriverProfile;
 import com.ridex.driver.dto.OnboardingResponse;
 import com.ridex.driver.domain.DriverDocumentType;
 import com.ridex.location.DriverPresence;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
 
@@ -27,6 +29,7 @@ public class DriverOnboardingService {
     private final DriverPresence driverPresence;
     private final DriverDocumentService driverDocumentService;
     private final DriverEligibility driverEligibility;
+    private final Notifier notifier;
 
     @Transactional(readOnly = true)
     public OnboardingResponse status(String driverUserId) {
@@ -57,6 +60,7 @@ public class DriverOnboardingService {
             driver.transitionTo(DriverOnboardingStatus.DOCUMENTS_SUBMITTED);
         }
         driver.transitionTo(DriverOnboardingStatus.UNDER_REVIEW);
+        notify(driver, "DRIVER_UNDER_REVIEW", null);
 
         return toResponse(driverProfileRepository.save(driver));
     }
@@ -73,6 +77,7 @@ public class DriverOnboardingService {
         DriverProfile driver = requireProfile(driverId);
         driver.transitionTo(DriverOnboardingStatus.APPROVED);
         stampReview(driver, reviewerUserId, null);
+        notify(driver, "DRIVER_APPROVED", null);
         return toResponse(driverProfileRepository.save(driver));
     }
 
@@ -81,6 +86,7 @@ public class DriverOnboardingService {
         DriverProfile driver = requireProfile(driverId);
         driver.transitionTo(DriverOnboardingStatus.REJECTED);
         stampReview(driver, reviewerUserId, reason);
+        notify(driver, "DRIVER_REJECTED", reason);
         return toResponse(driverProfileRepository.save(driver));
     }
 
@@ -89,6 +95,7 @@ public class DriverOnboardingService {
         DriverProfile driver = requireProfile(driverId);
         driver.transitionTo(DriverOnboardingStatus.SUSPENDED);
         stampReview(driver, reviewerUserId, reason);
+        notify(driver, "DRIVER_SUSPENDED", reason);
 
         // Off duty and out of the dispatch pool immediately. A suspension that leaves someone
         // taking rides for another twenty minutes is not a suspension.
@@ -106,6 +113,11 @@ public class DriverOnboardingService {
         driver.setReviewedAt(Instant.now());
         userRepository.findById(reviewerUserId).ifPresent(driver::setReviewedBy);
         driver.setRejectionReason(reason);
+    }
+
+    /** Queued inside the transaction, so a decision that rolls back is never announced. */
+    private void notify(DriverProfile driver, String eventType, String payload) {
+        notifier.enqueue(DeliveryChannel.EMAIL, driver.getUser().getEmail(), eventType, payload);
     }
 
     private DriverProfile requireDriver(String driverUserId) {

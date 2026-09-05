@@ -15,6 +15,8 @@ import com.ridex.driver.domain.DriverDocumentStatus;
 import com.ridex.driver.domain.DriverDocumentType;
 import com.ridex.driver.domain.DriverProfile;
 import com.ridex.driver.dto.DriverDocumentResponse;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
 
@@ -30,6 +32,7 @@ public class DriverDocumentService {
     private final DriverProfileRepository driverProfileRepository;
     private final UserRepository userRepository;
     private final DocumentStorage documentStorage;
+    private final Notifier notifier;
 
     @Transactional(readOnly = true)
     public List<DriverDocumentResponse> mine(String driverUserId) {
@@ -133,6 +136,13 @@ public class DriverDocumentService {
         userRepository.findById(reviewerUserId).ifPresent(document::setReviewedBy);
         document.setReviewNotes(notes);
 
+        // The rejection carries the reason; the approval names the document, because a driver with
+        // five in the queue cannot tell which one was cleared from "Document approved" alone.
+        notifier.enqueue(DeliveryChannel.EMAIL,
+                document.getDriver().getUser().getEmail(),
+                approved ? "DOCUMENT_APPROVED" : "DOCUMENT_REJECTED",
+                approved ? readable(document.getDocumentType()) : notes);
+
         return DriverDocumentResponse.of(driverDocumentRepository.save(document));
     }
 
@@ -160,6 +170,10 @@ public class DriverDocumentService {
         lapsed.forEach(document -> document.setStatus(DriverDocumentStatus.EXPIRED));
         driverDocumentRepository.saveAll(lapsed);
         log.info("Expired {} lapsed driver documents", lapsed.size());
+    }
+
+    private static String readable(DriverDocumentType type) {
+        return type.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
     }
 
     private DriverProfile requireDriver(String driverUserId) {

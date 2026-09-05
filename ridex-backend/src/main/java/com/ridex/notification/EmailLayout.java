@@ -129,6 +129,58 @@ public class EmailLayout {
                 """.formatted(PRIMARY_SURFACE, DARK, escape(value));
     }
 
+    /**
+     * A reason, set apart from the sentence introducing it.
+     *
+     * <p>Rejections live or die on this: a reason buried in a paragraph gets skimmed past, and the
+     * driver uploads the same blurred photo again.
+     */
+    public String quote(String text) {
+        return """
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%"
+                       style="margin:4px 0 16px;">
+                  <tr>
+                    <td style="border-left:3px solid %s;background:%s;border-radius:0 8px 8px 0;
+                               padding:12px 14px;color:%s;font-size:14px;">
+                      %s
+                    </td>
+                  </tr>
+                </table>
+                """.formatted(PRIMARY_STRONG, CANVAS, INK, escape(text));
+    }
+
+    /**
+     * A receipt's line items, with the last row as the total.
+     *
+     * <p>Rows come as "Label|amount" strings rather than a type of their own: this is the only
+     * caller, and a record here would be a class to import in one place.
+     */
+    public String lines(java.util.List<String> rows) {
+        StringBuilder body = new StringBuilder();
+        for (int index = 0; index < rows.size(); index++) {
+            String[] parts = rows.get(index).split("\\|", 2);
+            boolean total = index == rows.size() - 1;
+            body.append("""
+                    <tr>
+                      <td style="padding:9px 0;%s color:%s;font-size:%s;font-weight:%s;">%s</td>
+                      <td align="right" style="padding:9px 0;%s color:%s;font-size:%s;font-weight:%s;
+                                 font-family:'SFMono-Regular',Menlo,Consolas,monospace;">%s</td>
+                    </tr>
+                    """.formatted(
+                    total ? "border-top:1px solid " + LINE + ";" : "",
+                    total ? INK : MUTED, total ? "16px" : "14px", total ? "700" : "400",
+                    escape(parts[0]),
+                    total ? "border-top:1px solid " + LINE + ";" : "",
+                    total ? INK : MUTED, total ? "16px" : "14px", total ? "700" : "400",
+                    escape(parts.length > 1 ? parts[1] : "")));
+        }
+
+        return """
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%"
+                       style="margin:4px 0 18px;">%s</table>
+                """.formatted(body);
+    }
+
     /** The quiet line under the code: what to do if this was not you. */
     public String note(String text) {
         return "<p style=\"margin:0;font-size:13px;color:%s;\">%s</p>".formatted(FAINT, escape(text));

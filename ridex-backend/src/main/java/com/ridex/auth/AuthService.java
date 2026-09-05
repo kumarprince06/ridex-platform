@@ -337,6 +337,10 @@ public class AuthService {
         userRepository.save(user);
 
         authSecurityService.record(user.getId(), AuthEventType.EMAIL_VERIFIED, null, null, null);
+
+        // Only now, not at registration: an unverified address is somebody else's inbox until the
+        // code comes back, and welcoming a stranger to an account they did not open is spam.
+        notifier.enqueue(DeliveryChannel.EMAIL, user.getEmail(), "WELCOME", user.getFirstName());
     }
 
     /** Always succeeds from the caller's side, account or not, or it is a membership oracle. */

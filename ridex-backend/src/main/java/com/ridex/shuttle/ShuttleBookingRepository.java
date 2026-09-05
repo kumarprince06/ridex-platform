@@ -31,6 +31,11 @@ public interface ShuttleBookingRepository extends JpaRepository<ShuttleBooking, 
 
     List<ShuttleBooking> findByRiderIdOrderByCreatedAtDesc(String riderId);
 
+    /** Seats held for a checkout that never finished. */
+    @Query("SELECT b FROM ShuttleBooking b WHERE b.paymentStatus = 'PENDING' "
+            + "AND b.status = 'BOOKED' AND b.holdExpiresAt < :now")
+    List<ShuttleBooking> expiredHolds(@Param("now") java.time.Instant now);
+
     @Query("SELECT b FROM ShuttleBooking b WHERE b.id = :id AND b.rider.id = :riderId")
     java.util.Optional<ShuttleBooking> findOwn(@Param("id") String id, @Param("riderId") String riderId);
 

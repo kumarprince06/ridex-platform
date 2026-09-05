@@ -38,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 public class DriverShuttleService {
 
     private final ShuttleTripRepository shuttleTripRepository;
+    private final com.ridex.payment.PaymentService paymentService;
     private final ShuttleBookingRepository bookingRepository;
     private final DriverProfileRepository driverProfileRepository;
     private final RouteStopRepository routeStopRepository;
@@ -87,6 +88,12 @@ public class DriverShuttleService {
         }
 
         booking.setBoardedAt(Instant.now());
+        // Cash is collected at the door, so this is the moment it is actually paid. Recorded here
+        // rather than at booking, or the books would show money the driver had not been handed.
+        if ("CASH_DUE".equals(booking.getPaymentStatus())) {
+            booking.setPaymentStatus("PAID");
+            paymentService.settleShuttleCash(booking.getId());
+        }
         bookingRepository.save(booking);
 
         // Queued inside the transaction, so the passenger is only told they are on board if the

@@ -2,12 +2,12 @@ package com.ridex.shuttle;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +18,8 @@ import com.ridex.notification.Notifier;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
+import com.ridex.payment.PaymentService;
+import com.ridex.shared.money.Money;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.shared.util.UlidGenerator;
 import com.ridex.shuttle.domain.*;
@@ -45,6 +47,27 @@ public class ShuttleService {
     private final com.ridex.payment.OutstandingPayments outstandingPayments;
     private final RiderProfileRepository riderProfileRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ShuttleCrew shuttleCrew;
+    private final com.ridex.payment.PaymentService paymentService;
+    private final com.ridex.points.PointsService pointsService;
+
+    /** How long a picked seat is held while the rider pays for it. */
+    private static final java.time.Duration HOLD = java.time.Duration.ofMinutes(10);
+
+    /**
+     * Cancellation closes half an hour before the shuttle leaves, and what comes back is 80% of
+     * the fare as points. The seat cannot be resold at that point - the vehicle is already on its
+     * way to the first stop - so the fifth is what the empty seat costs the operator.
+     */
+    private static final java.time.Duration CANCEL_CUTOFF = java.time.Duration.ofMinutes(30);
+    private static final java.math.BigDecimal REFUND_RATE = new java.math.BigDecimal("0.80");
+
+    /**
+     * The zone the timetable is written in. A departure time is a wall clock at a bus stop, so
+     * reading 08:15 as UTC put every Kolkata departure on the app at 13:45.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
+    private String serviceZone;
 
     /**
      * The rider's route list, mapped inside the transaction.
@@ -199,10 +222,33 @@ public class ShuttleService {
             passRepository.save(pass);
         }
 
-        notifier.enqueue(DeliveryChannel.PUSH, rider.getUser().getId(), "SHUTTLE_BOOKED",
-                request.seatLabel());
+        PaymentService.ShuttleCheckout checkout = null;
+        if (fare > 0) {
+            var method = request.methodOrDefault();
+            Money amount = Money.of(fare, java.util.Currency.getInstance(booking.getCurrency()));
 
-        return toResponse(booking, boarding, alighting, boardingCode);
+            if (method == com.ridex.payment.domain.PaymentMethod.CASH) {
+                // Nothing to authorise - the money changes hands at the door. The seat is confirmed
+                // now, and the fare is settled when the driver checks the passenger in.
+                booking.setPaymentStatus("CASH_DUE");
+                bookingRepository.save(booking);
+                paymentService.startShuttlePayment(booking.getId(), rider, amount, method);
+                confirmBooking(booking);
+            } else {
+                // An online seat is held, not confirmed, until the money arrives. The row is
+                // already BOOKED so nobody else can take it - the constraints that stop a double
+                // sale are scoped to that status - and the hold releases it if checkout is
+                // abandoned.
+                booking.setPaymentStatus("PENDING");
+                booking.setHoldExpiresAt(Instant.now().plus(HOLD));
+                bookingRepository.save(booking);
+                checkout = paymentService.startShuttlePayment(booking.getId(), rider, amount, method);
+            }
+        } else {
+            confirmBooking(booking);
+        }
+
+        return toResponse(booking, boarding, alighting, boardingCode, checkout);
     }
 
     @Transactional
@@ -217,8 +263,28 @@ public class ShuttleService {
             throw new ConflictException("That booking is already cancelled.");
         }
 
+        // Past the cutoff the seat cannot be sold to anybody else, so it is not cancellable at all
+        // rather than cancellable for nothing - a refusal a rider can plan around beats a refund
+        // of zero they only find out about afterwards.
+        if (Instant.now().isAfter(cancellableUntil(booking))) {
+            throw new ConflictException(
+                    "Seats cannot be cancelled within 30 minutes of departure.");
+        }
+
+        long credit = creditIfCancelled(booking);
+
         booking.setStatus("CANCELLED");
         booking.setCancelledAt(Instant.now());
+        if (credit > 0) {
+            // Back as points, not to the card: the fare has already settled, and points are
+            // instant where a gateway refund is a fee and three days.
+            pointsService.creditCancelledShuttleSeat(rider.getUser().getId(), credit,
+                    booking.getId());
+            booking.setPaymentStatus("POINTS_CREDITED");
+        } else {
+            // Nothing was captured. The open order is closed so it stops counting as a fare owed.
+            paymentService.voidShuttlePayment(booking.getId(), "Seat cancelled before payment");
+        }
         bookingRepository.save(booking);
 
         // The seat goes back into the pool, and a pass ride is handed back with it.
@@ -248,9 +314,146 @@ public class ShuttleService {
                                 booking,
                                 stopOn(booking.getShuttleTrip(), booking.getBoardingStopId()),
                                 stopOn(booking.getShuttleTrip(), booking.getAlightingStopId()),
-                                null))
+                                null, null))
                         .toList())
                 .orElse(List.of());
+    }
+
+    /**
+     * Called when checkout closes. The gateway is asked; the app is not believed.
+     *
+     * <p>Idempotent: a rider who taps twice, or an app retrying on a flaky network, must not turn
+     * one seat into two payments.
+     */
+    @Transactional
+    public ShuttleBookingResponse confirmPayment(String riderUserId, String bookingId,
+            String gatewayPaymentId) {
+        RiderProfile rider = riderProfileRepository.findByUserId(riderUserId)
+                .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
+
+        ShuttleBooking booking = bookingRepository.findOwn(bookingId, rider.getId())
+                .orElseThrow(() -> new NotFoundException("No such booking."));
+
+        var status = paymentService.confirmShuttlePayment(bookingId, gatewayPaymentId);
+        if (status == com.ridex.payment.domain.PaymentStatus.SUCCEEDED) {
+            confirmBooking(booking);
+        }
+
+        return toResponse(booking,
+                stopOn(booking.getShuttleTrip(), booking.getBoardingStopId()),
+                stopOn(booking.getShuttleTrip(), booking.getAlightingStopId()),
+                null, null);
+    }
+
+    /**
+     * The seat is paid for: lift the hold, tell the rider, send the invoice.
+     *
+     * <p>Also the webhook's landing point, for the rider who pays and closes the app before the
+     * confirmation call is made - which is most of the reason webhooks exist.
+     */
+    @Transactional
+    public void confirmBooking(ShuttleBooking booking) {
+        if ("PAID".equals(booking.getPaymentStatus())) {
+            return;
+        }
+
+        // A cash seat is confirmed but not paid for; that stays true until the driver collects.
+        if (!"CASH_DUE".equals(booking.getPaymentStatus())) {
+            booking.setPaymentStatus("PAID");
+        }
+        booking.setHoldExpiresAt(null);
+        bookingRepository.save(booking);
+
+        ShuttleTrip trip = booking.getShuttleTrip();
+        notifier.enqueue(DeliveryChannel.PUSH, booking.getRider().getUser().getId(),
+                "SHUTTLE_BOOKED", booking.getSeatLabel());
+        emailInvoice(booking, trip,
+                stopOn(trip, booking.getBoardingStopId()),
+                stopOn(trip, booking.getAlightingStopId()),
+                booking.getRider());
+    }
+
+    /**
+     * Releases seats nobody paid for.
+     *
+     * <p>Without this an abandoned checkout holds a seat for ever and the departure sells out to
+     * people who never paid. Cancelled rather than deleted: the attempt is part of the record.
+     */
+    @Scheduled(fixedDelayString = "${app.shuttle.hold-sweep-ms:60000}")
+    @Transactional
+    public void releaseExpiredHolds() {
+        for (ShuttleBooking booking : bookingRepository.expiredHolds(Instant.now())) {
+            booking.setStatus("CANCELLED");
+            booking.setCancelledAt(Instant.now());
+            booking.setPaymentStatus("EXPIRED");
+            booking.setHoldExpiresAt(null);
+            bookingRepository.save(booking);
+            // The order is closed with the seat, or the rider is blocked from booking again by a
+            // fare they were never charged.
+            paymentService.voidShuttlePayment(booking.getId(), "Seat hold expired unpaid");
+        }
+    }
+
+    /** The moment cancellation closes: half an hour before the shuttle leaves. */
+    private static Instant cancellableUntil(ShuttleBooking booking) {
+        return booking.getShuttleTrip().getDepartsAt().minus(CANCEL_CUTOFF);
+    }
+
+    /**
+     * What would be credited back as points if the seat were cancelled right now.
+     *
+     * <p>Zero for cash (nothing was taken), for a pass (nothing was charged), and once the cutoff
+     * has passed - at which point cancelling is refused outright.
+     */
+    private static long creditIfCancelled(ShuttleBooking booking) {
+        if (!"PAID".equals(booking.getPaymentStatus())
+                || booking.getPassId() != null
+                || Instant.now().isAfter(cancellableUntil(booking))) {
+            return 0;
+        }
+        return java.math.BigDecimal.valueOf(booking.getFareMinor())
+                .multiply(REFUND_RATE)
+                .setScale(0, java.math.RoundingMode.DOWN)
+                .longValue();
+    }
+
+    /**
+     * Queues the invoice.
+     *
+     * <p>Flattened into the payload rather than looked up at send time: the dispatcher may run
+     * after a mail outage, and an invoice has to say what was charged then, not what the fare
+     * table says now. The same rows become the mail body and the attached PDF.
+     */
+    private void emailInvoice(ShuttleBooking booking, ShuttleTrip trip, RouteStop boarding,
+            RouteStop alighting, RiderProfile rider) {
+        String currency = booking.getCurrency();
+        java.time.ZonedDateTime departs =
+                trip.getDepartsAt().atZone(java.time.ZoneId.of(serviceZone));
+
+        StringBuilder payload = new StringBuilder(booking.getId()).append('\n')
+                .append("Route|").append(trip.getSchedule().getRoute().getName()).append('\n')
+                .append("Seat|").append(booking.getSeatLabel()).append('\n')
+                .append("Get on at|").append(boarding.getName()).append('\n')
+                .append("Get off at|").append(alighting.getName()).append('\n')
+                .append("Departs|").append(departs.format(
+                        java.time.format.DateTimeFormatter.ofPattern("EEE d MMM, HH:mm"))).append('\n');
+
+        CrewResponse crew = shuttleCrew.of(trip.getDriverId(), trip.getVehicleId());
+        if (crew != null) {
+            payload.append("Driver|").append(crew.driverName()).append('\n')
+                    .append("Vehicle|").append(crew.vehicle()).append(" (")
+                    .append(crew.registrationNumber()).append(")\n");
+        }
+
+        // A pass already paid for this seat. "Total INR 0.00" reads as a billing error, so the
+        // invoice says what actually happened.
+        payload.append("Total|").append(booking.getPassId() != null
+                ? "Covered by your pass"
+                : "%s %s".formatted(currency,
+                        java.math.BigDecimal.valueOf(booking.getFareMinor(), 2).toPlainString()));
+
+        notifier.enqueue(DeliveryChannel.EMAIL, rider.getUser().getEmail(),
+                "SHUTTLE_INVOICE", payload.toString());
     }
 
     /** Materialised on first use, so an unbooked route does not fill the table with empty days. */
@@ -276,9 +479,14 @@ public class ShuttleService {
                 UlidGenerator.generateUlid(),
                 schedule.getId(),
                 serviceDate,
-                serviceDate.atTime(schedule.getDepartureTime()).toInstant(ZoneOffset.UTC),
+                serviceDate.atTime(schedule.getDepartureTime())
+                        .atZone(java.time.ZoneId.of(serviceZone)).toInstant(),
                 schedule.getSeatCapacity(),
-                schedule.getSeatsPerRow());
+                schedule.getSeatsPerRow(),
+                // The timetable's regular crew, frozen onto this departure. A per-date swap is
+                // set on the trip afterwards and does not reach back to the schedule.
+                schedule.getDriverId(),
+                schedule.getVehicleId());
 
         // Re-read rather than trusting the insert: whether this call created the row or found it
         // already there, the row is the same one and its id came from whoever won.
@@ -309,7 +517,15 @@ public class ShuttleService {
     }
 
     private ShuttleBookingResponse toResponse(ShuttleBooking booking, RouteStop boarding,
-            RouteStop alighting, String boardingCode) {
+            RouteStop alighting, String boardingCode, PaymentService.ShuttleCheckout fresh) {
+        // Every unpaid seat carries its open order, not just the one just booked: a rider who
+        // backed out of checkout reopens the ticket from their rides, and without the order id
+        // there is nothing on that screen they can pay with.
+        PaymentService.ShuttleCheckout checkout = fresh != null ? fresh
+                : "PENDING".equals(booking.getPaymentStatus())
+                        ? paymentService.checkoutFor(booking.getId())
+                        : null;
+
         return new ShuttleBookingResponse(
                 booking.getId(),
                 booking.getShuttleTrip().getSchedule().getRoute().getName(),
@@ -321,6 +537,14 @@ public class ShuttleService {
                 booking.getFareMinor(),
                 booking.getPassId(),
                 booking.getStatus(),
-                boardingCode);
+                boardingCode,
+                shuttleCrew.of(booking.getShuttleTrip().getDriverId(),
+                        booking.getShuttleTrip().getVehicleId()),
+                booking.getPaymentStatus(),
+                cancellableUntil(booking),
+                creditIfCancelled(booking),
+                checkout == null ? null : new ShuttleBookingResponse.Checkout(
+                        checkout.gatewayOrderId(), checkout.gatewayKeyId(),
+                        checkout.amountMinor(), checkout.currency()));
     }
 }

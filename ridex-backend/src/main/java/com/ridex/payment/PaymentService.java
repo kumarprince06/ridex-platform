@@ -448,6 +448,20 @@ public class PaymentService {
                 .orElse(null);
     }
 
+    /** Enough of a seat's payment to put on its invoice: how it was paid, and the reference. */
+    @Transactional(readOnly = true)
+    public ShuttlePaymentSummary shuttlePaymentSummary(String bookingId) {
+        return paymentRepository.findByShuttleBookingId(bookingId)
+                .map(payment -> new ShuttlePaymentSummary(payment.getMethod(), payment.getStatus(),
+                        payment.getProviderPaymentId(), payment.getProvider()))
+                .orElse(null);
+    }
+
+    /** @param reference the gateway's own id, which is what a disputed charge is looked up by. */
+    public record ShuttlePaymentSummary(PaymentMethod method, PaymentStatus status,
+            String reference, String provider) {
+    }
+
     /** What the app needs to open checkout for a seat, and nothing it should not have. */
     public record ShuttleCheckout(String gatewayOrderId, String gatewayKeyId,
             long amountMinor, String currency, PaymentStatus status) {

@@ -132,7 +132,13 @@ public class NotificationTemplates {
             // fare can never disagree with itself across three copies of the same message.
             case "SHUTTLE_INVOICE" -> {
                 List<String> rows = List.of(payload.split("\n"));
-                String reference = rows.get(0);
+                // First line is "<reference>|<payment status>|<paid?>": whether the money has
+                // actually been taken is the question a filed receipt exists to answer, so it
+                // goes on the invoice's face rather than being inferred from the total.
+                String[] head = rows.get(0).split("\\|", 3);
+                String reference = head[0];
+                String paymentStatus = head.length > 1 ? head[1] : "";
+                boolean paid = head.length > 2 && Boolean.parseBoolean(head[2]);
                 List<String> lines = rows.subList(1, rows.size());
                 String total = lines.get(lines.size() - 1).split("\\|", 2)[1];
 
@@ -151,9 +157,17 @@ public class NotificationTemplates {
                                         + layout.note("Invoice " + reference)),
                         new Attachment(
                                 "ridex-invoice-" + reference + ".pdf",
-                                invoicePdf.render("Shuttle invoice", "Invoice " + reference,
+                                invoicePdf.render(
+                                        "Invoice",
+                                        reference,
+                                        java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy")
+                                                .withZone(java.time.ZoneId.systemDefault())
+                                                .format(java.time.Instant.now()),
+                                        message.getRecipient(),
+                                        paymentStatus,
+                                        paid,
                                         lines.stream().map(row -> row.split("\\|", 2)).toList(),
-                                        "RideX - thank you for travelling with us."),
+                                        "Thank you for travelling with RideX."),
                                 "application/pdf"));
             }
 

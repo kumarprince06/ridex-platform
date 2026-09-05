@@ -26,13 +26,16 @@ public interface ShuttleTripRepository extends JpaRepository<ShuttleTrip, String
     @Modifying
     @Query(value = """
             INSERT INTO shuttle_trips
-                (id, schedule_id, service_date, departs_at, seat_capacity, status, created_at, version)
-            VALUES (:id, :scheduleId, :serviceDate, :departsAt, :seatCapacity, 'SCHEDULED', now(), 0)
+                (id, schedule_id, service_date, departs_at, seat_capacity, seats_per_row,
+                 status, created_at, version)
+            VALUES (:id, :scheduleId, :serviceDate, :departsAt, :seatCapacity, :seatsPerRow,
+                    'SCHEDULED', now(), 0)
             ON CONFLICT (schedule_id, service_date) DO NOTHING
             """, nativeQuery = true)
     void insertIfAbsent(@Param("id") String id,
             @Param("scheduleId") String scheduleId,
             @Param("serviceDate") LocalDate serviceDate,
             @Param("departsAt") Instant departsAt,
-            @Param("seatCapacity") short seatCapacity);
+            @Param("seatCapacity") short seatCapacity,
+            @Param("seatsPerRow") short seatsPerRow);
 }

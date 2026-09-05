@@ -29,6 +29,7 @@ public record AdminRouteResponse(
     }
 
     public record Schedule(
-            String id, LocalTime departureTime, String daysOfWeek, int seatCapacity, boolean active) {
+            String id, LocalTime departureTime, String daysOfWeek,
+            int seatCapacity, int seatsPerRow, boolean active) {
     }
 }

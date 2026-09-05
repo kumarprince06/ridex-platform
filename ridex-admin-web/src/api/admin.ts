@@ -318,6 +318,8 @@ export type RouteSchedule = {
   departureTime: string;
   daysOfWeek: string;
   seatCapacity: number;
+  /** Seats abreast. Four is a minibus, three a 2+1 coach - it decides whether "4D" exists. */
+  seatsPerRow: number;
   active: boolean;
 };
 
@@ -380,7 +382,13 @@ export function removeFare(routeId: string, fareId: string) {
 
 export function addSchedule(
   routeId: string,
-  schedule: { departureTime: string; daysOfWeek: string; seatCapacity: number; active: boolean },
+  schedule: {
+    departureTime: string;
+    daysOfWeek: string;
+    seatCapacity: number;
+    seatsPerRow: number;
+    active: boolean;
+  },
 ) {
   return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/schedules`, {
     method: 'POST',
@@ -391,7 +399,13 @@ export function addSchedule(
 export function updateSchedule(
   routeId: string,
   scheduleId: string,
-  schedule: { departureTime: string; daysOfWeek: string; seatCapacity: number; active: boolean },
+  schedule: {
+    departureTime: string;
+    daysOfWeek: string;
+    seatCapacity: number;
+    seatsPerRow: number;
+    active: boolean;
+  },
 ) {
   return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/schedules/${scheduleId}`, {
     method: 'PUT',

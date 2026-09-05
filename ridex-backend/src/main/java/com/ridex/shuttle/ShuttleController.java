@@ -32,6 +32,10 @@ public class ShuttleController {
                         route.getStops().stream()
                                 .map(stop -> new RouteResponse.StopResponse(
                                         stop.getId(), stop.getSequence(), stop.getName(),
+                                        // Strings, not doubles: these are NUMERIC(9,6) and a
+                                        // double round-trip is how a pin drifts a few metres.
+                                        stop.getLatitude().toPlainString(),
+                                        stop.getLongitude().toPlainString(),
                                         stop.getOffsetMinutes()))
                                 .toList()))
                 .toList();

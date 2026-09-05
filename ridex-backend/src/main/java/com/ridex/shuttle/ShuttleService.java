@@ -58,7 +58,8 @@ public class ShuttleService {
         ShuttleTrip trip = departureFor(scheduleId, serviceDate);
         Set<String> taken = Set.copyOf(bookingRepository.takenSeats(trip.getId()));
 
-        List<SeatMapResponse.SeatResponse> seats = SeatMap.labelsFor(trip.getSeatCapacity()).stream()
+        List<SeatMapResponse.SeatResponse> seats =
+                SeatMap.labelsFor(trip.getSeatCapacity(), trip.getSeatsPerRow()).stream()
                 .map(label -> new SeatMapResponse.SeatResponse(label, !taken.contains(label)))
                 .toList();
 
@@ -67,6 +68,7 @@ public class ShuttleService {
                 trip.getSchedule().getRoute().getName(),
                 trip.getDepartsAt(),
                 trip.getSeatCapacity(),
+                trip.getSeatsPerRow(),
                 seats,
                 trip.getSeatCapacity() - taken.size());
     }
@@ -88,7 +90,7 @@ public class ShuttleService {
         if (trip.getDepartsAt().isBefore(Instant.now())) {
             throw new ConflictException("That departure has already left.");
         }
-        if (!SeatMap.isValid(request.seatLabel(), trip.getSeatCapacity())) {
+        if (!SeatMap.isValid(request.seatLabel(), trip.getSeatCapacity(), trip.getSeatsPerRow())) {
             throw new ValidationException("There is no seat " + request.seatLabel() + " on this shuttle.");
         }
 
@@ -193,7 +195,8 @@ public class ShuttleService {
                 schedule.getId(),
                 serviceDate,
                 serviceDate.atTime(schedule.getDepartureTime()).toInstant(ZoneOffset.UTC),
-                schedule.getSeatCapacity());
+                schedule.getSeatCapacity(),
+                schedule.getSeatsPerRow());
 
         // Re-read rather than trusting the insert: whether this call created the row or found it
         // already there, the row is the same one and its id came from whoever won.

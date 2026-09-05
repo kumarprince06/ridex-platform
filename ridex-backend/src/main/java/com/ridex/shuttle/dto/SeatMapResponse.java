@@ -9,6 +9,8 @@ public record SeatMapResponse(
         String routeName,
         Instant departsAt,
         int seatCapacity,
+        /** Seats abreast, so the picker draws the same rows the labels were generated from. */
+        int seatsPerRow,
         List<SeatResponse> seats,
         int seatsAvailable) {
 

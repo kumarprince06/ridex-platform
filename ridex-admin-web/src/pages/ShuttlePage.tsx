@@ -13,8 +13,13 @@ import {
   type ShuttleRoute,
 } from '../api/admin';
 import { useQuery } from '../api/useQuery';
+import { FormDialog } from '../components/FormDialog';
 import { RouteMap } from '../components/RouteMap';
+import { SeatLayout } from '../components/SeatLayout';
 import { Button, Card, EmptyState, PageHeader, Pill, Table } from '../components/ui';
+
+/** Which dialog is open. One at a time - these are all edits to the same route. */
+type Dialog = 'route' | 'stop' | 'fare' | 'schedule' | null;
 
 /**
  * Routes, stops, fares and departures on one screen.
@@ -29,6 +34,7 @@ export function ShuttlePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dialog, setDialog] = useState<Dialog>(null);
 
   // Re-read from the fresh list rather than holding the route object, or an edit would render
   // against the copy taken before the write.
@@ -53,19 +59,7 @@ export function ShuttlePage() {
         title="Shuttle routes"
         subtitle={data ? `${routes.length} routes` : loading ? 'Loading...' : ''}
         actions={
-          <Button
-            disabled={busy}
-            onClick={() => {
-              const code = window.prompt('Route code (A-Z, 0-9, underscore)');
-              if (!code) return;
-              const name = window.prompt('Route name, e.g. Whitefield to Electronic City');
-              if (!name) return;
-              act(async () => {
-                const created = await createRoute({ code: code.toUpperCase(), name, active: true });
-                setSelectedId(created.id);
-              });
-            }}
-          >
+          <Button variant="primary" disabled={busy} onClick={() => setDialog('route')}>
             New route
           </Button>
         }
@@ -104,6 +98,46 @@ export function ShuttlePage() {
         />
       </Card>
 
+      {dialog === 'route' ? (
+        <FormDialog
+          title="New shuttle route"
+          body="The code goes on tickets and cannot be changed later. Stops, fares and departures come next."
+          submitLabel="Create route"
+          fields={[
+            {
+              name: 'code',
+              label: 'Route code',
+              placeholder: 'WF_EC',
+              hint: 'A-Z, 0-9 and underscore. Uppercased on save.',
+            },
+            {
+              name: 'name',
+              label: 'Name',
+              placeholder: 'Whitefield to Electronic City',
+            },
+            {
+              name: 'description',
+              label: 'Description',
+              placeholder: 'Morning commuter service',
+              required: false,
+            },
+          ]}
+          onCancel={() => setDialog(null)}
+          onSubmit={(values) => {
+            setDialog(null);
+            act(async () => {
+              const created = await createRoute({
+                code: values.code.toUpperCase(),
+                name: values.name,
+                description: values.description || undefined,
+                active: true,
+              });
+              setSelectedId(created.id);
+            });
+          }}
+        />
+      ) : null}
+
       {selected ? (
         <RouteDetail route={selected} busy={busy} act={act} />
       ) : routes.length > 0 ? (
@@ -124,8 +158,19 @@ function RouteDetail({
   busy: boolean;
   act: (what: () => Promise<unknown>) => void;
 }) {
+  const [dialog, setDialog] = useState<Dialog>(null);
+
   const stopName = (stopId: string) =>
     route.stops.find((stop) => stop.id === stopId)?.name ?? 'Unknown stop';
+
+  // Every stop as a select option, labelled in travel order - picking "3. Electronic City" is
+  // unambiguous in a way that typing an id never is.
+  const stopOptions = route.stops.map((stop) => ({
+    value: stop.id,
+    label: `${stop.sequence}. ${stop.name}`,
+  }));
+
+  const lastStop = route.stops[route.stops.length - 1];
 
   return (
     <>
@@ -133,26 +178,7 @@ function RouteDetail({
         title={`${route.code} · stops`}
         actions={
           <span className="row-actions">
-            <Button
-              disabled={busy}
-              onClick={() => {
-                const name = window.prompt('Stop name');
-                if (!name) return;
-                const coords = window.prompt('Latitude, longitude — e.g. 12.9698, 77.75');
-                if (!coords) return;
-                const [latitude, longitude] = coords.split(',').map((part) => Number(part.trim()));
-                const offset = window.prompt('Minutes after departure');
-                if (offset === null) return;
-                act(() =>
-                  addStop(route.id, {
-                    name,
-                    latitude,
-                    longitude,
-                    offsetMinutes: Number(offset),
-                  }),
-                );
-              }}
-            >
+            <Button variant="primary" disabled={busy} onClick={() => setDialog('stop')}>
               Add stop
             </Button>
             {route.stops.length > 0 ? (
@@ -199,31 +225,9 @@ function RouteDetail({
         title={`${route.code} · fares`}
         actions={
           <Button
+            variant="primary"
             disabled={busy || route.stops.length < 2}
-            onClick={() => {
-              const from = window.prompt(
-                `From which stop?\n${route.stops.map((stop) => `${stop.sequence}. ${stop.name}`).join('\n')}`,
-              );
-              if (!from) return;
-              const to = window.prompt('To which stop? (number)');
-              if (!to) return;
-              const rupees = window.prompt('Fare in rupees');
-              if (!rupees) return;
-
-              const fromStop = route.stops.find((stop) => stop.sequence === Number(from));
-              const toStop = route.stops.find((stop) => stop.sequence === Number(to));
-              if (!fromStop || !toStop) return;
-
-              act(() =>
-                setFare(route.id, {
-                  fromStopId: fromStop.id,
-                  toStopId: toStop.id,
-                  currency: 'INR',
-                  // Minor units all the way to the server. A rupee figure would be rounded twice.
-                  fareMinor: Math.round(Number(rupees) * 100),
-                }),
-              );
-            }}
+            onClick={() => setDialog('fare')}
           >
             Set a fare
           </Button>
@@ -260,23 +264,9 @@ function RouteDetail({
         title={`${route.code} · departures`}
         actions={
           <Button
+            variant="primary"
             disabled={busy || route.stops.length < 2}
-            onClick={() => {
-              const time = window.prompt('Departure time, 24h — e.g. 08:30');
-              if (!time) return;
-              const days = window.prompt('Days as ISO numbers, e.g. 1,2,3,4,5', '1,2,3,4,5');
-              if (!days) return;
-              const seats = window.prompt('Seats on the vehicle');
-              if (!seats) return;
-              act(() =>
-                addSchedule(route.id, {
-                  departureTime: time.length === 5 ? `${time}:00` : time,
-                  daysOfWeek: days,
-                  seatCapacity: Number(seats),
-                  active: true,
-                }),
-              );
-            }}
+            onClick={() => setDialog('schedule')}
           >
             Add departure
           </Button>
@@ -287,6 +277,15 @@ function RouteDetail({
             { key: 'time', header: 'Departs', render: (row) => <span className="cell-strong">{row.departureTime.slice(0, 5)}</span> },
             { key: 'days', header: 'Days', render: (row) => dayNames(row.daysOfWeek) },
             { key: 'seats', header: 'Seats', align: 'right', render: (row) => row.seatCapacity },
+            {
+              key: 'layout',
+              header: 'Layout',
+              render: (row) => (
+                <span className="cell-muted">
+                  {row.seatsPerRow} across · {Math.ceil(row.seatCapacity / row.seatsPerRow)} rows
+                </span>
+              ),
+            },
             {
               key: 'state',
               header: 'State',
@@ -299,6 +298,155 @@ function RouteDetail({
           empty="No departures. Add at least one so the route appears to riders."
         />
       </Card>
+
+      {dialog === 'stop' ? (
+        <FormDialog
+          title={`Add a stop to ${route.code}`}
+          body="Stops are appended in travel order. The offset is minutes after departure, so one row serves every departure on this route."
+          submitLabel="Add stop"
+          fields={[
+            { name: 'name', label: 'Stop name', placeholder: 'Marathahalli' },
+            {
+              name: 'latitude',
+              label: 'Latitude',
+              type: 'number',
+              placeholder: '12.9591',
+              hint: 'Between -90 and 90.',
+            },
+            {
+              name: 'longitude',
+              label: 'Longitude',
+              type: 'number',
+              placeholder: '77.6974',
+              hint: 'Between -180 and 180. Check the pin on the map after saving.',
+            },
+            {
+              name: 'offsetMinutes',
+              label: 'Minutes after departure',
+              type: 'number',
+              initial: lastStop ? String(lastStop.offsetMinutes + 15) : '0',
+              hint: lastStop
+                ? `Must be more than ${lastStop.offsetMinutes}, which is ${lastStop.name}.`
+                : 'The first stop is 0 - the shuttle leaves from there.',
+            },
+          ]}
+          onCancel={() => setDialog(null)}
+          onSubmit={(values) => {
+            setDialog(null);
+            act(() =>
+              addStop(route.id, {
+                name: values.name,
+                latitude: Number(values.latitude),
+                longitude: Number(values.longitude),
+                offsetMinutes: Number(values.offsetMinutes),
+              }),
+            );
+          }}
+        />
+      ) : null}
+
+      {dialog === 'fare' ? (
+        <FormDialog
+          title={`Price a leg on ${route.code}`}
+          body="Fares are fixed and published. Setting the same pair again is a correction, not a second fare."
+          submitLabel="Save fare"
+          fields={[
+            {
+              name: 'fromStopId',
+              label: 'Board at',
+              options: stopOptions,
+              initial: stopOptions[0]?.value,
+            },
+            {
+              name: 'toStopId',
+              label: 'Get off at',
+              options: stopOptions,
+              initial: stopOptions[stopOptions.length - 1]?.value,
+              hint: 'Must be further along the route - the shuttle only runs one way.',
+            },
+            {
+              name: 'rupees',
+              label: 'Fare (₹)',
+              type: 'number',
+              placeholder: '90',
+              hint: 'Zero is allowed: a free leg on a corporate route is a real thing.',
+            },
+          ]}
+          onCancel={() => setDialog(null)}
+          onSubmit={(values) => {
+            setDialog(null);
+            act(() =>
+              setFare(route.id, {
+                fromStopId: values.fromStopId,
+                toStopId: values.toStopId,
+                currency: 'INR',
+                // Minor units all the way to the server. A rupee figure would be rounded twice.
+                fareMinor: Math.round(Number(values.rupees) * 100),
+              }),
+            );
+          }}
+        />
+      ) : null}
+
+      {dialog === 'schedule' ? (
+        <FormDialog
+          title={`Add a departure to ${route.code}`}
+          body="Seats and layout are frozen onto each dated departure as it opens, so a change here only affects future ones."
+          submitLabel="Add departure"
+          fields={[
+            { name: 'departureTime', label: 'Departs at', type: 'time', initial: '08:30' },
+            {
+              name: 'daysOfWeek',
+              label: 'Runs on',
+              initial: '1,2,3,4,5',
+              options: [
+                { value: '1,2,3,4,5', label: 'Weekdays' },
+                { value: '1,2,3,4,5,6,7', label: 'Every day' },
+                { value: '6,7', label: 'Weekends' },
+              ],
+            },
+            {
+              name: 'seatCapacity',
+              label: 'Seats',
+              type: 'number',
+              initial: '20',
+              hint: 'Between 1 and 60.',
+            },
+            {
+              name: 'seatsPerRow',
+              label: 'Seats per row',
+              initial: '4',
+              options: [
+                { value: '4', label: '4 across — minibus' },
+                { value: '3', label: '3 across — 2+1 coach' },
+                { value: '2', label: '2 across — MPV or auto' },
+                { value: '1', label: '1 across — single file' },
+              ],
+              hint: 'This decides the seat labels riders pick from.',
+            },
+          ]}
+          extra={(values) => (
+            <SeatLayout
+              capacity={Number(values.seatCapacity)}
+              seatsPerRow={Number(values.seatsPerRow)}
+            />
+          )}
+          onCancel={() => setDialog(null)}
+          onSubmit={(values) => {
+            setDialog(null);
+            act(() =>
+              addSchedule(route.id, {
+                // The picker gives HH:MM; the server parses a LocalTime, which wants seconds.
+                departureTime: `${values.departureTime}:00`,
+                daysOfWeek: values.daysOfWeek,
+                seatCapacity: Number(values.seatCapacity),
+                seatsPerRow: Number(values.seatsPerRow),
+                active: true,
+              }),
+            );
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -714,3 +714,32 @@ button.stat-tile:focus-visible {
   gap: var(--space-2);
   justify-content: flex-end;
 }
+
+/* --- seat layout preview --- */
+.seat-layout {
+  margin-top: var(--space-4);
+}
+.seat-grid {
+  display: grid;
+  gap: 6px;
+  justify-content: center;
+  padding: var(--space-3);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* Capped so a 60-seat coach scrolls inside the dialog rather than pushing the buttons off it. */
+  max-height: 220px;
+  overflow-y: auto;
+}
+.seat {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}

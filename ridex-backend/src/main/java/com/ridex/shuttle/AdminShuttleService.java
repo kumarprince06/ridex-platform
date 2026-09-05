@@ -196,6 +196,7 @@ public class AdminShuttleService {
         schedule.setDepartureTime(request.departureTime());
         schedule.setDaysOfWeek(request.daysOfWeek() == null ? "1,2,3,4,5" : request.daysOfWeek());
         schedule.setSeatCapacity((short) request.seatCapacity());
+        schedule.setSeatsPerRow((short) request.seatsPerRow());
         schedule.setActive(request.active());
         shuttleScheduleRepository.save(schedule);
 
@@ -203,7 +204,7 @@ public class AdminShuttleService {
     }
 
     /**
-     * Capacity change applies to future departures only.
+     * Capacity and layout changes apply to future departures only.
      *
      * <p>A materialised trip keeps the capacity it was created with: seats on it are already sold,
      * and shrinking it would oversell a bus that is running tomorrow morning.
@@ -220,6 +221,7 @@ public class AdminShuttleService {
         schedule.setDepartureTime(request.departureTime());
         schedule.setDaysOfWeek(request.daysOfWeek() == null ? schedule.getDaysOfWeek() : request.daysOfWeek());
         schedule.setSeatCapacity((short) request.seatCapacity());
+        schedule.setSeatsPerRow((short) request.seatsPerRow());
         schedule.setActive(request.active());
         shuttleScheduleRepository.save(schedule);
 
@@ -304,6 +306,7 @@ public class AdminShuttleService {
                                 schedule.getDepartureTime(),
                                 schedule.getDaysOfWeek(),
                                 schedule.getSeatCapacity(),
+                                schedule.getSeatsPerRow(),
                                 schedule.isActive()))
                         .toList();
 

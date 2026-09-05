@@ -17,11 +17,11 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'ChooseRide'>;
 
 export function ChooseRideScreen({ navigation, route }: Props) {
-  const { destination, destinationCoord } = route.params;
+  const { destination, destinationCoord, pickup: chosenPickup } = route.params;
   const { coord } = useCurrentLocation();
-  // The rider is the pickup. Until the device answers, the map's own fallback centre is the
-  // only honest stand-in - a fixed city would price a trip nobody is taking.
-  const pickup = coord ?? FALLBACK_CENTER;
+  // The rider is the pickup unless they named one. Until the device answers, the map's own
+  // fallback centre is the only honest stand-in - a fixed city would price a trip nobody takes.
+  const pickup = chosenPickup?.coord ?? coord ?? FALLBACK_CENTER;
   const [options, setOptions] = useState<EstimateOption[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +74,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
           <RouteStops
             compact
             style={styles.flex}
-            pickup={{ name: 'Current location' }}
+            pickup={{ name: chosenPickup?.name ?? 'Current location' }}
             dropoff={{ name: destination }}
           />
           {selected ? (
@@ -149,6 +149,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
               tierId: selected.rideTypeCode,
               estimateId: selected.estimateId,
               pickupCoord: pickup,
+              pickupName: chosenPickup?.name,
               destinationCoord,
             })
           }

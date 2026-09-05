@@ -36,15 +36,29 @@ export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<TabParamList>;
 
   // Booking flow, in the order a rider walks it.
-  SearchDestination: undefined;
-  RoutePreview: { destination: string; destinationCoord?: [number, number] };
-  ChooseRide: { destination: string; destinationCoord?: [number, number] };
+  /** `picked` is how PickOnMap hands a pinned point back to whichever field asked for it. */
+  SearchDestination: {
+    picked?: { field: 'pickup' | 'destination'; name: string; coord: [number, number] };
+  } | undefined;
+  PickOnMap: { mode: 'pickup' | 'destination'; initial?: [number, number] };
+  RoutePreview: {
+    destination: string;
+    destinationCoord?: [number, number];
+    /** Omitted means "wherever the phone is", which is still the common case. */
+    pickup?: { name: string; coord: [number, number] };
+  };
+  ChooseRide: {
+    destination: string;
+    destinationCoord?: [number, number];
+    pickup?: { name: string; coord: [number, number] };
+  };
   FareEstimate: {
     destination: string;
     tierId: string;
     estimateId?: string;
     // Carried through so the quote can be re-priced against the route the rider actually chose.
     pickupCoord?: [number, number];
+    pickupName?: string;
     destinationCoord?: [number, number];
   };
   FindingDriver: { destination: string; rideId?: string };

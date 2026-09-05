@@ -28,7 +28,8 @@ const METHODS: { id: PaymentMethod; icon: 'cash' | 'phone-portrait'; tone: strin
 ];
 
 export function FareEstimateScreen({ navigation, route }: Props) {
-  const { destination, tierId, estimateId, pickupCoord, destinationCoord } = route.params;
+  const { destination, tierId, estimateId, pickupCoord, pickupName, destinationCoord } =
+    route.params;
   const [methodId, setMethodId] = useState<PaymentMethod>('CASH');
   const [usePoints, setUsePoints] = useState(false);
   const { data: points } = useQuery(getPoints, []);
@@ -63,7 +64,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
     try {
       const ride = await bookRide({
         estimateId: quote.estimateId,
-        pickupAddress: 'Current location',
+        pickupAddress: pickupName ?? 'Current location',
         destinationAddress: destination,
         redeemPoints: usePoints ? points?.balance : undefined,
         paymentMethod: methodId,
@@ -98,7 +99,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
     >
       <View style={styles.card}>
         <RouteStops
-          pickup={{ name: 'Current location', detail: 'Pickup' }}
+          pickup={{ name: pickupName ?? 'Current location', detail: 'Pickup' }}
           dropoff={{ name: destination, detail: 'Drop-off' }}
         />
       </View>

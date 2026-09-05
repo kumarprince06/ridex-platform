@@ -17,21 +17,23 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'RoutePreview'>;
 
 export function RoutePreviewScreen({ navigation, route }: Props) {
-  const { destination, destinationCoord } = route.params;
+  const { destination, destinationCoord, pickup } = route.params;
   const { coord } = useCurrentLocation();
+  // A chosen pickup wins over the device: the rider said where they are, and the phone guessed.
+  const from = pickup?.coord ?? coord;
 
   // Asked of the backend, not measured on the device: this is the number the fare is built from.
   const { data: leg, loading } = useQuery(
     () =>
-      coord && destinationCoord
-        ? routeEstimate(coord, destinationCoord)
+      from && destinationCoord
+        ? routeEstimate(from, destinationCoord)
         : Promise.resolve(null),
-    [coord?.[0], coord?.[1], destinationCoord?.[0], destinationCoord?.[1]],
+    [from?.[0], from?.[1], destinationCoord?.[0], destinationCoord?.[1]],
   );
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute destinationCoord={destinationCoord} />
+      <MapCanvas showRoute pickupCoord={pickup?.coord} destinationCoord={destinationCoord} />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <View style={styles.headerRow}>
@@ -47,7 +49,9 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
           <View style={styles.stops}>
             <View style={styles.stopRow}>
               <View style={styles.dotMint} />
-              <Text style={styles.stopText}>Current location</Text>
+              <Text style={styles.stopText} numberOfLines={1}>
+                {pickup?.name ?? 'Current location'}
+              </Text>
             </View>
             <View style={styles.stopRow}>
               <View style={styles.dotAmber} />
@@ -91,7 +95,9 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
 
         <Button
           label="Choose Ride Type"
-          onPress={() => navigation.navigate('ChooseRide', { destination, destinationCoord })}
+          onPress={() =>
+            navigation.navigate('ChooseRide', { destination, destinationCoord, pickup })
+          }
           style={styles.action}
         />
       </Sheet>

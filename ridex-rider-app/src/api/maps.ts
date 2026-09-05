@@ -32,6 +32,20 @@ export function trafficOf(route: RouteEstimate): Traffic | null {
   return ratio < 1.4 ? { label: 'Moderate', tone: '#E0B252' } : { label: 'Heavy', tone: '#FF5C7A' };
 }
 
+export type GeoLocation = {
+  latitude: number;
+  longitude: number;
+  formattedAddress: string | null;
+};
+
+/** The address at a pinned point, so a rider who cannot name where they are can still be found. */
+export function reverseGeocode(point: LngLat, signal?: AbortSignal) {
+  return request<GeoLocation>(
+    `/api/v1/maps/reverse?lat=${point[1]}&lng=${point[0]}`,
+    { signal },
+  );
+}
+
 /**
  * How far and how long, from the backend's routing provider.
  *

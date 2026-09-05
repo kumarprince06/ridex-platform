@@ -13,17 +13,20 @@ import com.ridex.pricing.FareEstimateRepository;
 import com.ridex.pricing.domain.FareEstimate;
 import com.ridex.pricing.dto.FareLineResponse;
 import com.ridex.ride.domain.CancellationPolicy;
+import com.ridex.ride.domain.CancellationReason;
 import com.ridex.ride.domain.CancelledBy;
 import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CancellationQuote;
+import com.ridex.ride.dto.CancellationReasonResponse;
 import com.ridex.ride.dto.CreateRideRequest;
 import com.ridex.ride.dto.RideResponse;
 import com.ridex.rider.RiderProfileRepository;
 import com.ridex.rider.domain.RiderProfile;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
+import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.money.Money;
 
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,11 @@ public class RideRequestService {
     private final com.ridex.payment.OutstandingPayments outstandingPayments;
     private final DispatchTrigger dispatchTrigger;
     private final PointsService pointsService;
+    private final com.ridex.payment.PaymentService paymentService;
+
+    /** The zone a cancellation date is written in, for the line the rider reads on their next fare. */
+    @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
+    private String serviceZone;
 
     /** Turns a quote the rider chose into a request. The price comes from the quote, never the body. */
     @Transactional
@@ -149,13 +157,46 @@ public class RideRequestService {
         if (ride.getStatus().isTerminal()) {
             throw new ConflictException("That ride has already ended.");
         }
+        if (request.isDetailMissing()) {
+            throw new ValidationException("Tell us what went wrong, so we can act on it.");
+        }
 
         Instant now = Instant.now();
         Money fee = feeFor(ride, CancelledBy.RIDER, now);
-        ride.cancel(CancelledBy.RIDER, request.reason(), fee.amountMinor(), now);
+        ride.cancel(CancelledBy.RIDER, request.text(), fee.amountMinor(), now);
+        ride.setCancellationReasonCode(request.reasonCode());
 
         rideRequestRepository.save(ride);
+
+        // A driver was already on their way, so the fee is real. Nothing can be collected now -
+        // there is no card on file at this moment - so it is carried onto the next fare, which is
+        // what the rider was told when they confirmed.
+        if (fee.amountMinor() > 0) {
+            paymentService.recordDue(ride.getRider().getId(), fee,
+                    "Cancellation fee for a ride on "
+                            + java.time.format.DateTimeFormatter.ofPattern("d MMM")
+                                    .withZone(java.time.ZoneId.of(serviceZone)).format(now),
+                    "RIDE_CANCELLATION", ride.getId());
+        }
+
         return toResponse(ride);
+    }
+
+    /** The reasons the app offers, from the server, so both sides can never drift apart. */
+    public List<CancellationReasonResponse> cancellationReasons() {
+        return java.util.Arrays.stream(CancellationReason.values())
+                .map(reason -> new CancellationReasonResponse(
+                        reason.name(), reason.label(), reason.needsDetail()))
+                .toList();
+    }
+
+    /** What the rider owes from an earlier cancellation, added to their next fare. */
+    @Transactional(readOnly = true)
+    public CancellationQuote outstandingDues(String riderUserId) {
+        RiderProfile rider = requireRider(riderUserId);
+        Money dues = paymentService.duesFor(rider.getId(), "INR");
+        return new CancellationQuote(dues.currency().getCurrencyCode(), dues.amountMinor(),
+                dues.amountMinor() == 0);
     }
 
     /**

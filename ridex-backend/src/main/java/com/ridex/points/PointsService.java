@@ -243,6 +243,28 @@ public class PointsService {
         return usable;
     }
 
+    /**
+     * Credits a cancelled shuttle seat back as points.
+     *
+     * <p>Not a gateway refund: the money has already settled, and a card refund costs a fee and
+     * takes days. Points are instant, spend against the next fare, and are the same value to the
+     * rider - which is why the rate here is the one redemption uses, not a worse one.
+     */
+    @Transactional
+    public void creditCancelledShuttleSeat(String userId, long amountMinor, String bookingId) {
+        int points = pointsFor(amountMinor);
+        if (points <= 0) {
+            return;
+        }
+        award(userId, points, PointReason.SHUTTLE_CANCELLED, "SHUTTLE_BOOKING", bookingId,
+                "shuttle-cancel:" + bookingId, "Credit for a cancelled shuttle seat");
+    }
+
+    /** Points that an amount of money is worth. The inverse of {@link #valueOf(int)}. */
+    public int pointsFor(long amountMinor) {
+        return (int) (amountMinor / 100 * pointsPerCurrencyUnit());
+    }
+
     /** Minor units a number of points is worth at the current rate. */
     public long valueOf(int points) {
         return (long) (points / pointsPerCurrencyUnit()) * 100;

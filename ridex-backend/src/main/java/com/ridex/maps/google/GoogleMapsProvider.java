@@ -53,15 +53,30 @@ public class GoogleMapsProvider implements MapsProvider {
 
     @Override
     public GeoLocation geocode(String query) {
-        List<GeoLocation> results = search(query, 1);
+        List<GeoLocation> results = geocodeAll(query, 1);
         if (results.isEmpty()) {
             throw new NotFoundException("No place found for that search.");
         }
         return results.get(0);
     }
 
+    /**
+     * Google does not answer place search here, so the free geocoder does.
+     *
+     * <p>Geocoding resolves one address to one point - ask it for "Big Bazaar" and it returns
+     * nothing, because that is a shop name and not an address. A "where to?" box needs the Places
+     * API, which is a separate product this project has not enabled, and which bills per keystroke
+     * rather than per trip.
+     *
+     * <p>Unavailable rather than empty, so the caller falls through instead of showing a rider an
+     * empty list. Enable Places and this method is where it goes.
+     */
     @Override
     public List<GeoLocation> search(String query, int limit) {
+        throw new ProviderUnavailableException("Google is used for geocoding and routing, not place search.");
+    }
+
+    private List<GeoLocation> geocodeAll(String query, int limit) {
         if (query == null || query.isBlank()) {
             throw new ValidationException("Location query must not be blank");
         }

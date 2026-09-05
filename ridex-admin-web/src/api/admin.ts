@@ -245,3 +245,51 @@ export type Analytics = {
 export function getAnalytics(days = 14) {
   return request<Analytics>(`/api/v1/admin/analytics?days=${days}`);
 }
+
+/* ------------------------------------------------------------------ payouts */
+
+export type PayoutStatus = 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED';
+
+export type Payout = {
+  id: string;
+  driverId: string;
+  driverEmail: string;
+  currency: string;
+  amountMinor: number;
+  status: PayoutStatus;
+  periodStart: string;
+  periodEnd: string;
+  reference: string | null;
+  failureReason: string | null;
+  createdAt: string;
+  settledAt: string | null;
+};
+
+export function listPayouts(status?: PayoutStatus, page = 0, size = DEFAULT_PAGE_SIZE) {
+  const query = new URLSearchParams({ page: String(page), size: String(size) });
+  if (status) query.set('status', status);
+  return request<Page<Payout>>(`/api/v1/admin/payouts?${query}`);
+}
+
+/** One payout per driver with money owed. Safe to run twice - the second run creates nothing. */
+export function runPayoutBatch() {
+  return request<Payout[]>('/api/v1/admin/payouts/run', { method: 'POST' });
+}
+
+export function sendPayout(payoutId: string) {
+  return request<Payout>(`/api/v1/admin/payouts/${payoutId}/send`, { method: 'POST' });
+}
+
+export function settlePayout(payoutId: string, reference: string) {
+  return request<Payout>(`/api/v1/admin/payouts/${payoutId}/settle`, {
+    method: 'POST',
+    body: { reference },
+  });
+}
+
+export function failPayout(payoutId: string, reason: string) {
+  return request<Payout>(`/api/v1/admin/payouts/${payoutId}/fail`, {
+    method: 'POST',
+    body: { reason },
+  });
+}

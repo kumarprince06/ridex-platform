@@ -685,3 +685,10 @@ button.stat-tile:focus-visible {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
+/* Two or three buttons in a table cell. Right-aligned by the column, spaced by this. */
+.row-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}

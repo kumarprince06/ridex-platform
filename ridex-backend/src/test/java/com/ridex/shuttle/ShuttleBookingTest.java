@@ -28,6 +28,7 @@ import com.ridex.rider.RiderProfileService;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.ValidationException;
 import com.ridex.shuttle.domain.*;
+import com.ridex.payment.domain.PaymentMethod;
 import com.ridex.shuttle.dto.BookSeatRequest;
 
 /** Seat inventory, and the race that decides who actually gets 4A. */
@@ -178,7 +179,8 @@ class ShuttleBookingTest {
     @Test
     void travellingBackwardsAlongTheRouteIsRefused() {
         assertThatThrownBy(() -> shuttleService.book(newRider(), new BookSeatRequest(
-                schedule.getId(), serviceDate.toString(), last.getId(), first.getId(), "1C")))
+                schedule.getId(), serviceDate.toString(), last.getId(), first.getId(), "1C",
+                PaymentMethod.CASH)))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -190,8 +192,9 @@ class ShuttleBookingTest {
     }
 
     private BookSeatRequest request(String seat) {
+        // Cash keeps these tests off the gateway: what they are about is seat inventory.
         return new BookSeatRequest(schedule.getId(), serviceDate.toString(),
-                first.getId(), last.getId(), seat);
+                first.getId(), last.getId(), seat, PaymentMethod.CASH);
     }
 
     private String newRider() {

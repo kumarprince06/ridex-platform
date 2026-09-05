@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
-import { cancellationQuote, cancelRide, formatMoney } from '../api/rides';
+import { cancellationQuote, cancellationReasons, cancelRide, formatMoney } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
@@ -12,20 +12,18 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CancelRide'>;
 
-const REASONS = [
-  'Driver is too far',
-  'Wrong vehicle info',
-  'Found another ride',
-  'Plans changed',
-  'Driver not responding',
-  'Other',
-];
-
 export function CancelRideScreen({ navigation, route }: Props) {
   const rideId = route.params?.rideId ?? null;
-  const [reason, setReason] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
+  const [detail, setDetail] = useState('');
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // From the server, not a list in here: a code this app invents is one the server refuses.
+  const { data: reasons } = useQuery(cancellationReasons, []);
+  const chosen = (reasons ?? []).find((option) => option.code === code);
+  // "Something else" says nothing on its own, so the button waits for the words.
+  const ready = Boolean(chosen) && (!chosen?.needsDetail || detail.trim().length > 0);
 
   // Asked before the rider commits, so the fee is never a surprise afterwards. A ride that is
   // already gone has nothing to quote.
@@ -42,7 +40,7 @@ export function CancelRideScreen({ navigation, route }: Props) {
     setCancelling(true);
     setError(null);
     try {
-      await cancelRide(rideId, reason ?? undefined);
+      await cancelRide(rideId, code!, detail.trim() || undefined);
       navigation.replace('RideCancelled');
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.userMessage : 'Could not cancel the ride.');
@@ -67,13 +65,13 @@ export function CancelRideScreen({ navigation, route }: Props) {
           <Pressable
             // Destructive, so it stays inert until a reason is chosen - and it is the muted
             // rather than the loud button, because Keep Ride is the safer default.
-            disabled={!reason || cancelling}
+            disabled={!ready || cancelling}
             onPress={confirm}
             accessibilityRole="button"
-            accessibilityState={{ disabled: !reason || cancelling }}
+            accessibilityState={{ disabled: !ready || cancelling }}
             style={({ pressed }) => [
               styles.cancel,
-              (!reason || cancelling) && styles.cancelDisabled,
+              (!ready || cancelling) && styles.cancelDisabled,
               pressed && styles.pressed,
             ]}
           >
@@ -100,7 +98,7 @@ export function CancelRideScreen({ navigation, route }: Props) {
           </Text>
           <Text style={styles.noticeBody}>
             {quote?.free === false
-              ? 'A driver is already on the way to you.'
+              ? 'A driver is already on the way to you. The fee is added to your next ride.'
               : 'You will not be charged for this cancellation.'}
           </Text>
         </View>
@@ -110,13 +108,13 @@ export function CancelRideScreen({ navigation, route }: Props) {
 
       <Text style={styles.sectionLabel}>REASON FOR CANCELLATION</Text>
 
-      {REASONS.map((option) => {
-        const selected = reason === option;
+      {(reasons ?? []).map((option) => {
+        const selected = code === option.code;
 
         return (
           <Pressable
-            key={option}
-            onPress={() => setReason(option)}
+            key={option.code}
+            onPress={() => setCode(option.code)}
             accessibilityRole="radio"
             accessibilityState={{ selected }}
             style={[styles.reason, selected && styles.reasonSelected]}
@@ -124,10 +122,22 @@ export function CancelRideScreen({ navigation, route }: Props) {
             <View style={[styles.radio, selected && styles.radioSelected]}>
               {selected ? <View style={styles.radioCore} /> : null}
             </View>
-            <Text style={styles.reasonText}>{option}</Text>
+            <Text style={styles.reasonText}>{option.label}</Text>
           </Pressable>
         );
       })}
+
+      {chosen?.needsDetail ? (
+        <TextInput
+          value={detail}
+          onChangeText={setDetail}
+          placeholder="Tell us what happened"
+          placeholderTextColor={colors.textFaint}
+          multiline
+          maxLength={500}
+          style={styles.detail}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -135,6 +145,18 @@ export function CancelRideScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  detail: {
+    ...type.body,
+    minHeight: 92,
+    marginTop: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.text,
+    textAlignVertical: 'top',
   },
   notice: {
     flexDirection: 'row',

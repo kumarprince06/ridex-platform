@@ -22,6 +22,7 @@ public class ShuttleController {
 
     private final ShuttleService shuttleService;
     private final PassService passService;
+    private final ShuttleCrew shuttleCrew;
 
     @GetMapping("/routes")
     @ResponseStatus(HttpStatus.OK)
@@ -35,7 +36,8 @@ public class ShuttleController {
         return shuttleService.schedulesFor(routeId).stream()
                 .map(schedule -> new DepartureResponse(
                         schedule.getId(), schedule.getDepartureTime().toString(),
-                        schedule.getDaysOfWeek(), schedule.getSeatCapacity()))
+                        schedule.getDaysOfWeek(), schedule.getSeatCapacity(),
+                        shuttleCrew.of(schedule.getDriverId(), schedule.getVehicleId())))
                 .toList();
     }
 
@@ -47,6 +49,23 @@ public class ShuttleController {
             @RequestParam(required = false) String alightingStopId) {
         return shuttleService.seatMap(scheduleId, LocalDate.parse(date),
                 boardingStopId, alightingStopId);
+    }
+
+    /** Called after checkout closes. The gateway is asked; the app is not believed. */
+    @PostMapping("/bookings/{bookingId}/payment/confirm")
+    @ResponseStatus(HttpStatus.OK)
+    public ShuttleBookingResponse confirmPayment(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String bookingId,
+            @Valid @RequestBody com.ridex.payment.dto.ConfirmPaymentRequest request) {
+        return shuttleService.confirmPayment(principal.userId(), bookingId,
+                request.gatewayPaymentId());
+    }
+
+    /** The rider's own seats. Booking one and never seeing it again is not a booking. */
+    @GetMapping("/bookings")
+    @ResponseStatus(HttpStatus.OK)
+    public List<ShuttleBookingResponse> myBookings(@AuthenticationPrincipal JwtPrincipal principal) {
+        return shuttleService.myBookings(principal.userId());
     }
 
     @PostMapping("/bookings")

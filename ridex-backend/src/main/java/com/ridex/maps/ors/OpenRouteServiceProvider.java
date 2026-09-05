@@ -75,6 +75,11 @@ public class OpenRouteServiceProvider implements MapsProvider {
     }
 
     @Override
+    public GeoLocation reverse(double latitude, double longitude) {
+        throw new ProviderUnavailableException("OpenRouteService is used for routing only.");
+    }
+
+    @Override
     public RouteEstimate route(double pickupLat, double pickupLng,
             double destinationLat, double destinationLng) {
         if (!isConfigured()) {
@@ -103,9 +108,11 @@ public class OpenRouteServiceProvider implements MapsProvider {
             double distance = ((Number) summary.get("distance")).doubleValue();
             long duration = ((Number) summary.get("duration")).longValue();
 
+            // No traffic model in OpenRouteService: null says so rather than implying free roads.
             return new RouteEstimate(distance, duration,
                     "%.1f km".formatted(distance / 1000),
-                    "%d min".formatted(Math.round(duration / 60.0)));
+                    "%d min".formatted(Math.round(duration / 60.0)),
+                    null);
         } catch (RestClientException ex) {
             throw new ProviderUnavailableException("Routing is unavailable right now", ex);
         }

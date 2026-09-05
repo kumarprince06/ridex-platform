@@ -14,7 +14,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const ICONS: Record<keyof TabParamList, { active: IconName; idle: IconName }> = {
   Home: { active: 'home', idle: 'home-outline' },
   MyRides: { active: 'time', idle: 'time-outline' },
-  Wallet: { active: 'card', idle: 'card-outline' },
+  Rewards: { active: 'sparkles', idle: 'sparkles-outline' },
   Profile: { active: 'person', idle: 'person-outline' },
 };
 
@@ -56,7 +56,7 @@ export function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="MyRides" component={MyRidesScreen} options={{ title: 'Rides' }} />
-      <Tab.Screen name="Wallet" component={PaymentsScreen} options={{ title: 'Wallet' }} />
+      <Tab.Screen name="Rewards" component={PaymentsScreen} options={{ title: 'Rewards' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );

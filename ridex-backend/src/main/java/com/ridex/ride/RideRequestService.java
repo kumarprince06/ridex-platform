@@ -13,17 +13,20 @@ import com.ridex.pricing.FareEstimateRepository;
 import com.ridex.pricing.domain.FareEstimate;
 import com.ridex.pricing.dto.FareLineResponse;
 import com.ridex.ride.domain.CancellationPolicy;
+import com.ridex.ride.domain.CancellationReason;
 import com.ridex.ride.domain.CancelledBy;
 import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CancellationQuote;
+import com.ridex.ride.dto.CancellationReasonResponse;
 import com.ridex.ride.dto.CreateRideRequest;
 import com.ridex.ride.dto.RideResponse;
 import com.ridex.rider.RiderProfileRepository;
 import com.ridex.rider.domain.RiderProfile;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
+import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.money.Money;
 
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,12 @@ public class RideRequestService {
     private final com.ridex.payment.OutstandingPayments outstandingPayments;
     private final DispatchTrigger dispatchTrigger;
     private final PointsService pointsService;
+    private final com.ridex.payment.PaymentService paymentService;
+    private final com.ridex.trip.TripRepository tripRepository;
+
+    /** The zone a cancellation date is written in, for the line the rider reads on their next fare. */
+    @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
+    private String serviceZone;
 
     /** Turns a quote the rider chose into a request. The price comes from the quote, never the body. */
     @Transactional
@@ -109,9 +118,22 @@ public class RideRequestService {
         return toResponse(ride);
     }
 
+    /**
+     * The rider's ride history.
+     *
+     * <p>EXPIRED is left out: that is a search that found nobody, so from the rider's side no ride
+     * happened and there is nothing to look back at. The row stays - operations and the analytics
+     * that count unserved demand need exactly these, and they are the rows that say where the
+     * platform has too few drivers.
+     *
+     * <p>Only from the list. Fetching one by id still works, because the screen that is watching a
+     * search has to be able to read the ride at the moment it expires.
+     */
     @Transactional(readOnly = true)
     public List<RideResponse> list(String riderUserId) {
-        return rideRequestRepository.findByRiderIdOrderByRequestedAtDesc(requireRider(riderUserId).getId())
+        return rideRequestRepository
+                .findByRiderIdAndStatusNotOrderByRequestedAtDesc(
+                        requireRider(riderUserId).getId(), RideStatus.EXPIRED)
                 .stream().map(this::toResponse).toList();
     }
 
@@ -136,13 +158,46 @@ public class RideRequestService {
         if (ride.getStatus().isTerminal()) {
             throw new ConflictException("That ride has already ended.");
         }
+        if (request.isDetailMissing()) {
+            throw new ValidationException("Tell us what went wrong, so we can act on it.");
+        }
 
         Instant now = Instant.now();
         Money fee = feeFor(ride, CancelledBy.RIDER, now);
-        ride.cancel(CancelledBy.RIDER, request.reason(), fee.amountMinor(), now);
+        ride.cancel(CancelledBy.RIDER, request.text(), fee.amountMinor(), now);
+        ride.setCancellationReasonCode(request.reasonCode());
 
         rideRequestRepository.save(ride);
+
+        // A driver was already on their way, so the fee is real. Nothing can be collected now -
+        // there is no card on file at this moment - so it is carried onto the next fare, which is
+        // what the rider was told when they confirmed.
+        if (fee.amountMinor() > 0) {
+            paymentService.recordDue(ride.getRider().getId(), fee,
+                    "Cancellation fee for a ride on "
+                            + java.time.format.DateTimeFormatter.ofPattern("d MMM")
+                                    .withZone(java.time.ZoneId.of(serviceZone)).format(now),
+                    "RIDE_CANCELLATION", ride.getId());
+        }
+
         return toResponse(ride);
+    }
+
+    /** The reasons the app offers, from the server, so both sides can never drift apart. */
+    public List<CancellationReasonResponse> cancellationReasons() {
+        return java.util.Arrays.stream(CancellationReason.values())
+                .map(reason -> new CancellationReasonResponse(
+                        reason.name(), reason.label(), reason.needsDetail()))
+                .toList();
+    }
+
+    /** What the rider owes from an earlier cancellation, added to their next fare. */
+    @Transactional(readOnly = true)
+    public CancellationQuote outstandingDues(String riderUserId) {
+        RiderProfile rider = requireRider(riderUserId);
+        Money dues = paymentService.duesFor(rider.getId(), "INR");
+        return new CancellationQuote(dues.currency().getCurrencyCode(), dues.amountMinor(),
+                dues.amountMinor() == 0);
     }
 
     /**
@@ -157,6 +212,21 @@ public class RideRequestService {
                 // rider's behalf, so the grace window has not started.
                 .map(policy -> policy.feeFor(null, now))
                 .orElse(Money.zero(currency));
+    }
+
+    /**
+     * The pickup code, while it is still worth anything.
+     *
+     * <p>Withheld once the ride has ended: a code on a finished trip is not a boarding pass, it is
+     * a number in a history screen that somebody could read over a shoulder and try on a driver.
+     */
+    private String pickupCodeFor(RideRequest ride) {
+        if (ride.getStatus().isTerminal()) {
+            return null;
+        }
+        return tripRepository.findByRideRequestId(ride.getId())
+                .map(com.ridex.trip.domain.Trip::getPickupCode)
+                .orElse(null);
     }
 
     private RiderProfile requireRider(String riderUserId) {
@@ -183,6 +253,10 @@ public class RideRequestService {
                 ride.getRideType().getCode(),
                 ride.getPickupAddress(),
                 ride.getDestinationAddress(),
+                ride.getPickupLat().doubleValue(),
+                ride.getPickupLng().doubleValue(),
+                ride.getDestinationLat().doubleValue(),
+                ride.getDestinationLng().doubleValue(),
                 ride.getCurrency(),
                 ride.getQuotedFareMinor(),
                 lines,
@@ -190,6 +264,7 @@ public class RideRequestService {
                 ride.getDiscountMinor(),
                 ride.getCancellationFeeMinor(),
                 ride.getCancellationReason(),
+                pickupCodeFor(ride),
                 ride.getRequestedAt());
     }
 }

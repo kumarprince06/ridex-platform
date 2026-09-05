@@ -60,6 +60,12 @@ public class MapsService {
                 .toList();
     }
 
+    /** The address at a dropped pin. */
+    public GeoLocation reverse(double latitude, double longitude) {
+        return attempt("reverse", MapsProvider::canGeocode,
+                provider -> provider.reverse(latitude, longitude));
+    }
+
     public GeoLocation geocode(String query) {
         return attempt("geocode", MapsProvider::canGeocode, provider -> provider.geocode(query));
     }

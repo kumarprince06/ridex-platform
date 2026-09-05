@@ -63,6 +63,28 @@ public class NominatimMapsProvider implements MapsProvider {
     }
 
     @Override
+    public GeoLocation reverse(double latitude, double longitude) {
+        String uri = "/reverse?format=jsonv2&zoom=18&lat=%s&lon=%s".formatted(latitude, longitude);
+
+        try {
+            NominatimPlace place = client().get()
+                    .uri(uri)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(NominatimPlace.class);
+
+            if (place == null || place.displayName() == null) {
+                throw new NotFoundException("No address at that point.");
+            }
+            // The pin's own coordinates, not the ones the address resolves back to: the rider
+            // chose that spot, and a doorway a hundred metres away is not where they are standing.
+            return new GeoLocation(latitude, longitude, place.displayName());
+        } catch (RestClientException ex) {
+            throw new ProviderUnavailableException("Reverse lookup is unavailable right now", ex);
+        }
+    }
+
+    @Override
     public GeoLocation geocode(String query) {
         List<GeoLocation> results = search(query, 1);
         if (results.isEmpty()) {

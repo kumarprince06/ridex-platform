@@ -46,4 +46,7 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-.vscode/var/
+.vscode/
+
+# Runtime uploads - driver documents the app writes, not source.
+var/

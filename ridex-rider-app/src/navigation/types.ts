@@ -39,7 +39,14 @@ export type RootStackParamList = {
   SearchDestination: undefined;
   RoutePreview: { destination: string; destinationCoord?: [number, number] };
   ChooseRide: { destination: string; destinationCoord?: [number, number] };
-  FareEstimate: { destination: string; tierId: string; estimateId?: string };
+  FareEstimate: {
+    destination: string;
+    tierId: string;
+    estimateId?: string;
+    // Carried through so the quote can be re-priced against the route the rider actually chose.
+    pickupCoord?: [number, number];
+    destinationCoord?: [number, number];
+  };
   FindingDriver: { destination: string; rideId?: string };
   DriverAssigned: { destination: string; rideId?: string };
   DriverApproaching: { destination: string };

@@ -9,16 +9,18 @@ import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { RIDE_TIERS } from '../data/mock';
+import { FALLBACK_CENTER, useCurrentLocation } from '../lib/location';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChooseRide'>;
 
-// Fixed pickup until live location is wired; the destination comes from the search screen.
-const FALLBACK_PICKUP: [number, number] = [12.9352, 77.6245];
-
 export function ChooseRideScreen({ navigation, route }: Props) {
   const { destination, destinationCoord } = route.params;
+  const { coord } = useCurrentLocation();
+  // The rider is the pickup. Until the device answers, the map's own fallback centre is the
+  // only honest stand-in - a fixed city would price a trip nobody is taking.
+  const pickup = coord ?? FALLBACK_CENTER;
   const [options, setOptions] = useState<EstimateOption[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,17 +28,18 @@ export function ChooseRideScreen({ navigation, route }: Props) {
   useEffect(() => {
     void (async () => {
       try {
-        const priced = await estimate(
-          FALLBACK_PICKUP,
-          destinationCoord ?? [12.9784, 77.6408],
-        );
+        if (!destinationCoord) {
+          setError('Pick a destination from the search results to price this trip.');
+          return;
+        }
+        const priced = await estimate(pickup, destinationCoord);
         setOptions(priced);
         setSelectedId(priced[0]?.estimateId ?? null);
       } catch (caught) {
         setError(caught instanceof ApiError ? caught.userMessage : 'Could not price this trip.');
       }
     })();
-  }, [destinationCoord]);
+  }, [destinationCoord, pickup[0], pickup[1]]);
 
   const selected = options?.find((option) => option.estimateId === selectedId) ?? null;
   // The server priced every option; anything the local mock adds is presentation only.
@@ -44,7 +47,12 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute />
+      <MapCanvas
+        showRoute
+        pickupCoord={pickup}
+        destinationCoord={destinationCoord}
+        destinationLabel={destination}
+      />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <Pressable
@@ -127,6 +135,8 @@ export function ChooseRideScreen({ navigation, route }: Props) {
               destination,
               tierId: selected.rideTypeCode,
               estimateId: selected.estimateId,
+              pickupCoord: pickup,
+              destinationCoord,
             })
           }
           style={styles.action}

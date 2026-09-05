@@ -19,11 +19,22 @@ export type ShuttleRoute = {
   stops: Stop[];
 };
 
+/** Who is driving and what to look for at the stop. Null until a departure has a crew. */
+export type Crew = {
+  driverName: string;
+  driverPhone: string | null;
+  driverRating: string | null;
+  vehicle: string;
+  registrationNumber: string;
+  seatCapacity: number;
+};
+
 export type Departure = {
   scheduleId: string;
   departureTime: string;
   daysOfWeek: string;
   seatCapacity: number;
+  crew: Crew | null;
 };
 
 export type Seat = { label: string; available: boolean };
@@ -59,6 +70,23 @@ export type ShuttleBooking = {
   status: string;
   /** The six digits the rider shows the driver. Null in the list: only its hash is stored. */
   boardingCode: string | null;
+  crew: Crew | null;
+  /** PAID, or PENDING while the seat is held for a rider who has not paid yet. */
+  paymentStatus: string;
+  /** Cancellation closes here - half an hour before departure. */
+  cancellableUntil: string;
+  /**
+   * What cancelling right now would credit back as points, in money terms. Zero for cash, a pass,
+   * or once the cutoff has passed.
+   */
+  creditIfCancelledMinor: number;
+  /** Present only on a fresh booking that still has to be paid for. */
+  checkout: {
+    gatewayOrderId: string;
+    gatewayKeyId: string;
+    amountMinor: number;
+    currency: string;
+  } | null;
 };
 
 export type PassProduct = {
@@ -107,12 +135,16 @@ export function seatMap(
   return request<SeatMap>(`/api/v1/shuttle/departures/${scheduleId}/seats?${query}`);
 }
 
+/** How the seat is paid for. Cash is handed to the driver; UPI opens checkout at booking. */
+export type ShuttlePaymentMethod = 'CASH' | 'UPI';
+
 export function bookSeat(booking: {
   scheduleId: string;
   serviceDate: string;
   boardingStopId: string;
   alightingStopId: string;
   seatLabel: string;
+  paymentMethod: ShuttlePaymentMethod;
 }) {
   return request<ShuttleBooking>('/api/v1/shuttle/bookings', { method: 'POST', body: booking });
 }
@@ -120,6 +152,14 @@ export function bookSeat(booking: {
 /** This rider's shuttle seats. Newest first, and without the boarding code - see the backend. */
 export function listBookings() {
   return request<ShuttleBooking[]>('/api/v1/shuttle/bookings');
+}
+
+/** Called after checkout closes. The server asks the gateway; it does not believe this call. */
+export function confirmShuttlePayment(bookingId: string, gatewayPaymentId: string) {
+  return request<ShuttleBooking>(`/api/v1/shuttle/bookings/${bookingId}/payment/confirm`, {
+    method: 'POST',
+    body: { gatewayPaymentId },
+  });
 }
 
 export function cancelBooking(bookingId: string) {

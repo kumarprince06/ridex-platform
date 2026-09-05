@@ -91,6 +91,9 @@ app:
   # was under app.mail, so no JavaMailSender was ever created.
   mail:
     from: ${RIDEX_MAIL_FROM:no-reply@ridex.local}
+    # Off by default. On, the verification code goes to the log and no mail is sent - the only
+    # way to sign up with no SMTP server, and there is no free SMS route to fall back to.
+    echo-to-log: ${RIDEX_MAIL_ECHO:false}
 management:
   health:
     # The outbox exists so a mail outage cannot stop the platform. Letting it mark the app DOWN

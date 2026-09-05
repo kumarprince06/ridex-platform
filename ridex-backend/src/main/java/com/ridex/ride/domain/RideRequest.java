@@ -61,6 +61,17 @@ public class RideRequest {
     @Column(name = "destination_address", length = 255)
     private String destinationAddress;
 
+    /**
+     * How the rider means to pay, chosen when they book.
+     *
+     * <p>Asked up front rather than at the end: the fare is only known when the trip finishes, and
+     * a rider deciding then is a rider arguing with a driver on the kerb.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false, length = 20)
+    private com.ridex.payment.domain.PaymentMethod paymentMethod =
+            com.ridex.payment.domain.PaymentMethod.CASH;
+
     @Column(name = "currency", nullable = false, length = 3)
     private String currency;
 

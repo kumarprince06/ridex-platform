@@ -186,7 +186,9 @@ public class TripService {
         // Charge, split and book the money. The discount the rider redeemed at booking is passed
         // through: the driver is still paid on the gross, and the platform funds the difference.
         // ponytail: cash only. A card gateway is another PaymentProvider, not a change here.
-        paymentService.settleTrip(trip.getId(), ride.getDiscountMinor(), PaymentMethod.CASH);
+        // The method the rider chose at booking, not a constant: an online rider gets an order to
+        // pay against, a cash rider has already handed the money over.
+        paymentService.settleTrip(trip.getId(), ride.getDiscountMinor(), ride.getPaymentMethod());
 
         emailReceipt(trip, fare);
 

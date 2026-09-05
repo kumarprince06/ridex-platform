@@ -13,6 +13,7 @@ import com.ridex.payment.domain.*;
 import com.ridex.payment.dto.EarningsResponse;
 import com.ridex.payment.dto.EarningLineResponse;
 import com.ridex.payment.dto.PaymentResponse;
+import com.ridex.payment.dto.RidePaymentResponse;
 import com.ridex.platform.settings.SettingsService;
 import com.ridex.ride.domain.RideRequest;
 import com.ridex.shared.exception.ConflictException;
@@ -44,6 +45,10 @@ public class PaymentService {
     /** Which gateway clears cards and UPI. One property, so a swap needs no code change. */
     @org.springframework.beans.factory.annotation.Value("${app.payments.gateway:RAZORPAY}")
     private String gateway;
+
+    /** Handed to the client to open checkout. Publishable - it identifies, it does not authorise. */
+    @org.springframework.beans.factory.annotation.Value("${app.razorpay.key-id:}")
+    private String razorpayKeyId;
     private final SettingsService settings;
     private final List<PaymentProvider> providers;
     private final com.ridex.driver.DriverProfileRepository driverProfileRepository;
@@ -190,6 +195,78 @@ public class PaymentService {
                 driverEarningRepository.totalNetFor(driverProfileId),
                 ledger.balanceOf(LedgerAccountType.DRIVER, driverProfileId, currency).amountMinor(),
                 lines);
+    }
+
+    /**
+     * The payment for a rider's ride, with what checkout needs to collect it.
+     *
+     * <p>Scoped to the rider who took the trip: a payment names an amount somebody owes, and a
+     * trip id is guessable.
+     */
+    @Transactional(readOnly = true)
+    public RidePaymentResponse forRider(String riderUserId, String rideId) {
+        Payment payment = paymentRepository.findByTripId(tripIdFor(riderUserId, rideId))
+                .orElseThrow(() -> new NotFoundException("That trip has no payment yet."));
+
+        boolean online = payment.getMethod() != PaymentMethod.CASH
+                && payment.getMethod() != PaymentMethod.NONE;
+
+        return new RidePaymentResponse(
+                payment.getId(),
+                payment.getMethod(),
+                payment.getStatus(),
+                payment.getCurrency(),
+                payment.getNetAmountMinor(),
+                online ? payment.getProviderPaymentId() : null,
+                online ? razorpayKeyId : null,
+                !online || payment.getStatus() == PaymentStatus.SUCCEEDED);
+    }
+
+    /**
+     * Confirms an online payment against the gateway.
+     *
+     * <p>The gateway is asked; the client is not believed. Idempotent, because a rider who taps
+     * twice or an app that retries on a flaky network must not turn one payment into two.
+     */
+    @Transactional
+    public RidePaymentResponse confirmForRider(String riderUserId, String rideId,
+            String gatewayPaymentId) {
+        String tripId = tripIdFor(riderUserId, rideId);
+        Payment payment = paymentRepository.findByTripId(tripId)
+                .orElseThrow(() -> new NotFoundException("That trip has no payment yet."));
+
+        if (payment.getStatus() == PaymentStatus.SUCCEEDED) {
+            return forRider(riderUserId, rideId);
+        }
+
+        var confirmed = providerFor(payment.getMethod()).confirmPayment(gatewayPaymentId);
+
+        switch (confirmed.status()) {
+            case "SUCCEEDED" -> {
+                payment.setStatus(PaymentStatus.SUCCEEDED);
+                payment.setPaidAt(Instant.now());
+                // Overwritten deliberately: the order id was a placeholder until somebody paid,
+                // and the payment id is what a refund and every webhook will name.
+                payment.setProviderPaymentId(gatewayPaymentId);
+            }
+            case "FAILED" -> {
+                payment.setStatus(PaymentStatus.FAILED);
+                payment.setFailureReason(confirmed.failureReason());
+            }
+            // Authorised but not captured yet. Left alone: the webhook moves it when it settles.
+            default -> payment.setStatus(PaymentStatus.PROCESSING);
+        }
+
+        paymentRepository.save(payment);
+        return forRider(riderUserId, rideId);
+    }
+
+    /** Resolves the rider's own ride to its trip, refusing anybody else's. */
+    private String tripIdFor(String riderUserId, String rideId) {
+        return tripRepository.findByRideRequestId(rideId)
+                .filter(trip -> trip.getRideRequest().getRider().getUser().getId().equals(riderUserId))
+                .orElseThrow(() -> new NotFoundException("No such trip."))
+                .getId();
     }
 
     @Transactional(readOnly = true)

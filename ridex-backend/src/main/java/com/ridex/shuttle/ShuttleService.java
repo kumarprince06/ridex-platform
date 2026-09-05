@@ -42,6 +42,7 @@ public class ShuttleService {
     private final RouteFareRepository routeFareRepository;
     private final PassRepository passRepository;
     private final Notifier notifier;
+    private final com.ridex.payment.OutstandingPayments outstandingPayments;
     private final RiderProfileRepository riderProfileRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -138,6 +139,10 @@ public class ShuttleService {
     public ShuttleBookingResponse book(String riderUserId, BookSeatRequest request) {
         RiderProfile rider = riderProfileRepository.findByUserId(riderUserId)
                 .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
+
+        // The same rule as an on-demand ride: settle the last fare before starting another
+        // journey. A shuttle seat is a journey.
+        outstandingPayments.requireNoneFor(rider.getId());
 
         LocalDate serviceDate = LocalDate.parse(request.serviceDate());
         ShuttleTrip trip = departureFor(request.scheduleId(), serviceDate);

@@ -7,6 +7,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import com.ridex.payment.PaymentService;
+import com.ridex.payment.dto.ConfirmPaymentRequest;
+import com.ridex.payment.dto.RidePaymentResponse;
 import com.ridex.platform.security.JwtPrincipal;
 import com.ridex.rating.RatingService;
 import com.ridex.rating.dto.RateRideRequest;
@@ -27,6 +30,7 @@ public class RideController {
     private final RideRequestService rideRequestService;
     private final com.ridex.trip.TripService tripService;
     private final RatingService ratingService;
+    private final PaymentService paymentService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -46,6 +50,27 @@ public class RideController {
     public RideResponse get(@AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable String rideId) {
         return rideRequestService.get(principal.userId(), rideId);
+    }
+
+    /**
+     * What is owed on a finished ride, and how to pay it.
+     *
+     * <p>Returns the gateway order to open checkout against. The amount comes from here, never
+     * from the app - a client that names its own fare is a client that pays what it likes.
+     */
+    @GetMapping("/{rideId}/payment")
+    @ResponseStatus(HttpStatus.OK)
+    public RidePaymentResponse payment(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String rideId) {
+        return paymentService.forRider(principal.userId(), rideId);
+    }
+
+    /** Called after checkout closes. The gateway is asked; the app is not believed. */
+    @PostMapping("/{rideId}/payment/confirm")
+    @ResponseStatus(HttpStatus.OK)
+    public RidePaymentResponse confirmPayment(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String rideId, @Valid @RequestBody ConfirmPaymentRequest request) {
+        return paymentService.confirmForRider(principal.userId(), rideId, request.gatewayPaymentId());
     }
 
     /** One rating per ride, and only after it completed. */

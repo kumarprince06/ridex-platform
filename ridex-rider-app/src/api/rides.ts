@@ -1,4 +1,5 @@
 import { request } from './client';
+import { LngLat } from '../lib/location';
 
 export type FareLineType =
   | 'BASE' | 'DISTANCE' | 'TIME' | 'WAITING' | 'SURGE'
@@ -31,6 +32,10 @@ export type Ride = {
   rideTypeCode: string;
   pickupAddress: string | null;
   destinationAddress: string | null;
+  pickupLat: number;
+  pickupLng: number;
+  destinationLat: number;
+  destinationLng: number;
   currency: string;
   quotedFareMinor: number;
   fareLines: FareLine[];
@@ -54,17 +59,30 @@ export type Receipt = {
   chargedLines: FareLine[];
 };
 
-/** Every active ride type priced for one route. The client never sends a fare. */
-export function estimate(pickup: [number, number], destination: [number, number]) {
+/**
+ * Every active ride type priced for one route. The client never sends a fare.
+ *
+ * Takes LngLat, the order the map and the search results use. Reading index 0 as the latitude is
+ * what priced a Bengaluru trip from a point in the Arabian Sea.
+ */
+export function estimate(pickup: LngLat, destination: LngLat) {
   return request<EstimateOption[]>('/api/v1/rides/estimate', {
     method: 'POST',
     body: {
-      pickupLat: pickup[0],
-      pickupLng: pickup[1],
-      destinationLat: destination[0],
-      destinationLng: destination[1],
+      pickupLat: pickup[1],
+      pickupLng: pickup[0],
+      destinationLat: destination[1],
+      destinationLng: destination[0],
     },
   });
+}
+
+/** The ride's two ends, in the LngLat order every map in this app takes. */
+export function rideRoute(ride: Ride): { pickup: LngLat; destination: LngLat } {
+  return {
+    pickup: [ride.pickupLng, ride.pickupLat],
+    destination: [ride.destinationLng, ride.destinationLat],
+  };
 }
 
 /** Books the quote the rider chose. Sending the estimate id, not a price, is the whole point. */

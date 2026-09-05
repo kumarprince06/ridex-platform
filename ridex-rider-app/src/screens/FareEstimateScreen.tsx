@@ -3,26 +3,35 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { bookRide, estimate, formatMoney, type EstimateOption } from '../api/rides';
+import {
+  bookRide,
+  estimate,
+  formatMoney,
+  type EstimateOption,
+  type PaymentMethod,
+} from '../api/rides';
+import { getPoints } from '../api/points';
+import { useQuery } from '../api/useQuery';
 import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { RouteStops } from '../components/RouteStops';
 import { Screen } from '../components/Screen';
-import { FARE_LINES, RIDE_TIERS } from '../data/mock';
+import { RIDE_TIERS } from '../data/mock';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FareEstimate'>;
 
-const METHODS = [
-  { id: 'visa', icon: 'card' as const, tone: '#E0B252', label: 'Visa ••4892' },
-  { id: 'wallet', icon: 'wallet' as const, tone: '#E06FA8', label: 'RideX $24' },
-  { id: 'cash', icon: 'cash' as const, tone: '#5FD68A', label: 'Cash' },
+const METHODS: { id: PaymentMethod; icon: 'cash' | 'phone-portrait'; tone: string; label: string }[] = [
+  { id: 'CASH', icon: 'cash', tone: '#5FD68A', label: 'Cash' },
+  { id: 'UPI', icon: 'phone-portrait', tone: '#E0B252', label: 'UPI' },
 ];
 
 export function FareEstimateScreen({ navigation, route }: Props) {
-  const { destination, tierId, estimateId } = route.params;
-  const [methodId, setMethodId] = useState('visa');
+  const { destination, tierId, estimateId, pickupCoord, destinationCoord } = route.params;
+  const [methodId, setMethodId] = useState<PaymentMethod>('CASH');
+  const [usePoints, setUsePoints] = useState(false);
+  const { data: points } = useQuery(getPoints, []);
   const [quote, setQuote] = useState<EstimateOption | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,20 +39,20 @@ export function FareEstimateScreen({ navigation, route }: Props) {
   const tier = RIDE_TIERS.find((item) => item.id === tierId) ?? RIDE_TIERS[0]!;
 
   useEffect(() => {
-    if (!estimateId) {
+    if (!estimateId || !pickupCoord || !destinationCoord) {
       return;
     }
     // Re-priced rather than passed through navigation params: a quote is short-lived, and a stale
     // one in a route param is exactly the number a rider would be shown and then not charged.
     void (async () => {
       try {
-        const priced = await estimate([12.9352, 77.6245], [12.9784, 77.6408]);
+        const priced = await estimate(pickupCoord, destinationCoord);
         setQuote(priced.find((option) => option.rideTypeCode === tierId) ?? priced[0] ?? null);
       } catch (caught) {
         setError(caught instanceof ApiError ? caught.userMessage : 'Could not price this trip.');
       }
     })();
-  }, [estimateId, tierId]);
+  }, [estimateId, tierId, pickupCoord, destinationCoord]);
 
   async function onRequestRide() {
     if (!quote) {
@@ -52,7 +61,13 @@ export function FareEstimateScreen({ navigation, route }: Props) {
     setError(null);
     setBusy(true);
     try {
-      const ride = await bookRide(quote.estimateId, 'Current location', destination);
+      const ride = await bookRide({
+        estimateId: quote.estimateId,
+        pickupAddress: 'Current location',
+        destinationAddress: destination,
+        redeemPoints: usePoints ? points?.balance : undefined,
+        paymentMethod: methodId,
+      });
       navigation.replace('FindingDriver', { destination, rideId: ride.id });
     } catch (caught) {
       // An expired quote lands here: re-quoting is the rider's choice, not something to do
@@ -83,8 +98,8 @@ export function FareEstimateScreen({ navigation, route }: Props) {
     >
       <View style={styles.card}>
         <RouteStops
-          pickup={{ name: 'Midtown, New York', detail: 'Pickup location' }}
-          dropoff={{ name: destination, detail: '89 E 42nd St' }}
+          pickup={{ name: 'Current location', detail: 'Pickup' }}
+          dropoff={{ name: destination, detail: 'Drop-off' }}
         />
       </View>
 
@@ -96,7 +111,9 @@ export function FareEstimateScreen({ navigation, route }: Props) {
           <View style={styles.flex}>
             <Text style={styles.tierName}>{tier.name}</Text>
             <Text style={styles.tierMeta}>
-              ETA {tier.eta} · {tier.seats} seats · {tier.blurb}
+              {quote
+                ? `${Math.max(1, Math.round(quote.durationSeconds / 60))} min · ${quote.seatCapacity} seats`
+                : tier.blurb}
             </Text>
           </View>
         </View>
@@ -125,6 +142,31 @@ export function FareEstimateScreen({ navigation, route }: Props) {
           </Text>
         </View>
       </View>
+
+      {points && points.balance > 0 ? (
+        <Pressable
+          onPress={() => setUsePoints((on) => !on)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: usePoints }}
+          style={styles.card}
+        >
+          <View style={styles.tierRow}>
+            <View style={styles.flex}>
+              <Text style={styles.tierName}>Use {points.balance} points</Text>
+              {/* The server decides how many are actually spendable on this fare, so this is
+                  what they are worth at most, not a promise. */}
+              <Text style={styles.tierMeta}>
+                Up to {formatMoney(points.redeemableValueMinor, points.currency)} off
+              </Text>
+            </View>
+            <Ionicons
+              name={usePoints ? 'checkmark-circle' : 'ellipse-outline'}
+              size={22}
+              color={usePoints ? colors.primary : colors.textMuted}
+            />
+          </View>
+        </Pressable>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.methodsLabel}>PAYMENT METHOD</Text>

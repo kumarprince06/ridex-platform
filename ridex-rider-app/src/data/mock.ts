@@ -73,14 +73,6 @@ export const DRIVER = {
   tier: 'RideX Comfort',
 };
 
-export const FARE_LINES: { label: string; amount: string; credit?: boolean }[] = [
-  { label: 'Base fare', amount: '$4.00' },
-  { label: 'Distance (2.4 km)', amount: '$6.00' },
-  { label: 'Time (18 min)', amount: '$2.40' },
-  { label: 'Booking fee', amount: '$1.20' },
-  { label: 'Promo — RIDEX20', amount: '-$2.72', credit: true },
-];
-
 export const PAYMENT_METHODS: {
   icon: IconName;
   tone: string;

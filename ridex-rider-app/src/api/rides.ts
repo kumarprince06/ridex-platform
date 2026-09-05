@@ -85,12 +85,23 @@ export function rideRoute(ride: Ride): { pickup: LngLat; destination: LngLat } {
   };
 }
 
-/** Books the quote the rider chose. Sending the estimate id, not a price, is the whole point. */
-export function bookRide(estimateId: string, pickupAddress?: string, destinationAddress?: string) {
-  return request<Ride>('/api/v1/rides', {
-    method: 'POST',
-    body: { estimateId, pickupAddress, destinationAddress },
-  });
+/** CASH or UPI. Both card and UPI open the same checkout, so the app only sends these two. */
+export type PaymentMethod = 'CASH' | 'UPI';
+
+/**
+ * Books the quote the rider chose. Sending the estimate id, not a price, is the whole point.
+ *
+ * `redeemPoints` is a request, not an instruction: the server decides how many are actually
+ * spendable and what they are worth, so a client can never name its own discount.
+ */
+export function bookRide(options: {
+  estimateId: string;
+  pickupAddress?: string;
+  destinationAddress?: string;
+  redeemPoints?: number;
+  paymentMethod?: PaymentMethod;
+}) {
+  return request<Ride>('/api/v1/rides', { method: 'POST', body: options });
 }
 
 export function getRide(rideId: string) {

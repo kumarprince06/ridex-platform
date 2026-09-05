@@ -70,6 +70,20 @@ public class ShuttleBooking {
     @Column(name = "pass_id", length = 26)
     private String passId;
 
+    /**
+     * PAID, or PENDING while the rider is in checkout.
+     *
+     * <p>Separate from status on purpose: the seat is held from the moment it is picked, and the
+     * constraints that stop it being sold twice are scoped to status = 'BOOKED'. An unpaid seat
+     * parked in another status would be sold out from under somebody mid-payment.
+     */
+    @Column(name = "payment_status", nullable = false, length = 20)
+    private String paymentStatus = "PAID";
+
+    /** When an unpaid hold is released. Null once it is paid for. */
+    @Column(name = "hold_expires_at")
+    private java.time.Instant holdExpiresAt;
+
     @Column(name = "status", nullable = false, length = 20)
     private String status = "BOOKED";
 

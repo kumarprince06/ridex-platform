@@ -11,8 +11,10 @@ import com.ridex.auth.domain.User;
 import com.ridex.driver.domain.DriverOnboardingStatus;
 import com.ridex.driver.domain.DriverProfile;
 import com.ridex.driver.dto.OnboardingResponse;
+import com.ridex.driver.domain.DriverDocumentType;
 import com.ridex.location.DriverPresence;
 import com.ridex.shared.exception.NotFoundException;
+import com.ridex.shared.exception.ValidationException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +25,8 @@ public class DriverOnboardingService {
     private final DriverProfileRepository driverProfileRepository;
     private final UserRepository userRepository;
     private final DriverPresence driverPresence;
+    private final DriverDocumentService driverDocumentService;
+    private final DriverEligibility driverEligibility;
 
     @Transactional(readOnly = true)
     public OnboardingResponse status(String driverUserId) {
@@ -32,13 +36,19 @@ public class DriverOnboardingService {
     /**
      * Puts an application in front of a reviewer.
      *
-     * <p>ponytail: walks REGISTERED to UNDER_REVIEW in one step. The two intermediate states exist
-     * for the profile and document submissions that T7 has not built, so nothing yet checks that a
-     * licence was actually uploaded. Split this into the real steps when documents land.
+     * <p>Refuses until every required document is on file. A reviewer opening an application with
+     * no licence attached is a wasted queue slot and a rejection the driver could have avoided.
      */
     @Transactional
     public OnboardingResponse submitForReview(String driverUserId) {
         DriverProfile driver = requireDriver(driverUserId);
+
+        List<DriverDocumentType> missing = driverDocumentService.missingForReview(driver.getId());
+        if (!missing.isEmpty()) {
+            throw new ValidationException("Upload these before submitting: " + missing.stream()
+                    .map(type -> type.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' '))
+                    .reduce((a, b) -> a + ", " + b).orElse(""));
+        }
 
         if (driver.getOnboardingStatus() == DriverOnboardingStatus.REGISTERED) {
             driver.transitionTo(DriverOnboardingStatus.PROFILE_SUBMITTED);
@@ -114,7 +124,9 @@ public class DriverOnboardingService {
                 driver.getId(),
                 user.getEmail(),
                 driver.getOnboardingStatus(),
-                driver.isEligibleToDrive(),
+                // The real answer, not just the status: documents expire and vehicles get rejected
+                // without the profile changing at all.
+                driverEligibility.isEligible(driver.getId()),
                 driver.getReviewedAt(),
                 driver.getRejectionReason());
     }

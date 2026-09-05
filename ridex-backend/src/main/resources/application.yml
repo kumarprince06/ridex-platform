@@ -32,6 +32,13 @@ spring:
           starttls:
             enable: false
 
+  # Boot defaults to 1 MB, which would reject a phone photo of a licence before DocumentStorage
+  # ever sees it. Its own 8 MB check is the one that reports a readable error.
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 10MB
+
   data:
     redis:
       host: ${RIDEX_REDIS_HOST:localhost}
@@ -80,6 +87,12 @@ app:
     per-ride: 20
     per-currency-unit: 100
     currency: INR
+
+  # ponytail: local disk. Production needs an object store - a second node cannot read this one's
+  # files, and nothing here is encrypted at rest. Only DocumentStorage touches it.
+  documents:
+    directory: ${RIDEX_DOCUMENTS_DIR:./var/documents}
+    expiry-sweep-ms: 3600000
 
   google:
     maps:

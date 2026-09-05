@@ -33,7 +33,7 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
           <View style={styles.stops}>
             <View style={styles.stopRow}>
               <View style={styles.dotMint} />
-              <Text style={styles.stopText}>Midtown, New York</Text>
+              <Text style={styles.stopText}>Current location</Text>
             </View>
             <View style={styles.stopRow}>
               <View style={styles.dotAmber} />

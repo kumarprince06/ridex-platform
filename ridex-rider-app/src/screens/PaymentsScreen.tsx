@@ -121,10 +121,10 @@ export function PaymentsScreen() {
 
             <SectionLabel>ACTIVITY</SectionLabel>
 
-            {points.recent.length === 0 ? (
+            {(points.recent ?? []).length === 0 ? (
               <Text style={styles.empty}>No points yet. Finish a ride to earn some.</Text>
             ) : (
-              points.recent.map((entry) => (
+              (points.recent ?? []).map((entry) => (
                 <View key={entry.id} style={styles.entry}>
                   <View style={styles.flex}>
                     <Text style={styles.entryLabel}>{reasonLabel(entry.reason)}</Text>

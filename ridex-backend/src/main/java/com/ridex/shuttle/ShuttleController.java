@@ -26,19 +26,7 @@ public class ShuttleController {
     @GetMapping("/routes")
     @ResponseStatus(HttpStatus.OK)
     public List<RouteResponse> routes() {
-        return shuttleService.routes().stream()
-                .map(route -> new RouteResponse(
-                        route.getId(), route.getCode(), route.getName(), route.getDescription(),
-                        route.getStops().stream()
-                                .map(stop -> new RouteResponse.StopResponse(
-                                        stop.getId(), stop.getSequence(), stop.getName(),
-                                        // Strings, not doubles: these are NUMERIC(9,6) and a
-                                        // double round-trip is how a pin drifts a few metres.
-                                        stop.getLatitude().toPlainString(),
-                                        stop.getLongitude().toPlainString(),
-                                        stop.getOffsetMinutes()))
-                                .toList()))
-                .toList();
+        return shuttleService.routeResponses();
     }
 
     @GetMapping("/routes/{routeId}/departures")

@@ -45,6 +45,30 @@ public class ShuttleService {
     private final RiderProfileRepository riderProfileRepository;
     private final PasswordEncoder passwordEncoder;
 
+    /**
+     * The rider's route list, mapped inside the transaction.
+     *
+     * <p>It used to return entities and let the controller walk {@code route.getStops()}, which is
+     * a lazy collection with no session by then - so this endpoint answered 500 for every caller.
+     * Anything that touches a lazy association has to finish before the transaction does.
+     */
+    @Transactional(readOnly = true)
+    public List<RouteResponse> routeResponses() {
+        return routeRepository.findByActiveTrueOrderByNameAsc().stream()
+                .map(route -> new RouteResponse(
+                        route.getId(), route.getCode(), route.getName(), route.getDescription(),
+                        route.getStops().stream()
+                                .map(stop -> new RouteResponse.StopResponse(
+                                        stop.getId(), stop.getSequence(), stop.getName(),
+                                        // Strings, not doubles: these are NUMERIC(9,6) and a
+                                        // double round-trip is how a pin drifts a few metres.
+                                        stop.getLatitude().toPlainString(),
+                                        stop.getLongitude().toPlainString(),
+                                        stop.getOffsetMinutes()))
+                                .toList()))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<Route> routes() {
         return routeRepository.findByActiveTrueOrderByNameAsc();
@@ -98,7 +122,10 @@ public class ShuttleService {
                 trip.getSeatsPerRow(),
                 SeatMap.aisleAfter(trip.getSeatsPerRow()),
                 seats,
-                trip.getSeatCapacity() - taken.size());
+                // Counted off the seats being shown, not capacity minus bookings: a label that is
+                // no longer on the vehicle would otherwise subtract from a total it is not in, and
+                // the picker would show four free seats above a count of three.
+                (int) seats.stream().filter(SeatMapResponse.SeatResponse::available).count());
     }
 
     /**

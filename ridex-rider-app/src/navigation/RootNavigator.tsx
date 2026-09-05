@@ -32,6 +32,10 @@ import { RateDriverScreen } from '../screens/RateDriverScreen';
 import { CancelRideScreen } from '../screens/CancelRideScreen';
 import { RideCancelledScreen } from '../screens/RideCancelledScreen';
 
+import { ShuttleBookedScreen } from '../screens/ShuttleBookedScreen';
+import { ShuttleDeparturesScreen } from '../screens/ShuttleDeparturesScreen';
+import { ShuttleRoutesScreen } from '../screens/ShuttleRoutesScreen';
+import { ShuttleSeatsScreen } from '../screens/ShuttleSeatsScreen';
 import { TripDetailsScreen } from '../screens/TripDetailsScreen';
 import { TripReceiptScreen } from '../screens/TripReceiptScreen';
 import { ReportIssueScreen } from '../screens/ReportIssueScreen';
@@ -95,6 +99,11 @@ export function RootNavigator() {
         <Stack.Screen name="RateDriver" component={RateDriverScreen} />
         <Stack.Screen name="CancelRide" component={CancelRideScreen} />
         <Stack.Screen name="RideCancelled" component={RideCancelledScreen} />
+
+        <Stack.Screen name="ShuttleRoutes" component={ShuttleRoutesScreen} />
+        <Stack.Screen name="ShuttleDepartures" component={ShuttleDeparturesScreen} />
+        <Stack.Screen name="ShuttleSeats" component={ShuttleSeatsScreen} />
+        <Stack.Screen name="ShuttleBooked" component={ShuttleBookedScreen} />
 
         <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
         <Stack.Screen name="TripReceipt" component={TripReceiptScreen} />

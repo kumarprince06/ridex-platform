@@ -184,6 +184,14 @@ public class ShuttleService {
             throw new ValidationException("Choose a stop further along the route to get off at.");
         }
 
+        // One seat per rider per leg, which the database also enforces. Checked first because the
+        // constraint violation below cannot tell the two rules apart, and told a rider trying to
+        // book a second seat that the seat they picked was taken - which it was not.
+        if (bookingRepository.hasLiveSeatOnLeg(trip.getId(), rider.getId(), boarding.getSequence())) {
+            throw new ConflictException(
+                    "You already have a seat on this departure from " + boarding.getName() + ".");
+        }
+
         String routeId = trip.getSchedule().getRoute().getId();
         Pass pass = passRepository.findLive(rider.getId(), routeId, serviceDate).stream()
                 .filter(candidate -> candidate.coversOn(serviceDate, routeId))

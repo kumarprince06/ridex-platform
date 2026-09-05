@@ -33,12 +33,22 @@ export function TrendChart({
   points,
   color = SERIES.teal,
   format = (value: number) => String(value),
+  formatTick,
   height = 180,
+  width = 720,
 }: {
   points: Point[];
   color?: string;
+  /** The full value, for the tooltip. */
   format?: (value: number) => string;
+  /** The short value, for the axis and the endpoint. Falls back to the full one. */
+  formatTick?: (value: number) => string;
   height?: number;
+  /**
+   * viewBox width. The SVG scales to its container, and text scales with it - a 720-wide chart
+   * in a 560-wide card renders 11px labels at 8.6px. Narrow the box for a narrow card.
+   */
+  width?: number;
 }) {
   const [hover, setHover] = useState<number | null>(null);
 
@@ -46,12 +56,23 @@ export function TrendChart({
     return <p className="chart-empty">Nothing to plot yet.</p>;
   }
 
-  const width = 720;
-  const padding = { top: 16, right: 56, bottom: 26, left: 44 };
+  const tick = formatTick ?? format;
+  const max = niceCeiling(Math.max(...points.map((point) => point.value), 1));
+
+  // The gutters are sized from the text that goes in them. Fixed padding clipped "INR 40000.00"
+  // on the left and ran the endpoint label off the right edge of the card.
+  const em = 6.6;
+  const widestTick = Math.max(...[0, 0.5, 1].map((f) => tick(Math.round(max * f)).length));
+  const last = points[points.length - 1]!;
+
+  const padding = {
+    top: 16,
+    right: Math.max(tick(last.value).length * em + 18, 24),
+    bottom: 26,
+    left: widestTick * em + 12,
+  };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
-
-  const max = niceCeiling(Math.max(...points.map((point) => point.value), 1));
   const stepX = points.length > 1 ? plotWidth / (points.length - 1) : 0;
 
   const x = (index: number) => padding.left + index * stepX;
@@ -62,7 +83,6 @@ export function TrendChart({
     padding.top + plotHeight
   }`;
 
-  const last = points[points.length - 1]!;
   const active = hover === null ? null : points[hover];
 
   return (
@@ -87,7 +107,7 @@ export function TrendChart({
             className="chart-tick"
             textAnchor="end"
           >
-            {format(Math.round(max * fraction))}
+            {tick(Math.round(max * fraction))}
           </text>
         ))}
 
@@ -106,7 +126,7 @@ export function TrendChart({
         <circle cx={x(points.length - 1)} cy={y(last.value)} r="4.5" fill={color}
                 stroke="var(--surface)" strokeWidth="2" />
         <text x={x(points.length - 1) + 10} y={y(last.value) + 4} className="chart-endlabel">
-          {format(last.value)}
+          {tick(last.value)}
         </text>
 
         {points.map((point, index) => (

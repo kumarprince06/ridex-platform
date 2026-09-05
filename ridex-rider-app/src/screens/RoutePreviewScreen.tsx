@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { routeEstimate } from '../api/maps';
+import { useQuery } from '../api/useQuery';
+import { useCurrentLocation } from '../lib/location';
 
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
@@ -14,6 +18,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'RoutePreview'>;
 
 export function RoutePreviewScreen({ navigation, route }: Props) {
   const { destination, destinationCoord } = route.params;
+  const { coord } = useCurrentLocation();
+
+  // Asked of the backend, not measured on the device: this is the number the fare is built from.
+  const { data: leg, loading } = useQuery(
+    () =>
+      coord && destinationCoord
+        ? routeEstimate(coord, destinationCoord)
+        : Promise.resolve(null),
+    [coord?.[0], coord?.[1], destinationCoord?.[0], destinationCoord?.[1]],
+  );
 
   return (
     <View style={styles.root}>
@@ -44,13 +58,24 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
       </SafeAreaView>
 
       <Sheet>
-        <StatTiles
-          stats={[
-            { value: '2.4 km', label: 'Distance' },
-            { value: '~8 min', label: 'ETA' },
-            { value: 'Light', label: 'Traffic', tone: '#5FD68A' },
-          ]}
-        />
+        {/* Two tiles, not three: nothing in the platform reports traffic, and a "Light" that is
+            always Light is worse than no tile at all. */}
+        {loading && !leg ? (
+          <ActivityIndicator color={colors.primary} style={styles.stats} />
+        ) : (
+          <StatTiles
+            stats={[
+              {
+                value: leg ? `${(leg.distanceMeters / 1000).toFixed(1)} km` : '—',
+                label: 'Distance',
+              },
+              {
+                value: leg ? `${Math.max(1, Math.round(leg.durationSeconds / 60))} min` : '—',
+                label: 'ETA',
+              },
+            ]}
+          />
+        )}
 
         <Button
           label="Choose Ride Type"
@@ -66,6 +91,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  stats: {
+    paddingVertical: spacing.xl,
   },
   header: {
     paddingHorizontal: spacing.lg,

@@ -59,17 +59,12 @@ export function PickOnMapScreen({ navigation, route }: Props) {
   useEffect(() => () => inFlight.current?.abort(), []);
 
   const confirm = () =>
-    navigation.navigate({
-      name: 'SearchDestination',
-      params: {
-        picked: {
-          field: mode,
-          name: address ?? 'Pinned location',
-          coord: centre,
-        },
-      },
-      merge: true,
-    });
+    navigation.navigate(
+      'SearchDestination',
+      { picked: { field: mode, name: address ?? 'Pinned location', coord: centre } },
+      // merge, so returning to the search screen keeps whatever the other field already held.
+      { merge: true },
+    );
 
   return (
     <View style={styles.root}>

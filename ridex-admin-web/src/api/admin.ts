@@ -139,7 +139,9 @@ export type PaymentStatus =
 
 export type AdminPayment = {
   id: string;
-  tripId: string;
+  /** Null for a shuttle seat. Exactly one of the two references is set. */
+  tripId: string | null;
+  shuttleBookingId: string | null;
   riderEmail: string;
   method: string;
   status: PaymentStatus;

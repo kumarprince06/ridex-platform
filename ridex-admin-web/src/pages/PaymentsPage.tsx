@@ -43,6 +43,13 @@ export function PaymentsPage() {
               <span className="mono">{row.id.slice(-8)}</span>
             ) },
             { key: 'rider', header: 'Rider', render: (row) => row.riderEmail },
+            // A payment now has two possible subjects, and "which one" is the first thing
+            // somebody looking at a charge needs to know.
+            { key: 'for', header: 'For', render: (row) => (
+              <Pill tone={row.tripId ? 'info' : 'muted'}>
+                {row.tripId ? 'Ride' : 'Shuttle seat'}
+              </Pill>
+            ) },
             { key: 'method', header: 'Method', render: (row) => (
               <Pill tone={row.method === 'CASH' ? 'warning' : 'info'}>{humanState(row.method)}</Pill>
             ) },

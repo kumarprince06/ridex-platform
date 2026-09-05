@@ -172,7 +172,10 @@ public class AdminQueryService {
 
         return PageResponse.of(payments, payment -> new AdminPaymentResponse(
                 payment.getId(),
-                payment.getTrip().getId(),
+                // A shuttle seat has no trip. Reading through it here took the whole payments
+                // page down with a null pointer the moment the first seat was paid for.
+                payment.getTrip() == null ? null : payment.getTrip().getId(),
+                payment.getShuttleBookingId(),
                 payment.getRider().getUser().getEmail(),
                 payment.getMethod(),
                 payment.getStatus(),

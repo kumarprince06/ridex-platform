@@ -117,8 +117,23 @@ export function cancellationQuote(rideId: string) {
   return request<CancellationQuote>(`/api/v1/rides/${rideId}/cancellation-quote`);
 }
 
-export function cancelRide(rideId: string, reason?: string) {
-  return request<Ride>(`/api/v1/rides/${rideId}/cancel`, { method: 'POST', body: { reason } });
+/** One choice on the cancel screen. The list comes from the server so the two cannot drift. */
+export type CancellationReason = { code: string; label: string; needsDetail: boolean };
+
+export function cancellationReasons() {
+  return request<CancellationReason[]>('/api/v1/rides/cancellation-reasons');
+}
+
+/** What an earlier cancellation left owing. It is added to the next fare. */
+export function outstandingDues() {
+  return request<CancellationQuote>('/api/v1/rides/dues');
+}
+
+export function cancelRide(rideId: string, reasonCode: string, reason?: string) {
+  return request<Ride>(`/api/v1/rides/${rideId}/cancel`, {
+    method: 'POST',
+    body: { reasonCode, reason },
+  });
 }
 
 export function getReceipt(rideId: string) {

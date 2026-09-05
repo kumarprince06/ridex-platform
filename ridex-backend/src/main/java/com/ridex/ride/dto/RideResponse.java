@@ -27,5 +27,10 @@ public record RideResponse(
         long discountMinor,
         Long cancellationFeeMinor,
         String cancellationReason,
+        /**
+         * The digits the rider shows the driver, and the QR that encodes them. Present only while
+         * the ride is live and only to the rider it belongs to.
+         */
+        String pickupCode,
         Instant requestedAt) {
 }

@@ -17,14 +17,14 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DriverApproaching'>;
 const ARRIVAL_MS = 6000;
 
 export function DriverApproachingScreen({ navigation, route }: Props) {
-  const { destination } = route.params;
+  const { destination, rideId } = route.params;
 
   // The rider does not decide that the driver has arrived - the driver does, and the server says
   // so. This timer stands in for that message until the socket exists.
   useEffect(() => {
-    const timer = setTimeout(() => navigation.replace('DriverArrived', { destination }), ARRIVAL_MS);
+    const timer = setTimeout(() => navigation.replace('DriverArrived', { destination, rideId }), ARRIVAL_MS);
     return () => clearTimeout(timer);
-  }, [navigation, destination]);
+  }, [navigation, destination, rideId]);
 
   return (
     <View style={styles.root}>

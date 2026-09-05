@@ -43,6 +43,7 @@ public class RideRequestService {
     private final DispatchTrigger dispatchTrigger;
     private final PointsService pointsService;
     private final com.ridex.payment.PaymentService paymentService;
+    private final com.ridex.trip.TripRepository tripRepository;
 
     /** The zone a cancellation date is written in, for the line the rider reads on their next fare. */
     @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
@@ -213,6 +214,21 @@ public class RideRequestService {
                 .orElse(Money.zero(currency));
     }
 
+    /**
+     * The pickup code, while it is still worth anything.
+     *
+     * <p>Withheld once the ride has ended: a code on a finished trip is not a boarding pass, it is
+     * a number in a history screen that somebody could read over a shoulder and try on a driver.
+     */
+    private String pickupCodeFor(RideRequest ride) {
+        if (ride.getStatus().isTerminal()) {
+            return null;
+        }
+        return tripRepository.findByRideRequestId(ride.getId())
+                .map(com.ridex.trip.domain.Trip::getPickupCode)
+                .orElse(null);
+    }
+
     private RiderProfile requireRider(String riderUserId) {
         return riderProfileRepository.findByUserId(riderUserId)
                 .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
@@ -248,6 +264,7 @@ public class RideRequestService {
                 ride.getDiscountMinor(),
                 ride.getCancellationFeeMinor(),
                 ride.getCancellationReason(),
+                pickupCodeFor(ride),
                 ride.getRequestedAt());
     }
 }

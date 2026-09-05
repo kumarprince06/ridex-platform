@@ -64,7 +64,11 @@ export type ShuttleBooking = {
   alightingStopName: string;
   departsAt: string;
   currency: string;
+  /** The published fare, before points. */
   fareMinor: number;
+  /** Points spent on this seat, and what they took off the fare. */
+  redeemedPoints: number;
+  discountMinor: number;
   /** Set when a pass covered the seat, so nothing was charged. */
   passId: string | null;
   status: string;
@@ -145,6 +149,11 @@ export function bookSeat(booking: {
   alightingStopId: string;
   seatLabel: string;
   paymentMethod: ShuttlePaymentMethod;
+  /**
+   * A request, not an instruction: the server spends what the balance and the fare allow, and
+   * answers with what it actually took.
+   */
+  redeemPoints?: number;
 }) {
   return request<ShuttleBooking>('/api/v1/shuttle/bookings', { method: 'POST', body: booking });
 }

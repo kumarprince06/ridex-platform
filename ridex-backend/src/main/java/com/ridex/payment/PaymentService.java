@@ -328,8 +328,9 @@ public class PaymentService {
      * for the same seat.
      */
     @Transactional
-    public ShuttleCheckout startShuttlePayment(String bookingId, RiderProfile rider, Money amount,
-            PaymentMethod method) {
+    public ShuttleCheckout startShuttlePayment(String bookingId, RiderProfile rider, Money gross,
+            Money discount, PaymentMethod method) {
+        Money amount = gross.minus(discount);
         Payment existing = paymentRepository.findByShuttleBookingId(bookingId).orElse(null);
         if (existing != null) {
             return new ShuttleCheckout(existing.getProviderPaymentId(), razorpayKeyId,
@@ -346,8 +347,9 @@ public class PaymentService {
         payment.setMethod(method);
         payment.setProvider(provider.name());
         payment.setCurrency(amount.currency().getCurrencyCode());
-        payment.setGrossAmountMinor(amount.amountMinor());
-        payment.setDiscountAmountMinor(0);
+        payment.setGrossAmountMinor(gross.amountMinor());
+        // Funded by the platform, exactly as on a ride: points are a discount, not a smaller fare.
+        payment.setDiscountAmountMinor(discount.amountMinor());
         payment.setNetAmountMinor(amount.amountMinor());
         payment.setProviderPaymentId(intent.providerPaymentId());
         payment.setIdempotencyKey(idempotencyKey);

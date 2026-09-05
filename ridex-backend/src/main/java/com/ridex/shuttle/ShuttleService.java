@@ -198,7 +198,8 @@ public class ShuttleService {
                 .findFirst()
                 .orElse(null);
 
-        long fare = pass != null ? 0 : fareBetween(routeId, boarding, alighting);
+        long published = pass != null ? 0 : fareBetween(routeId, boarding, alighting);
+        long fare = published;
         String boardingCode = OtpGenerator.generate();
 
         ShuttleBooking booking = new ShuttleBooking();
@@ -210,7 +211,8 @@ public class ShuttleService {
         booking.setBoardingSeq(boarding.getSequence());
         booking.setAlightingSeq(alighting.getSequence());
         booking.setCurrency(currencyFor(routeId, boarding, alighting));
-        booking.setFareMinor(fare);
+        // The published price. What is actually charged is this minus any points spent below.
+        booking.setFareMinor(published);
         booking.setPassId(pass == null ? null : pass.getId());
         // One secret, shown as digits and encoded in a QR - the same rule as an on-demand pickup.
         booking.setBoardingCodeHash(passwordEncoder.encode(boardingCode));
@@ -233,17 +235,34 @@ public class ShuttleService {
             passRepository.save(pass);
         }
 
+        // Points, spent once the seat is actually held: the entry references this booking, and a
+        // seat that lost the race for 4A must not have cost the rider their balance. Capped by the
+        // fare inside the service - taking more than a fare can absorb spends them for nothing.
+        int requested = request.redeemPoints() == null ? 0 : request.redeemPoints();
+        if (requested > 0 && pass == null && published > 0) {
+            int spent = pointsService.redeemOnSeat(rider.getUser().getId(), requested, published,
+                    booking.getId());
+            booking.setRedeemedPoints(spent);
+            booking.setDiscountMinor(pointsService.valueOf(spent));
+            fare = Math.max(0, published - booking.getDiscountMinor());
+            bookingRepository.save(booking);
+        }
+
         PaymentService.ShuttleCheckout checkout = null;
         if (fare > 0) {
             var method = request.methodOrDefault();
-            Money amount = Money.of(fare, java.util.Currency.getInstance(booking.getCurrency()));
+            java.util.Currency currency = java.util.Currency.getInstance(booking.getCurrency());
+            // Gross and discount both go on the payment, not just the net: "why was I charged
+            // this" is answered by the two numbers, and the admin payments table shows both.
+            Money gross = Money.of(booking.getFareMinor(), currency);
+            Money discount = Money.of(booking.getDiscountMinor(), currency);
 
             if (method == com.ridex.payment.domain.PaymentMethod.CASH) {
                 // Nothing to authorise - the money changes hands at the door. The seat is confirmed
                 // now, and the fare is settled when the driver checks the passenger in.
                 booking.setPaymentStatus("CASH_DUE");
                 bookingRepository.save(booking);
-                paymentService.startShuttlePayment(booking.getId(), rider, amount, method);
+                paymentService.startShuttlePayment(booking.getId(), rider, gross, discount, method);
                 confirmBooking(booking);
             } else {
                 // An online seat is held, not confirmed, until the money arrives. The row is
@@ -253,7 +272,8 @@ public class ShuttleService {
                 booking.setPaymentStatus("PENDING");
                 booking.setHoldExpiresAt(Instant.now().plus(HOLD));
                 bookingRepository.save(booking);
-                checkout = paymentService.startShuttlePayment(booking.getId(), rider, amount, method);
+                checkout = paymentService.startShuttlePayment(booking.getId(), rider, gross,
+                        discount, method);
             }
         } else {
             confirmBooking(booking);
@@ -422,7 +442,9 @@ public class ShuttleService {
                 || Instant.now().isAfter(cancellableUntil(booking))) {
             return 0;
         }
-        return java.math.BigDecimal.valueOf(booking.getFareMinor())
+        // On what was actually charged: points already spent are not money, and crediting the
+        // published fare would mint value out of a discount.
+        return java.math.BigDecimal.valueOf(booking.getFareMinor() - booking.getDiscountMinor())
                 .multiply(REFUND_RATE)
                 .setScale(0, java.math.RoundingMode.DOWN)
                 .longValue();
@@ -478,15 +500,26 @@ public class ShuttleService {
             }
         }
 
+        if (booking.getDiscountMinor() > 0) {
+            payload.append("Fare|").append(money(booking.getFareMinor(), currency)).append('\n')
+                    .append("Points (").append(booking.getRedeemedPoints()).append(")|-")
+                    .append(money(booking.getDiscountMinor(), currency)).append('\n');
+        }
+
         // A pass already paid for this seat. "Total INR 0.00" reads as a billing error, so the
         // invoice says what actually happened.
         payload.append("Total|").append(booking.getPassId() != null
                 ? "Covered by your pass"
-                : "%s %s".formatted(currency,
-                        java.math.BigDecimal.valueOf(booking.getFareMinor(), 2).toPlainString()));
+                : money(booking.getFareMinor() - booking.getDiscountMinor(), currency));
 
         notifier.enqueue(DeliveryChannel.EMAIL, rider.getUser().getEmail(),
                 "SHUTTLE_INVOICE", payload.toString());
+    }
+
+    /** Minor units to a display string. The currency is on the booking, never assumed. */
+    private static String money(long amountMinor, String currency) {
+        return "%s %s".formatted(currency,
+                java.math.BigDecimal.valueOf(amountMinor, 2).toPlainString());
     }
 
     /** Materialised on first use, so an unbooked route does not fill the table with empty days. */
@@ -568,6 +601,8 @@ public class ShuttleService {
                 booking.getShuttleTrip().getDepartsAt(),
                 booking.getCurrency(),
                 booking.getFareMinor(),
+                booking.getRedeemedPoints(),
+                booking.getDiscountMinor(),
                 booking.getPassId(),
                 booking.getStatus(),
                 // From the row, not the one-shot value: a ticket reopened later still has to show

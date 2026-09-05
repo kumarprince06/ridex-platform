@@ -139,30 +139,34 @@ building from scratch, then wiring into the destination search.
 
 ---
 
-## 10. Points: two real problems
+## 10. Points
 
-Redemption itself works end to end — the rider toggles "Use N points" on the fare estimate, the
-server spends what it can (`PointsService.redeem`), records the discount on the ride, and the
-settlement subtracts it while still paying the driver commission on the gross fare.
+Redemption works on **rides and shuttle seats**. The rider toggles "Use N points", the server
+spends what the balance and the fare allow, records the discount, and settlement subtracts it while
+the driver is still paid commission on the gross fare. `PointsService.redeem` is generic on the
+subject, so a pass or a subscription is a wrapper and a reason code, not new machinery.
 
-**10a. Redeeming more points than the fare burns the difference.**
-`redeem` spends `min(requested, balance)` rounded down to whole rupees, with no reference to the
-fare. The app sends the rider's *entire* balance whenever the toggle is on. Settlement then caps
-the discount at the fare (`min(discountMinor, gross)`), so a rider with 6800 points (₹68) taking a
-₹40 ride pays nothing — and loses all 6800 points for ₹40 of value. The fare has to cap the spend
-at redemption time, not at settlement.
+Fixed on 2026-09-05: redeeming more points than the fare used to burn the difference (the app
+offers the whole balance and settlement capped the discount at the fare, so a rider with 6800
+points on a ₹40 ride lost ₹28 of credit). The spend is now capped by the fare at redemption time.
+Shuttle seats can now be paid with points, which matters because the credit for a **cancelled
+shuttle seat** is paid in points.
 
-**10b. The estimate total does not change when points are applied.**
-The toggle switches on and the Total underneath stays exactly the same, so the discount only
-becomes visible after the trip. It should re-render against the redeemable value.
+**Still open:**
 
-**10c. Shuttle seats cannot be paid for with points.**
-Which is pointed, because the credit for a *cancelled shuttle seat* is paid in points and cannot
-be spent on another shuttle seat.
+**10a. The estimate total does not change when points are applied.**
+On Fare Estimate the toggle switches on and the Total underneath stays the same, so the discount
+only becomes visible after the trip. The shuttle seat screen has the same shape - it shows "up to
+₹X off" but not the resulting price, because the seat map response carries no fare.
 
-**Where:** 10a and 10c backend, 10b app.
+**10b. Cancelling a ride does not give the points back.**
+`RideRequestService.create` says a cancellation refunds them as a new entry; nothing does. A rider
+who redeems and then cancels loses the points and the ride.
 
----
+**10c. Passes are not paid for at all.**
+`PassService.buy` writes a pass row with `pricePaidMinor` and never creates a payment or opens
+checkout. Whatever a pass costs, nobody is charged it - so points on passes is the second half of
+a feature whose first half is missing.
 
 ## 11. Ride tiers are hardcoded
 
@@ -200,8 +204,8 @@ exports `resetPassword`. The reset flow is walkable on screen and does nothing.
 
 - Rewards balance, entry history, referral code and applying a referral.
 - Rating a driver after a trip.
-- Shuttle: routes, departures, seat map, booking, Razorpay or cash, the ticket with QR and OTP,
-  cancellation with points credit, invoice mail with a PDF.
+- Shuttle: routes, departures, seat map, booking, Razorpay or cash, points redemption, the ticket
+  with QR and OTP, cancellation with points credit, invoice mail with a PDF.
 - Ride cancellation with a reason code and a fee carried onto the next fare.
 - Push registration and the device token endpoint.
 - Profile read and edit.

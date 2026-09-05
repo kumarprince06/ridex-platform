@@ -225,21 +225,41 @@ public class PointsService {
 
     /** Spends points against a ride. Returns what was actually taken, which may be less than asked. */
     @Transactional
-    public int redeem(String userId, int requestedPoints, String rideId) {
-        if (requestedPoints <= 0) {
+    public int redeem(String userId, int requestedPoints, long fareMinor, String rideId) {
+        return redeem(userId, requestedPoints, fareMinor, PointReason.REDEEMED_ON_RIDE, "RIDE",
+                rideId, "Redeemed against a ride");
+    }
+
+    /** The same, for a shuttle seat. The credit for a cancelled seat has to be spendable on one. */
+    @Transactional
+    public int redeemOnSeat(String userId, int requestedPoints, long fareMinor, String bookingId) {
+        return redeem(userId, requestedPoints, fareMinor, PointReason.REDEEMED_ON_SEAT,
+                "SHUTTLE_BOOKING", bookingId, "Redeemed against a shuttle seat");
+    }
+
+    /**
+     * Spends points against a fare.
+     *
+     * <p>Capped by the fare, and that is the part that matters: the app offers the whole balance,
+     * and settlement caps the discount at the fare anyway - so without this a rider with 6800
+     * points taking a forty rupee ride paid nothing and lost all sixty-eight rupees of credit.
+     * Never take points that cannot buy anything.
+     */
+    private int redeem(String userId, int requestedPoints, long fareMinor, PointReason reason,
+            String referenceType, String referenceId, String note) {
+        if (requestedPoints <= 0 || fareMinor <= 0) {
             return 0;
         }
 
         int balance = pointEntryRepository.balanceOf(userId);
-        // Only whole currency units are worth redeeming, and never more than the rider has.
-        int spendable = Math.min(requestedPoints, balance);
+        int spendable = Math.min(Math.min(requestedPoints, balance), pointsFor(fareMinor));
+        // Only whole currency units are worth redeeming.
         int usable = (spendable / pointsPerCurrencyUnit()) * pointsPerCurrencyUnit();
         if (usable <= 0) {
             return 0;
         }
 
-        award(userId, -usable, PointReason.REDEEMED_ON_RIDE, "RIDE", rideId,
-                "redeem:" + rideId, "Redeemed against a ride");
+        award(userId, -usable, reason, referenceType, referenceId, "redeem:" + referenceId, note);
         return usable;
     }
 

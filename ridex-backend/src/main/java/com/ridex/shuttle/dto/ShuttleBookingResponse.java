@@ -10,7 +10,11 @@ public record ShuttleBookingResponse(
         String alightingStopName,
         Instant departsAt,
         String currency,
+        /** The published fare, before points. */
         long fareMinor,
+        /** Points spent on this seat, and what they took off. */
+        int redeemedPoints,
+        long discountMinor,
         /** Set when a pass covered the seat, so nothing was charged. */
         String passId,
         String status,

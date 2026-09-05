@@ -5,6 +5,8 @@ export type PointReason =
   | 'REFERRAL_REWARD'
   | 'REFERRAL_WELCOME'
   | 'REDEEMED_ON_RIDE'
+  | 'REDEEMED_ON_SEAT'
+  | 'SHUTTLE_CANCELLED'
   | 'ADMIN_ADJUSTMENT';
 
 export type PointEntry = {
@@ -44,6 +46,8 @@ const REASON_LABELS: Record<PointReason, string> = {
   REFERRAL_REWARD: 'Friend completed a ride',
   REFERRAL_WELCOME: 'Welcome bonus',
   REDEEMED_ON_RIDE: 'Redeemed on a ride',
+  REDEEMED_ON_SEAT: 'Redeemed on a shuttle seat',
+  SHUTTLE_CANCELLED: 'Credit for a cancelled seat',
   ADMIN_ADJUSTMENT: 'Adjustment',
 };
 

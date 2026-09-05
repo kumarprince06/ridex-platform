@@ -199,11 +199,33 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
       ) : null}
 
+      {/* Only when points were actually spent: a zero discount line is noise on a receipt. */}
+      {booking.discountMinor > 0 ? (
+        <>
+          <View style={styles.fare}>
+            <Text style={styles.fareLabel}>Fare</Text>
+            <Text style={styles.fareValue}>
+              {formatMoney(booking.fareMinor, booking.currency)}
+            </Text>
+          </View>
+          <View style={styles.fareTight}>
+            <Text style={styles.fareLabel}>Points ({booking.redeemedPoints})</Text>
+            <Text style={styles.credit}>
+              -{formatMoney(booking.discountMinor, booking.currency)}
+            </Text>
+          </View>
+        </>
+      ) : null}
+
       <View style={styles.fare}>
-        <Text style={styles.fareLabel}>Fare</Text>
+        <Text style={styles.fareLabel}>
+          {booking.discountMinor > 0 ? 'Total' : 'Fare'}
+        </Text>
         <Text style={styles.fareValue}>
           {/* A pass covered it, so nothing was charged - "0.00" would read as an error. */}
-          {booking.passId ? 'Covered by your pass' : formatMoney(booking.fareMinor, booking.currency)}
+          {booking.passId
+            ? 'Covered by your pass'
+            : formatMoney(booking.fareMinor - booking.discountMinor, booking.currency)}
         </Text>
       </View>
 
@@ -417,6 +439,17 @@ const styles = StyleSheet.create({
   fareLabel: {
     ...type.body,
     color: colors.textMuted,
+  },
+  fareTight: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: spacing.lg,
+  },
+  credit: {
+    ...type.button,
+    fontSize: 16,
+    color: colors.primary,
   },
   fareValue: {
     ...type.button,

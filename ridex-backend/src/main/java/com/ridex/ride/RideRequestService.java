@@ -105,7 +105,9 @@ public class RideRequestService {
         // refunds them as a new entry rather than deleting this one.
         int requested = request.redeemPoints() == null ? 0 : request.redeemPoints();
         if (requested > 0) {
-            int spent = pointsService.redeem(riderUserId, requested, ride.getId());
+            // Capped by the fare inside: taking points a fare cannot absorb spends them for nothing.
+            int spent = pointsService.redeem(riderUserId, requested, ride.getQuotedFareMinor(),
+                    ride.getId());
             ride.setRedeemedPoints(spent);
             ride.setDiscountMinor(pointsService.valueOf(spent));
             rideRequestRepository.save(ride);

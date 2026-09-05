@@ -24,6 +24,13 @@ public class NotificationTemplates {
                     "About your RideX account",
                     "Someone tried to create a RideX account with this address, and one already exists. "
                             + "If that was you, sign in instead, or reset your password.");
+            case "SHUTTLE_BOARDED" -> new Rendered(
+                    "You are on board",
+                    "Seat " + message.getPayload() + " is checked in. Have a good trip.");
+            case "SHUTTLE_BOOKED" -> new Rendered(
+                    "Your seat is booked",
+                    "Seat " + message.getPayload()
+                            + ". Show your boarding code to the driver when you get on.");
             default -> throw new IllegalStateException("No template for " + message.getEventType());
         };
     }

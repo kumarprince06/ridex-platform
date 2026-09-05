@@ -45,4 +45,18 @@ public final class SeatMap {
     private static int clampWidth(int seatsPerRow) {
         return Math.min(Math.max(1, seatsPerRow), COLUMNS.length);
     }
+
+    /**
+     * How many seats sit before the aisle.
+     *
+     * <p>Derived rather than stored: every passenger vehicle on this platform is 2+2, 2+1, 1+1 or
+     * a single file, and the aisle position falls out of the row width. A column for it would be
+     * one more thing to get wrong for no case it actually covers.
+     *
+     * @return 0 when there is no aisle - a single-file shuttle has nothing to walk down.
+     */
+    public static int aisleAfter(int seatsPerRow) {
+        int width = clampWidth(seatsPerRow);
+        return width <= 1 ? 0 : width == 2 ? 1 : 2;
+    }
 }

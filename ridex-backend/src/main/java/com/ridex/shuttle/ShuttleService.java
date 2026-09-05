@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.rider.RiderProfileRepository;
 import com.ridex.rider.domain.RiderProfile;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
@@ -39,6 +41,7 @@ public class ShuttleService {
     private final ShuttleBookingRepository bookingRepository;
     private final RouteFareRepository routeFareRepository;
     private final PassRepository passRepository;
+    private final Notifier notifier;
     private final RiderProfileRepository riderProfileRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -93,6 +96,7 @@ public class ShuttleService {
                 trip.getDepartsAt(),
                 trip.getSeatCapacity(),
                 trip.getSeatsPerRow(),
+                SeatMap.aisleAfter(trip.getSeatsPerRow()),
                 seats,
                 trip.getSeatCapacity() - taken.size());
     }
@@ -162,6 +166,9 @@ public class ShuttleService {
             pass.setRidesUsed((short) (pass.getRidesUsed() + 1));
             passRepository.save(pass);
         }
+
+        notifier.enqueue(DeliveryChannel.PUSH, rider.getUser().getId(), "SHUTTLE_BOOKED",
+                request.seatLabel());
 
         return toResponse(booking, boarding, alighting, boardingCode);
     }

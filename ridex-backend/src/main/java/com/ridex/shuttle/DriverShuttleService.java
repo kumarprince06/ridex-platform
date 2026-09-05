@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.driver.DriverProfileRepository;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.ForbiddenException;
 import com.ridex.shared.exception.NotFoundException;
@@ -40,6 +42,7 @@ public class DriverShuttleService {
     private final DriverProfileRepository driverProfileRepository;
     private final RouteStopRepository routeStopRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Notifier notifier;
 
     @Transactional(readOnly = true)
     public List<ManifestResponse> departures(String driverUserId, LocalDate serviceDate) {
@@ -85,6 +88,13 @@ public class DriverShuttleService {
 
         booking.setBoardedAt(Instant.now());
         bookingRepository.save(booking);
+
+        // Queued inside the transaction, so the passenger is only told they are on board if the
+        // check-in actually committed.
+        notifier.enqueue(DeliveryChannel.PUSH,
+                booking.getRider().getUser().getId(),
+                "SHUTTLE_BOARDED",
+                booking.getSeatLabel());
 
         return manifest(trip);
     }

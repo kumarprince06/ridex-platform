@@ -21,16 +21,26 @@ spring:
     enabled: true
 
   # Local development points at Mailpit, which accepts any sender and delivers nothing onward, so
-  # a wrong address can never reach a real person.
+  # a wrong address can never reach a real person. Every value is an override, because reaching a
+  # real inbox is a change of relay, not a change of code.
   mail:
     host: ${RIDEX_MAIL_HOST:localhost}
     port: ${RIDEX_MAIL_PORT:1025}
+    username: ${RIDEX_MAIL_USERNAME:}
+    password: ${RIDEX_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: false
+          # Off for Mailpit, which wants neither. Every hosted relay wants both, so these two are
+          # the difference between mail that stays on this machine and mail that arrives.
+          auth: ${RIDEX_MAIL_AUTH:false}
           starttls:
-            enable: false
+            enable: ${RIDEX_MAIL_STARTTLS:false}
+          # Without this a hung relay holds the outbox thread until the socket gives up, which on
+          # some networks is minutes.
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
   # Boot defaults to 1 MB, which would reject a phone photo of a licence before DocumentStorage
   # ever sees it. Its own 8 MB check is the one that reports a readable error.

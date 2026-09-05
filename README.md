@@ -125,6 +125,26 @@ Local mail UI: `http://localhost:8025`
 | `RIDEX_APP_PASSWORD` | Postgres password for the `ridex_app` role |
 | `RIDEX_JWT_SECRET` | JWT signing key, 32+ bytes. Required always — no default, and the app refuses to boot without it |
 
+### Sending real mail
+
+Locally every message goes to Mailpit and stops there, which is the point: a typo in an address
+cannot reach a stranger. To deliver to real inboxes, point the same five variables at a relay —
+no code changes, and nothing above `EmailChannel` knows the difference.
+
+```bash
+# Brevo, 300 mails a day on the free tier
+export RIDEX_MAIL_HOST=smtp-relay.brevo.com
+export RIDEX_MAIL_PORT=587
+export RIDEX_MAIL_USERNAME=<your Brevo SMTP login>
+export RIDEX_MAIL_PASSWORD=<your Brevo SMTP key>
+export RIDEX_MAIL_AUTH=true
+export RIDEX_MAIL_STARTTLS=true
+export RIDEX_MAIL_FROM=no-reply@yourdomain.com
+```
+
+`RIDEX_MAIL_FROM` has to be an address the relay has verified. Sending as one it has not seen is
+the single most common reason a message is accepted and then silently dropped.
+
 ---
 
 ## Database

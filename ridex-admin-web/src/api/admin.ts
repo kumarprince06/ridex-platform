@@ -395,6 +395,23 @@ export function setFare(
   return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/fares`, { method: 'PUT', body: fare });
 }
 
+/**
+ * The whole fare table in one save.
+ *
+ * Replaces rather than merges: the matrix shows every leg, so what it sends is the complete
+ * answer, and a cell the operator cleared is a leg that is no longer sold.
+ */
+export function setFareMatrix(
+  routeId: string,
+  currency: string,
+  fares: { fromStopId: string; toStopId: string; fareMinor: number }[],
+) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/fares/matrix`, {
+    method: 'PUT',
+    body: { currency, fares },
+  });
+}
+
 export function removeFare(routeId: string, fareId: string) {
   return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/fares/${fareId}`, { method: 'DELETE' });
 }

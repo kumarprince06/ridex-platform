@@ -5,17 +5,16 @@ import {
   addSchedule,
   addStop,
   createRoute,
-  formatMoney,
   getRoute,
   listRoutes,
-  removeFare,
   removeLastStop,
-  setFare,
+  setFareMatrix,
   type RouteStop,
   type ShuttleRoute,
   type ShuttleRouteSummary,
 } from '../api/admin';
 import { useQuery } from '../api/useQuery';
+import { FareMatrix } from '../components/FareMatrix';
 import { FormDialog } from '../components/FormDialog';
 import { LocationPicker } from '../components/LocationPicker';
 import { RouteMap } from '../components/RouteMap';
@@ -31,7 +30,7 @@ import {
 } from '../components/ui';
 
 /** Which dialog is open. One at a time - these are all edits to the same route. */
-type Dialog = 'route' | 'stop' | 'fare' | 'schedule' | null;
+type Dialog = 'route' | 'stop' | 'schedule' | null;
 
 /**
  * Routes, stops, fares and departures on one screen.
@@ -206,16 +205,6 @@ function RouteDetail({
 }) {
   const [dialog, setDialog] = useState<Dialog>(null);
 
-  const stopName = (stopId: string) =>
-    route.stops.find((stop) => stop.id === stopId)?.name ?? 'Unknown stop';
-
-  // Every stop as a select option, labelled in travel order - picking "3. Electronic City" is
-  // unambiguous in a way that typing an id never is.
-  const stopOptions = route.stops.map((stop) => ({
-    value: stop.id,
-    label: `${stop.sequence}. ${stop.name}`,
-  }));
-
   const lastStop = route.stops[route.stops.length - 1];
 
   return (
@@ -267,42 +256,15 @@ function RouteDetail({
         />
       </Card>
 
-      <Card
-        title={`${route.code} · fares`}
-        actions={
-          <Button
-            variant="primary"
-            disabled={busy || route.stops.length < 2}
-            onClick={() => setDialog('fare')}
-          >
-            Set a fare
-          </Button>
-        }
-      >
-        <Table
-          columns={[
-            { key: 'leg', header: 'Leg', render: (row) => `${stopName(row.fromStopId)} → ${stopName(row.toStopId)}` },
-            {
-              key: 'fare',
-              header: 'Fare',
-              align: 'right',
-              render: (row) => (
-                <span className="cell-strong">{formatMoney(row.fareMinor, row.currency)}</span>
-              ),
-            },
-            {
-              key: 'action',
-              header: '',
-              align: 'right',
-              render: (row) => (
-                <Button disabled={busy} onClick={() => act(() => removeFare(route.id, row.id))}>
-                  Remove
-                </Button>
-              ),
-            },
-          ]}
-          rows={route.fares}
-          empty="No fares priced. A leg with no fare cannot be booked."
+      <Card title={`${route.code} · fares`}>
+        {/* One grid rather than a dialog per pair: nine stops are thirty-six legs, and the thing
+            an operator needs to see is which of them are still blank. */}
+        <FareMatrix
+          key={route.id}
+          stops={route.stops}
+          fares={route.fares}
+          busy={busy}
+          onSave={(legs) => act(() => setFareMatrix(route.id, 'INR', legs))}
         />
       </Card>
 
@@ -393,49 +355,6 @@ function RouteDetail({
                 latitude: Number(values.latitude),
                 longitude: Number(values.longitude),
                 offsetMinutes: Number(values.offsetMinutes),
-              }),
-            );
-          }}
-        />
-      ) : null}
-
-      {dialog === 'fare' ? (
-        <FormDialog
-          title={`Price a leg on ${route.code}`}
-          body="Fares are fixed and published. Setting the same pair again is a correction, not a second fare."
-          submitLabel="Save fare"
-          fields={[
-            {
-              name: 'fromStopId',
-              label: 'Board at',
-              options: stopOptions,
-              initial: stopOptions[0]?.value,
-            },
-            {
-              name: 'toStopId',
-              label: 'Get off at',
-              options: stopOptions,
-              initial: stopOptions[stopOptions.length - 1]?.value,
-              hint: 'Must be further along the route - the shuttle only runs one way.',
-            },
-            {
-              name: 'rupees',
-              label: 'Fare (₹)',
-              type: 'number',
-              placeholder: '90',
-              hint: 'Zero is allowed: a free leg on a corporate route is a real thing.',
-            },
-          ]}
-          onCancel={() => setDialog(null)}
-          onSubmit={(values) => {
-            setDialog(null);
-            act(() =>
-              setFare(route.id, {
-                fromStopId: values.fromStopId,
-                toStopId: values.toStopId,
-                currency: 'INR',
-                // Minor units all the way to the server. A rupee figure would be rounded twice.
-                fareMinor: Math.round(Number(values.rupees) * 100),
               }),
             );
           }}

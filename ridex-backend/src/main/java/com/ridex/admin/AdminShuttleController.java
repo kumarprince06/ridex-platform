@@ -13,6 +13,7 @@ import com.ridex.admin.dto.PageResponse;
 import com.ridex.shuttle.dto.AdminRouteResponse;
 import com.ridex.shuttle.dto.AdminRouteSummary;
 import com.ridex.shuttle.dto.AssignDepartureRequest;
+import com.ridex.shuttle.dto.FareMatrixRequest;
 import com.ridex.shuttle.dto.FareRequest;
 import com.ridex.shuttle.dto.RouteRequest;
 import com.ridex.shuttle.dto.ScheduleRequest;
@@ -82,6 +83,14 @@ public class AdminShuttleController {
     public AdminRouteResponse setFare(@PathVariable String routeId,
             @Valid @RequestBody FareRequest request) {
         return adminShuttleService.setFare(routeId, request);
+    }
+
+    /** The whole table in one save. What is sent is what the route charges afterwards. */
+    @PutMapping("/{routeId}/fares/matrix")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminRouteResponse setFares(@PathVariable String routeId,
+            @Valid @RequestBody FareMatrixRequest request) {
+        return adminShuttleService.setFares(routeId, request);
     }
 
     @DeleteMapping("/{routeId}/fares/{fareId}")

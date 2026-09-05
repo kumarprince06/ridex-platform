@@ -3,6 +3,8 @@ package com.ridex.shuttle;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ import org.springframework.data.domain.PageRequest;
 import com.ridex.shuttle.dto.AdminRouteResponse;
 import com.ridex.shuttle.dto.AdminRouteSummary;
 import com.ridex.shuttle.dto.AssignDepartureRequest;
+import com.ridex.shuttle.dto.FareMatrixRequest;
 import com.ridex.shuttle.dto.FareRequest;
 import com.ridex.shuttle.dto.RouteRequest;
 import com.ridex.shuttle.dto.ScheduleRequest;
@@ -175,6 +178,62 @@ public class AdminShuttleService {
         routeFareRepository.save(fare);
 
         return toResponse(requireRoute(routeId));
+    }
+
+    /**
+     * Saves the whole fare table at once.
+     *
+     * <p>Validated as a set before anything is written: a matrix with one backwards leg in it is
+     * rejected whole, rather than half-saved with the operator left guessing which cells landed.
+     */
+    @Transactional
+    public AdminRouteResponse setFares(String routeId, FareMatrixRequest request) {
+        requireRoute(routeId);
+
+        Map<String, RouteStop> stops = routeStopRepository
+                .findByRouteIdOrderBySequenceAsc(routeId).stream()
+                .collect(Collectors.toMap(RouteStop::getId, stop -> stop));
+
+        for (FareMatrixRequest.Leg leg : request.fares()) {
+            RouteStop from = stops.get(leg.fromStopId());
+            RouteStop to = stops.get(leg.toStopId());
+
+            if (from == null || to == null) {
+                throw new NotFoundException("That stop is not on this route.");
+            }
+            if (from.getSequence() >= to.getSequence()) {
+                throw new ValidationException("The shuttle travels from %s to %s, not the other way."
+                        .formatted(to.getName(), from.getName()));
+            }
+        }
+
+        String currency = request.currency().toUpperCase(Locale.ROOT);
+        Map<String, RouteFare> existing = routeFareRepository.findByRouteId(routeId).stream()
+                .collect(Collectors.toMap(fare -> key(fare.getFromStopId(), fare.getToStopId()),
+                        fare -> fare));
+
+        for (FareMatrixRequest.Leg leg : request.fares()) {
+            RouteFare fare = existing.remove(key(leg.fromStopId(), leg.toStopId()));
+            if (fare == null) {
+                fare = new RouteFare();
+                fare.setRouteId(routeId);
+                fare.setFromStopId(leg.fromStopId());
+                fare.setToStopId(leg.toStopId());
+            }
+            fare.setCurrency(currency);
+            fare.setFareMinor(leg.fareMinor());
+            routeFareRepository.save(fare);
+        }
+
+        // Whatever is left was on the route and is not in the submitted table: those legs are no
+        // longer sold. Bookings keep their own fare_minor, so history is not touched by this.
+        routeFareRepository.deleteAll(existing.values());
+
+        return toResponse(requireRoute(routeId));
+    }
+
+    private static String key(String fromStopId, String toStopId) {
+        return fromStopId + '>' + toStopId;
     }
 
     @Transactional

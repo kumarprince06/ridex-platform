@@ -796,3 +796,61 @@ button.stat-tile:focus-visible {
   color: var(--text-faint);
   white-space: nowrap;
 }
+
+/* --- fare matrix --- */
+.fare-matrix th,
+.fare-matrix td {
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+/* The row and column heads are the only place the stop names appear, so they get the width. */
+.fare-corner,
+.fare-row-head {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--thead-bg);
+  font-weight: 600;
+  font-size: 12px;
+  text-align: left;
+}
+.fare-row-head {
+  background: var(--surface);
+  color: var(--text);
+}
+/* A leg the shuttle does not run. Hatched rather than empty so it reads as impossible, not blank. */
+.fare-blank {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--surface-alt),
+    var(--surface-alt) 4px,
+    var(--surface) 4px,
+    var(--surface) 8px
+  );
+}
+.fare-input {
+  width: 72px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  background: var(--surface);
+  color: var(--text);
+}
+.fare-input:focus {
+  border-color: var(--primary-strong);
+  outline: 2px solid var(--primary-surface);
+}
+.fare-matrix-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--thead-bg);
+}

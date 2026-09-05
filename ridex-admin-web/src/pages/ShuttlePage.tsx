@@ -13,6 +13,7 @@ import {
   type ShuttleRoute,
 } from '../api/admin';
 import { useQuery } from '../api/useQuery';
+import { RouteMap } from '../components/RouteMap';
 import { Button, Card, EmptyState, PageHeader, Pill, Table } from '../components/ui';
 
 /**
@@ -162,6 +163,10 @@ function RouteDetail({
           </span>
         }
       >
+        {/* Above the table, not instead of it: the pin catches a coordinate typed into the wrong
+            hemisphere, the table is what you read the offsets from. */}
+        <RouteMap stops={route.stops} />
+
         <Table<RouteStop>
           columns={[
             { key: 'sequence', header: '#', width: '60px', render: (row) => row.sequence },

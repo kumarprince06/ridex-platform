@@ -101,7 +101,11 @@ export function MyRidesScreen({ navigation }: Props) {
         ) : null}
 
         {seats.map((booking) => (
-          <ShuttleCard key={booking.id} booking={booking} />
+          <ShuttleCard
+            key={booking.id}
+            booking={booking}
+            onPress={() => navigation.navigate('ShuttleBooked', { booking })}
+          />
         ))}
 
         {rides.map((ride) => (
@@ -119,14 +123,18 @@ export function MyRidesScreen({ navigation }: Props) {
 /**
  * A booked shuttle seat.
  *
- * Not a Pressable: there is no shuttle trip screen to open, and a card that does nothing when
- * tapped is worse than one that plainly does not.
+ * Opens the ticket it was booked with - same seat, stops, crew and fare. The boarding code is
+ * absent here (the server only keeps its hash), so that screen shows the QR only when it has one.
  */
-function ShuttleCard({ booking }: { booking: ShuttleBooking }) {
+function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: () => void }) {
   const cancelled = booking.status === 'CANCELLED';
 
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+    >
       <View style={styles.cardTop}>
         <View style={[styles.status, cancelled && styles.statusCancelled]}>
           <Ionicons
@@ -151,7 +159,7 @@ function ShuttleCard({ booking }: { booking: ShuttleBooking }) {
       />
 
       <Text style={styles.when}>{formatWhen(booking.departsAt)}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -214,7 +222,8 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   spinner: {
-    marginTop: spacing.xl,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   notice: {
     padding: spacing.xl,
@@ -241,6 +250,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   list: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl,
     gap: spacing.lg,

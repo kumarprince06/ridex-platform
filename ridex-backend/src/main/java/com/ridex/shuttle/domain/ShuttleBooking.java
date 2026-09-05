@@ -88,6 +88,10 @@ public class ShuttleBooking {
     private String status = "BOOKED";
 
     // Same idea as the on-demand pickup code: one secret, shown as digits and as a QR.
+    /** The digits the rider shows. Readable only by the rider it belongs to. */
+    @Column(name = "boarding_code", length = 6)
+    private String boardingCode;
+
     @Column(name = "boarding_code_hash", length = 255)
     private String boardingCodeHash;
 

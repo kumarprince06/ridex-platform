@@ -3,6 +3,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { getRide } from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { MapCanvas } from '../components/MapCanvas';
 import { PickupPass } from '../components/PickupPass';
 import { Sheet } from '../components/Sheet';
@@ -11,19 +13,18 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverArrived'>;
 
-/**
- * Stand-ins for the pickup pass. Both come from the server with the trip (T11): the QR payload is
- * a signed, single-use token, and the code is issued alongside it. Nothing about either is
- * derived on the device.
- */
-const PICKUP_CODE = '4821';
-const PICKUP_PAYLOAD = 'ridex://pickup/RX-9241?code=4821';
-
 /** Stands in for the driver scanning the pass and the server starting the trip (T11). */
 const START_MS = 9000;
 
 export function DriverArrivedScreen({ navigation, route }: Props) {
-  const { destination } = route.params;
+  const { destination, rideId } = route.params;
+
+  // The code is the server's, issued when the driver was assigned. Nothing about it is derived
+  // here - a number this app invented would match nothing the driver can check.
+  const { data: ride } = useQuery(
+    () => (rideId ? getRide(rideId) : Promise.resolve(null)),
+    [rideId],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => navigation.replace('TripInProgress', { destination }), START_MS);
@@ -46,7 +47,9 @@ export function DriverArrivedScreen({ navigation, route }: Props) {
           </View>
         </View>
 
-        <PickupPass payload={PICKUP_PAYLOAD} code={PICKUP_CODE} />
+        {/* The server's code, never one derived on the device: a driver has to be able to check
+            it, and a number this app invented would match nothing. */}
+        {ride?.pickupCode ? <PickupPass payload={ride.pickupCode} code={ride.pickupCode} /> : null}
 
         <View style={styles.vehicle}>
           <Ionicons name="car" size={22} color="#E0785A" />

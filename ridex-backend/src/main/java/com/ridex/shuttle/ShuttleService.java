@@ -214,6 +214,9 @@ public class ShuttleService {
         booking.setPassId(pass == null ? null : pass.getId());
         // One secret, shown as digits and encoded in a QR - the same rule as an on-demand pickup.
         booking.setBoardingCodeHash(passwordEncoder.encode(boardingCode));
+        // Kept, so a ticket reopened from My Rides can still show the code and its QR. The hash
+        // beside it is what the driver's scan is checked against.
+        booking.setBoardingCode(boardingCode);
 
         try {
             bookingRepository.saveAndFlush(booking);
@@ -438,7 +441,17 @@ public class ShuttleService {
         java.time.ZonedDateTime departs =
                 trip.getDepartsAt().atZone(java.time.ZoneId.of(serviceZone));
 
-        StringBuilder payload = new StringBuilder(booking.getId()).append('\n')
+        var payment = paymentService.shuttlePaymentSummary(booking.getId());
+        boolean paid = "PAID".equals(booking.getPaymentStatus());
+        String paymentStatus = booking.getPassId() != null ? "Covered by pass"
+                : paid ? "Paid"
+                : "CASH_DUE".equals(booking.getPaymentStatus()) ? "Pay on board"
+                : "Unpaid";
+
+        StringBuilder payload = new StringBuilder(booking.getId())
+                .append('|').append(paymentStatus)
+                .append('|').append(paid || booking.getPassId() != null)
+                .append('\n')
                 .append("Route|").append(trip.getSchedule().getRoute().getName()).append('\n')
                 .append("Seat|").append(booking.getSeatLabel()).append('\n')
                 .append("Get on at|").append(boarding.getName()).append('\n')
@@ -451,6 +464,18 @@ public class ShuttleService {
             payload.append("Driver|").append(crew.driverName()).append('\n')
                     .append("Vehicle|").append(crew.vehicle()).append(" (")
                     .append(crew.registrationNumber()).append(")\n");
+        }
+
+        if (payment != null) {
+            payload.append("Paid with|")
+                    .append(payment.method() == com.ridex.payment.domain.PaymentMethod.CASH
+                            ? "Cash to the driver"
+                            : payment.method() + " · " + payment.provider())
+                    .append('\n');
+            // The gateway's own id. Without it a disputed charge is an amount and a date.
+            if (payment.reference() != null) {
+                payload.append("Payment ID|").append(payment.reference()).append('\n');
+            }
         }
 
         // A pass already paid for this seat. "Total INR 0.00" reads as a billing error, so the
@@ -545,7 +570,9 @@ public class ShuttleService {
                 booking.getFareMinor(),
                 booking.getPassId(),
                 booking.getStatus(),
-                boardingCode,
+                // From the row, not the one-shot value: a ticket reopened later still has to show
+                // the code and its QR, which is the whole point of keeping the ticket.
+                booking.getBoardingCode() != null ? booking.getBoardingCode() : boardingCode,
                 shuttleCrew.of(booking.getShuttleTrip().getDriverId(),
                         booking.getShuttleTrip().getVehicleId()),
                 booking.getPaymentStatus(),

@@ -14,6 +14,7 @@ import {
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
+import { PickupPass } from '../components/PickupPass';
 import { RouteStops } from '../components/RouteStops';
 import { BrandLoader } from '../components/BrandLoader';
 import { Screen } from '../components/Screen';
@@ -73,6 +74,12 @@ export function TripDetailsScreen({ navigation, route }: Props) {
         </View>
         <Text style={styles.when}>{formatWhen(ride.requestedAt)}</Text>
       </View>
+
+      {/* The boarding pass, while it is still worth something. A code on a finished trip is not
+          a pass, so the server stops sending one and this disappears with it. */}
+      {live && ride.pickupCode ? (
+        <PickupPass payload={ride.pickupCode} code={ride.pickupCode} />
+      ) : null}
 
       <View style={styles.card}>
         <View style={styles.cardRow}>

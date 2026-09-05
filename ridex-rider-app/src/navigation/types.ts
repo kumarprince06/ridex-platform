@@ -63,8 +63,10 @@ export type RootStackParamList = {
   };
   FindingDriver: { destination: string; rideId?: string };
   DriverAssigned: { destination: string; rideId?: string };
-  DriverApproaching: { destination: string };
-  DriverArrived: { destination: string };
+  // The ride id is carried the whole way: the pickup code lives on the ride, and the screen that
+  // has to show it is the last one in this chain.
+  DriverApproaching: { destination: string; rideId?: string };
+  DriverArrived: { destination: string; rideId?: string };
   TripInProgress: { destination: string };
   RideCompleted: { destination: string; rideId?: string };
   RateDriver: { rideId?: string };

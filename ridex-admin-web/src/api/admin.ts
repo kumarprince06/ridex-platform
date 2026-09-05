@@ -1,5 +1,12 @@
 import { request } from './client';
 
+/**
+ * Ten rows, because a console table is read in one glance and the operator picks a larger page
+ * when they want one. The server clamps anything above 100 - an unbounded ?size= is a table scan.
+ */
+export const DEFAULT_PAGE_SIZE = 10;
+export const PAGE_SIZES = [10, 20, 50, 100] as const;
+
 export type Page<T> = {
   items: T[];
   page: number;
@@ -80,24 +87,26 @@ export function getDashboard() {
   return request<Dashboard>('/api/v1/admin/dashboard');
 }
 
-export function listRiders(q = '', page = 0) {
-  return request<Page<AdminRider>>(`/api/v1/admin/riders?q=${encodeURIComponent(q)}&page=${page}`);
+export function listRiders(q = '', page = 0, size = DEFAULT_PAGE_SIZE) {
+  return request<Page<AdminRider>>(
+    `/api/v1/admin/riders?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+  );
 }
 
-export function listDrivers(status?: OnboardingStatus, q = '', page = 0) {
-  const query = new URLSearchParams({ q, page: String(page) });
+export function listDrivers(status?: OnboardingStatus, q = '', page = 0, size = DEFAULT_PAGE_SIZE) {
+  const query = new URLSearchParams({ q, page: String(page), size: String(size) });
   if (status) query.set('status', status);
   return request<Page<AdminDriver>>(`/api/v1/admin/drivers?${query}`);
 }
 
-export function listTrips(status?: string, page = 0) {
-  const query = new URLSearchParams({ page: String(page) });
+export function listTrips(status?: string, page = 0, size = DEFAULT_PAGE_SIZE) {
+  const query = new URLSearchParams({ page: String(page), size: String(size) });
   if (status) query.set('status', status);
   return request<Page<AdminTrip>>(`/api/v1/admin/trips?${query}`);
 }
 
-export function listAuditLog(page = 0) {
-  return request<Page<AuditEntry>>(`/api/v1/admin/audit?page=${page}`);
+export function listAuditLog(page = 0, size = DEFAULT_PAGE_SIZE) {
+  return request<Page<AuditEntry>>(`/api/v1/admin/audit?page=${page}&size=${size}`);
 }
 
 export function driversAwaitingReview() {
@@ -180,8 +189,8 @@ export type Ticket = {
   messages: TicketMessage[];
 };
 
-export function listPayments(status?: PaymentStatus, page = 0) {
-  const query = new URLSearchParams({ page: String(page) });
+export function listPayments(status?: PaymentStatus, page = 0, size = DEFAULT_PAGE_SIZE) {
+  const query = new URLSearchParams({ page: String(page), size: String(size) });
   if (status) query.set('status', status);
   return request<Page<AdminPayment>>(`/api/v1/admin/payments?${query}`);
 }
@@ -195,8 +204,8 @@ export function updateSetting(key: string, value: string) {
   return request<Setting>(`/api/v1/admin/settings/${key}`, { method: 'PUT', body: { value } });
 }
 
-export function listTickets(status?: TicketStatus, page = 0) {
-  const query = new URLSearchParams({ page: String(page) });
+export function listTickets(status?: TicketStatus, page = 0, size = DEFAULT_PAGE_SIZE) {
+  const query = new URLSearchParams({ page: String(page), size: String(size) });
   if (status) query.set('status', status);
   return request<Page<Ticket>>(`/api/v1/admin/support/tickets?${query}`);
 }

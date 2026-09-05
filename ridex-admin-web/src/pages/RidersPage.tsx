@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { listRiders, type AdminRider } from '../api/admin';
+import { DEFAULT_PAGE_SIZE, listRiders, type AdminRider } from '../api/admin';
 import { useQuery } from '../api/useQuery';
-import { Card, humanState, PageHeader, Pill, SearchInput, Table, stateTone } from '../components/ui';
+import { Card, humanState, PageHeader, Pagination, Pill, SearchInput, Table, stateTone } from '../components/ui';
 
 /** FR-OPS-002. One search box: operations arrives with a phone number or an ID, not a page number. */
 export function RidersPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
   // Searched server-side, not filtered in the browser: the account somebody is looking for is
   // rarely on the first page, and shipping every rider to the client stops working at ten thousand.
-  const { data, loading, error } = useQuery(() => listRiders(query.trim()), [query]);
+  const { data, loading, error } = useQuery(() => listRiders(query.trim(), page, size), [query, page, size]);
   const rows = data?.items ?? [];
 
   return (
@@ -24,7 +26,15 @@ export function RidersPage() {
 
       <Card
         actions={
-          <SearchInput value={query} onChange={setQuery} placeholder="Name or email" />
+          <SearchInput
+            value={query}
+            onChange={(next) => {
+              setQuery(next);
+              // A new search starts at the top. Staying on page 4 of the old result shows nothing.
+              setPage(0);
+            }}
+            placeholder="Name or email"
+          />
         }
       >
         <Table<AdminRider>
@@ -60,6 +70,22 @@ export function RidersPage() {
                   : 'No riders yet.'
           }
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="riders"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

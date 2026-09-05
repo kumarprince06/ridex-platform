@@ -1,23 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { formatMoney, listTrips, type AdminTrip } from '../api/admin';
+import { DEFAULT_PAGE_SIZE, formatMoney, listTrips, type AdminTrip } from '../api/admin';
 import { useQuery } from '../api/useQuery';
-import { Card, humanState, PageHeader, Pill, Table, stateTone } from '../components/ui';
+import { Card, FilterTabs, humanState, PageHeader, Pagination, Pill, Table, stateTone } from '../components/ui';
 
-const FILTERS = [
-  { label: 'All' },
-  { label: 'Searching', value: 'SEARCHING' },
-  { label: 'In progress', value: 'TRIP_STARTED' },
-  { label: 'Completed', value: 'COMPLETED' },
-  { label: 'Expired', value: 'EXPIRED' },
-];
+// 'ALL' is the sentinel for "no filter": a tab strip needs every choice to be a value,
+// while the API takes an absent status rather than a magic one.
+const FILTERS = ['ALL', 'SEARCHING', 'TRIP_STARTED', 'COMPLETED', 'EXPIRED'] as const;
+type Filter = (typeof FILTERS)[number];
 
 export function TripsPage() {
   const navigate = useNavigate();
-  const [status, setStatus] = useState<string | undefined>(undefined);
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
-  const { data, loading, error } = useQuery(() => listTrips(status), [status]);
+  const status = filter === 'ALL' ? undefined : (filter as string);
+
+  const { data, loading, error } = useQuery(() => listTrips(status, page, size), [status, page, size]);
 
   return (
     <>
@@ -28,18 +29,15 @@ export function TripsPage() {
 
       <Card
         actions={
-          <span style={{ display: 'inline-flex', gap: 8 }}>
-            {FILTERS.map((filter) => (
-              <button
-                key={filter.label}
-                type="button"
-                className={status === filter.value ? 'chip chip-active' : 'chip'}
-                onClick={() => setStatus(filter.value)}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </span>
+          <FilterTabs
+            options={FILTERS}
+            value={filter}
+            onChange={(next) => {
+              setFilter(next);
+              // Narrowing the list invalidates the page number it was on.
+              setPage(0);
+            }}
+          />
         }
       >
         <Table<AdminTrip>
@@ -73,6 +71,22 @@ export function TripsPage() {
           onRowClick={(row) => navigate(`/trips/${row.rideId}`)}
           empty={error ?? (loading ? 'Loading trips...' : 'No trips yet.')}
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="trips"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

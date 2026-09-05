@@ -1,20 +1,21 @@
 import { useState } from 'react';
 
-import { formatMoney, listPayments, type AdminPayment, type PaymentStatus } from '../api/admin';
+import { DEFAULT_PAGE_SIZE, formatMoney, listPayments, type AdminPayment, type PaymentStatus } from '../api/admin';
 import { useQuery } from '../api/useQuery';
-import { Card, humanState, PageHeader, Pill, Table, stateTone } from '../components/ui';
+import { Card, FilterTabs, humanState, PageHeader, Pagination, Pill, Table, stateTone } from '../components/ui';
 
-const FILTERS: { label: string; value?: PaymentStatus }[] = [
-  { label: 'All' },
-  { label: 'Succeeded', value: 'SUCCEEDED' },
-  { label: 'Processing', value: 'PROCESSING' },
-  { label: 'Failed', value: 'FAILED' },
-  { label: 'Refunded', value: 'REFUNDED' },
-];
+// 'ALL' is the sentinel for "no filter": a tab strip needs every choice to be a value,
+// while the API takes an absent status rather than a magic one.
+const FILTERS = ['ALL', 'SUCCEEDED', 'PROCESSING', 'FAILED', 'REFUNDED'] as const;
+type Filter = (typeof FILTERS)[number];
 
 export function PaymentsPage() {
-  const [status, setStatus] = useState<PaymentStatus | undefined>(undefined);
-  const { data, loading, error } = useQuery(() => listPayments(status), [status]);
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
+
+  const status = filter === 'ALL' ? undefined : (filter as PaymentStatus);
+  const { data, loading, error } = useQuery(() => listPayments(status, page, size), [status, page, size]);
 
   return (
     <>
@@ -25,18 +26,15 @@ export function PaymentsPage() {
 
       <Card
         actions={
-          <span style={{ display: 'inline-flex', gap: 8 }}>
-            {FILTERS.map((filter) => (
-              <button
-                key={filter.label}
-                type="button"
-                className={status === filter.value ? 'chip chip-active' : 'chip'}
-                onClick={() => setStatus(filter.value)}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </span>
+          <FilterTabs
+            options={FILTERS}
+            value={filter}
+            onChange={(next) => {
+              setFilter(next);
+              // Narrowing the list invalidates the page number it was on.
+              setPage(0);
+            }}
+          />
         }
       >
         <Table<AdminPayment>
@@ -68,6 +66,22 @@ export function PaymentsPage() {
           rows={data?.items ?? []}
           empty={error ?? (loading ? 'Loading payments...' : 'No payments yet.')}
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="payments"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

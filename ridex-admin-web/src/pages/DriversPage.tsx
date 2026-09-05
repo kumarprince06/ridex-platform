@@ -1,25 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { listDrivers, type AdminDriver, type OnboardingStatus } from '../api/admin';
+import { DEFAULT_PAGE_SIZE, listDrivers, type AdminDriver, type OnboardingStatus } from '../api/admin';
 import { useQuery } from '../api/useQuery';
-import { Card, humanState, PageHeader, Pill, SearchInput, Table, stateTone } from '../components/ui';
+import { Card, FilterTabs, humanState, PageHeader, Pagination, Pill, SearchInput, Table, stateTone } from '../components/ui';
 
-const FILTERS: { label: string; value?: OnboardingStatus }[] = [
-  { label: 'All' },
-  { label: 'Awaiting review', value: 'UNDER_REVIEW' },
-  { label: 'Approved', value: 'APPROVED' },
-  { label: 'Suspended', value: 'SUSPENDED' },
-  { label: 'Rejected', value: 'REJECTED' },
-];
+// 'ALL' is the sentinel for "no filter" - a tab strip needs every choice to be a value, and the
+// API takes an absent status rather than a magic one.
+const FILTERS = ['ALL', 'UNDER_REVIEW', 'APPROVED', 'SUSPENDED', 'REJECTED'] as const;
+type Filter = (typeof FILTERS)[number];
 
 /** FR-OPS-002. Filtered and searched on the server: the driver somebody wants is rarely on page one. */
 export function DriversPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<OnboardingStatus | undefined>(undefined);
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
-  const { data, loading, error } = useQuery(() => listDrivers(status, query.trim()), [status, query]);
+  const status = filter === 'ALL' ? undefined : (filter as OnboardingStatus);
+  const { data, loading, error } = useQuery(
+    () => listDrivers(status, query.trim(), page, size),
+    [status, query, page, size],
+  );
 
   return (
     <>
@@ -30,19 +33,25 @@ export function DriversPage() {
 
       <Card
         actions={
-          <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-            {FILTERS.map((filter) => (
-              <button
-                key={filter.label}
-                type="button"
-                className={status === filter.value ? 'chip chip-active' : 'chip'}
-                onClick={() => setStatus(filter.value)}
-              >
-                {filter.label}
-              </button>
-            ))}
-            <SearchInput value={query} onChange={setQuery} placeholder="Name or email" />
-          </span>
+          <div className="card-filters">
+            <FilterTabs
+              options={FILTERS}
+              value={filter}
+              onChange={(next) => {
+                setFilter(next);
+                // Narrowing the list invalidates the page number it was on.
+                setPage(0);
+              }}
+            />
+            <SearchInput
+              value={query}
+              onChange={(next) => {
+                setQuery(next);
+                setPage(0);
+              }}
+              placeholder="Name or email"
+            />
+          </div>
         }
       >
         <Table<AdminDriver>
@@ -78,6 +87,22 @@ export function DriversPage() {
           onRowClick={(row) => navigate(`/drivers/${row.driverId}`)}
           empty={error ?? (loading ? 'Loading drivers...' : 'No drivers match.')}
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="drivers"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

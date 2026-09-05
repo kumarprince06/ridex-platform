@@ -111,6 +111,32 @@ button.stat-tile:focus-visible {
   font-size: 12px;
   color: var(--text-faint);
 }
+.stat-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-height: 18px;
+}
+.stat-delta {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+/* Arrow and sign carry the direction; the tint is a second encoding, never the only one. */
+.delta-good {
+  color: var(--success-strong, #0d8a74);
+  background: color-mix(in srgb, var(--success-strong, #0d8a74) 10%, transparent);
+}
+.delta-bad {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+.delta-flat {
+  color: var(--text-faint);
+  background: var(--surface-sunken, rgba(0, 0, 0, 0.04));
+}
 .stat-tile.tone-danger::after { background: var(--danger); }
 .stat-tile.tone-warning::after { background: var(--warning); }
 .stat-tile.tone-success::after { background: var(--success); }
@@ -338,11 +364,133 @@ button.stat-tile:focus-visible {
   font-size: 12px;
   color: var(--text-muted);
 }
-.filter-tab.active {
+.filter-tab:hover {
+  background: var(--surface-alt);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.filter-tab.active,
+.filter-tab.active:hover {
   background: var(--primary-surface);
   border-color: var(--primary-strong);
   color: var(--primary-strong);
   font-weight: 600;
+}
+
+/* --- pagination --- */
+/* Sits inside .card-body, which drops its padding when it holds a table - so the footer carries
+   its own, and the top border is what separates it from the last row. */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--thead-bg);
+}
+
+.page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.page-size-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* A native select with its own arrow: appearance:none removes the platform one, which is the
+   only part of a select that looks foreign in a designed table. */
+.page-size-select {
+  appearance: none;
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6779' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 26px 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
+}
+.page-size-select:hover {
+  border-color: var(--border-strong);
+}
+.page-size-select:focus-visible {
+  outline: 2px solid var(--primary-surface);
+  border-color: var(--primary-strong);
+}
+
+.pagination-range {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.pagination-range strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+/* Square, icon-only, sized to the same 28px as the select so the footer reads as one row. */
+.page-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background 140ms var(--ease), border-color 140ms var(--ease), color 140ms var(--ease);
+}
+.page-btn:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.page-btn:focus-visible {
+  outline: 2px solid var(--primary-surface);
+  border-color: var(--primary-strong);
+}
+/* Greyed rather than hidden: a control that vanishes on the first page moves the other one. */
+.page-btn:disabled {
+  color: var(--text-faint);
+  background: var(--surface-alt);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.page-position {
+  min-width: 54px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  padding: 0 var(--space-1);
+}
+.page-position-of {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+/* Under a narrow card the range text is the first thing to go - the two controls are what the
+   operator actually reaches for. */
+@media (max-width: 560px) {
+  .pagination-range {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
 }
 
 /* --- modal --- */
@@ -526,4 +674,14 @@ button.stat-tile:focus-visible {
   font-weight: 600;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* The filter strip and the search box share a card head that is already holding a title, so they
+   wrap together rather than pushing the header wider than the card. */
+.card-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }

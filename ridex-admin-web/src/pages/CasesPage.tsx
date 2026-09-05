@@ -1,23 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { listTickets, type Ticket, type TicketStatus } from '../api/admin';
+import { DEFAULT_PAGE_SIZE, listTickets, type Ticket, type TicketStatus } from '../api/admin';
 import { useQuery } from '../api/useQuery';
-import { Card, humanState, PageHeader, Pill, Table, stateTone } from '../components/ui';
+import { Card, FilterTabs, humanState, PageHeader, Pagination, Pill, Table, stateTone } from '../components/ui';
 
-const FILTERS: { label: string; value?: TicketStatus }[] = [
-  { label: 'All' },
-  { label: 'Open', value: 'OPEN' },
-  { label: 'In progress', value: 'IN_PROGRESS' },
-  { label: 'Awaiting reply', value: 'AWAITING_REPLY' },
-  { label: 'Resolved', value: 'RESOLVED' },
-];
+// 'ALL' is the sentinel for "no filter": a tab strip needs every choice to be a value,
+// while the API takes an absent status rather than a magic one.
+const FILTERS = ['ALL', 'OPEN', 'IN_PROGRESS', 'AWAITING_REPLY', 'RESOLVED'] as const;
+type Filter = (typeof FILTERS)[number];
 
 /** Urgent first, then oldest: a safety ticket must never wait behind a lost umbrella. */
 export function CasesPage() {
   const navigate = useNavigate();
-  const [status, setStatus] = useState<TicketStatus | undefined>(undefined);
-  const { data, loading, error } = useQuery(() => listTickets(status), [status]);
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
+
+  const status = filter === 'ALL' ? undefined : (filter as TicketStatus);
+  const { data, loading, error } = useQuery(() => listTickets(status, page, size), [status, page, size]);
 
   return (
     <>
@@ -28,18 +29,15 @@ export function CasesPage() {
 
       <Card
         actions={
-          <span style={{ display: 'inline-flex', gap: 8 }}>
-            {FILTERS.map((filter) => (
-              <button
-                key={filter.label}
-                type="button"
-                className={status === filter.value ? 'chip chip-active' : 'chip'}
-                onClick={() => setStatus(filter.value)}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </span>
+          <FilterTabs
+            options={FILTERS}
+            value={filter}
+            onChange={(next) => {
+              setFilter(next);
+              // Narrowing the list invalidates the page number it was on.
+              setPage(0);
+            }}
+          />
         }
       >
         <Table<Ticket>
@@ -77,6 +75,22 @@ export function CasesPage() {
           onRowClick={(row) => navigate(`/cases/${row.id}`)}
           empty={error ?? (loading ? 'Loading tickets...' : 'Nothing waiting.')}
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="tickets"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

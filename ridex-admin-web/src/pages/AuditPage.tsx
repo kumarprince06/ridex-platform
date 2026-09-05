@@ -1,6 +1,8 @@
-import { listAuditLog, type AuditEntry } from '../api/admin';
+import { useState } from 'react';
+
+import { DEFAULT_PAGE_SIZE, listAuditLog, type AuditEntry } from '../api/admin';
 import { useQuery } from '../api/useQuery';
-import { Card, PageHeader, Pill, Table } from '../components/ui';
+import { Card, PageHeader, Pagination, Pill, Table } from '../components/ui';
 
 /**
  * Every mutating action operations took, and why.
@@ -8,7 +10,9 @@ import { Card, PageHeader, Pill, Table } from '../components/ui';
  * Super admin only: it records what everyone else did, including them.
  */
 export function AuditPage() {
-  const { data, loading, error } = useQuery(() => listAuditLog(), []);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  const { data, loading, error } = useQuery(() => listAuditLog(page, size), [page, size]);
 
   return (
     <>
@@ -41,6 +45,22 @@ export function AuditPage() {
           rows={data?.items ?? []}
           empty={error ?? (loading ? 'Loading...' : 'Nothing recorded yet.')}
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="actions"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

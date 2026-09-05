@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -21,6 +20,7 @@ import {
   type Ride,
 } from '../api/rides';
 import { useQuery } from '../api/useQuery';
+import { BrandLoader } from '../components/BrandLoader';
 import { Chip } from '../components/Chip';
 import { RouteStops } from '../components/RouteStops';
 import { TabScreenProps } from '../navigation/types';
@@ -66,7 +66,7 @@ export function MyRidesScreen({ navigation }: Props) {
           <RefreshControl refreshing={loading && data != null} onRefresh={refetch} tintColor={colors.primary} />
         }
       >
-        {loading && data == null ? <ActivityIndicator color={colors.primary} style={styles.spinner} /> : null}
+        {loading && data == null ? <BrandLoader size={72} label="Loading your rides" style={styles.spinner} /> : null}
 
         {error ? (
           <Pressable onPress={refetch} style={styles.notice} accessibilityRole="button">

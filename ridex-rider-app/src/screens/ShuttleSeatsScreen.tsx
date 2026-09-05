@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
 import { bookSeat, seatMap, type Seat } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
+import { BrandLoader } from '../components/BrandLoader';
 import { Screen, ScreenTitle } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -55,7 +56,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
     return (
       <Screen onBack={() => navigation.goBack()} title="Pick a seat">
         {loading ? (
-          <ActivityIndicator color={colors.primary} style={styles.spinner} />
+          <BrandLoader size={72} label="Checking free seats" style={styles.spinner} />
         ) : (
           <Text style={styles.empty}>{error ?? 'That departure is not available.'}</Text>
         )}

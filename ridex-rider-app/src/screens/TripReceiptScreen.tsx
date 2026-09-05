@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { RouteStops } from '../components/RouteStops';
+import { BrandLoader } from '../components/BrandLoader';
 import { Screen } from '../components/Screen';
 import { formatMoney, formatWhen, getReceipt, getRide } from '../api/rides';
 import { useQuery } from '../api/useQuery';
@@ -26,7 +27,7 @@ export function TripReceiptScreen({ navigation, route }: Props) {
     return (
       <Screen onBack={() => navigation.goBack()} title="Trip Receipt">
         {loading ? (
-          <ActivityIndicator color={colors.primary} style={styles.spinner} />
+          <BrandLoader size={72} label="Fetching your receipt" style={styles.spinner} />
         ) : (
           <Text style={styles.empty}>{error ?? 'No receipt for this trip yet.'}</Text>
         )}

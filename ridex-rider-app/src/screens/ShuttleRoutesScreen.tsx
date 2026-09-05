@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { listRoutes, type ShuttleRoute } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
+import { BrandLoader } from '../components/BrandLoader';
 import { Screen, ScreenTitle } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -23,7 +24,7 @@ export function ShuttleRoutesScreen({ navigation }: Props) {
       />
 
       {loading && data == null ? (
-        <ActivityIndicator color={colors.primary} style={styles.spinner} />
+        <BrandLoader size={72} label="Finding routes" style={styles.spinner} />
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {!loading && routes.length === 0 ? (

@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
 import { getProfile, updateProfile } from '../api/profile';
 import { useQuery } from '../api/useQuery';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
+import { BrandLoader } from '../components/BrandLoader';
 import { Screen } from '../components/Screen';
 import { TextField } from '../components/TextField';
 import { useSession } from '../auth/session';
@@ -58,7 +59,7 @@ export function EditProfileScreen({ navigation }: Props) {
   if (loading && !profile) {
     return (
       <Screen onBack={() => navigation.goBack()} title="Edit Profile">
-        <ActivityIndicator color={colors.primary} style={styles.spinner} />
+        <BrandLoader size={72} label="Loading your details" style={styles.spinner} />
       </Screen>
     );
   }

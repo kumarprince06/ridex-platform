@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import {
   formatMoney,
@@ -14,6 +14,7 @@ import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { RouteStops } from '../components/RouteStops';
+import { BrandLoader } from '../components/BrandLoader';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -28,7 +29,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
     return (
       <Screen onBack={() => navigation.goBack()} title="Trip Details">
         {loading ? (
-          <ActivityIndicator color={colors.primary} style={styles.spinner} />
+          <BrandLoader size={72} label="Loading the trip" style={styles.spinner} />
         ) : (
           <Text style={styles.error}>{error ?? 'That trip could not be found.'}</Text>
         )}

@@ -17,6 +17,7 @@ import {
 } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 import { FormDialog } from '../components/FormDialog';
+import { LocationPicker } from '../components/LocationPicker';
 import { RouteMap } from '../components/RouteMap';
 import { SeatLayout } from '../components/SeatLayout';
 import {
@@ -351,20 +352,8 @@ function RouteDetail({
           submitLabel="Add stop"
           fields={[
             { name: 'name', label: 'Stop name', placeholder: 'Marathahalli' },
-            {
-              name: 'latitude',
-              label: 'Latitude',
-              type: 'number',
-              placeholder: '12.9591',
-              hint: 'Between -90 and 90.',
-            },
-            {
-              name: 'longitude',
-              label: 'Longitude',
-              type: 'number',
-              placeholder: '77.6974',
-              hint: 'Between -180 and 180. Check the pin on the map after saving.',
-            },
+            { name: 'latitude', label: 'Latitude', type: 'number', placeholder: '12.9591' },
+            { name: 'longitude', label: 'Longitude', type: 'number', placeholder: '77.6974' },
             {
               name: 'offsetMinutes',
               label: 'Minutes after departure',
@@ -375,6 +364,26 @@ function RouteDetail({
                 : 'The first stop is 0 - the shuttle leaves from there.',
             },
           ]}
+          extra={(values, set) => (
+            <LocationPicker
+              latitude={values.latitude}
+              longitude={values.longitude}
+              near={
+                lastStop
+                  ? [Number(lastStop.longitude), Number(lastStop.latitude)]
+                  : undefined
+              }
+              onPick={(place) =>
+                set({
+                  latitude: place.latitude.toFixed(6),
+                  longitude: place.longitude.toFixed(6),
+                  // Only from a search hit, and only into an empty box: a drag is a correction to
+                  // the pin, not a rename of a stop somebody already typed.
+                  ...(place.label && !values.name ? { name: place.label } : {}),
+                })
+              }
+            />
+          )}
           onCancel={() => setDialog(null)}
           onSubmit={(values) => {
             setDialog(null);

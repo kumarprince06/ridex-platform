@@ -36,8 +36,14 @@ export function FormDialog({
   body?: string;
   fields: Field[];
   submitLabel: string;
-  /** Rendered under the fields - a preview, a warning, anything the values imply. */
-  extra?: (values: Record<string, string>) => ReactNode;
+  /**
+   * Rendered under the fields. Gets a setter too, so a picker can write back into them - which is
+   * the whole point of a map next to a latitude box.
+   */
+  extra?: (
+    values: Record<string, string>,
+    set: (patch: Record<string, string>) => void,
+  ) => ReactNode;
   onSubmit: (values: Record<string, string>) => void;
   onCancel: () => void;
 }) {
@@ -97,7 +103,9 @@ export function FormDialog({
           </label>
         ))}
 
-        {extra ? extra(values) : null}
+        {extra
+          ? extra(values, (patch) => setValues((current) => ({ ...current, ...patch })))
+          : null}
 
         <div className="modal-actions">
           <Button type="button" onClick={onCancel}>

@@ -21,7 +21,10 @@ import com.ridex.shared.exception.ValidationException;
 
 import lombok.RequiredArgsConstructor;
 
+// Ordered ahead of the free geocoder: when a key is configured, Google's ranking and coverage are
+// what was paid for.
 @Service
+@org.springframework.core.annotation.Order(1)
 @RequiredArgsConstructor
 public class GoogleMapsProvider implements MapsProvider {
 
@@ -31,18 +34,37 @@ public class GoogleMapsProvider implements MapsProvider {
     private final GoogleMapsProperties properties;
 
     @Override
+    public boolean isConfigured() {
+        String apiKey = properties.getApiKey();
+        return apiKey != null && !apiKey.isBlank();
+    }
+
+    @Override
+    public boolean canRoute() {
+        return isConfigured();
+    }
+
+    @Override
     public GeoLocation geocode(String query) {
+        List<GeoLocation> results = search(query, 1);
+        if (results.isEmpty()) {
+            throw new NotFoundException("No place found for that search.");
+        }
+        return results.get(0);
+    }
+
+    @Override
+    public List<GeoLocation> search(String query, int limit) {
         if (query == null || query.isBlank()) {
             throw new ValidationException("Location query must not be blank");
         }
-
-        String apiKey = properties.getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
+        if (!isConfigured()) {
             throw new ProviderUnavailableException("Google Maps API key is not configured");
         }
 
         RestClient client = restClient();
-        String uri = String.format("%s?address=%s&key=%s", GEOCODE_PATH, encode(query), apiKey);
+        String uri = String.format("%s?address=%s&key=%s",
+                GEOCODE_PATH, encode(query), properties.getApiKey());
 
         try {
             GoogleGeocodeResponse response = client.get()
@@ -51,15 +73,19 @@ public class GoogleMapsProvider implements MapsProvider {
                     .retrieve()
                     .body(GoogleGeocodeResponse.class);
 
-            if (response == null || response.results() == null || response.results().isEmpty()) {
-                throw new NotFoundException("No place found for that search.");
+            if (response == null || response.results() == null) {
+                return List.of();
             }
 
-            GoogleGeocodeResult result = response.results().get(0);
-            return new GeoLocation(
-                    result.geometry().location().lat(),
-                    result.geometry().location().lng(),
-                    result.formattedAddress());
+            // Google ranks its own results, so taking the first N is taking its ranking rather
+            // than imposing one.
+            return response.results().stream()
+                    .limit(Math.max(1, limit))
+                    .map(result -> new GeoLocation(
+                            result.geometry().location().lat(),
+                            result.geometry().location().lng(),
+                            result.formattedAddress()))
+                    .toList();
         } catch (RestClientException ex) {
             throw new ProviderUnavailableException("Google Maps geocoding request failed", ex);
         }

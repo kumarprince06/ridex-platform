@@ -431,3 +431,24 @@ export function updateSchedule(
     body: schedule,
   });
 }
+
+/* ------------------------------------------------------------------ places */
+
+export type Place = {
+  latitude: number;
+  longitude: number;
+  formattedAddress: string;
+};
+
+/**
+ * Place search, proxied through the backend.
+ *
+ * Not called from the browser directly: the free geocoder's usage policy needs an identifying
+ * User-Agent, which a page cannot set, and the proxy is also what lets a Google key be swapped in
+ * without touching this file.
+ */
+export function searchPlaces(query: string, limit = 6) {
+  return request<Place[]>(
+    `/api/v1/maps/search?query=${encodeURIComponent(query)}&limit=${limit}`,
+  );
+}

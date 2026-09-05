@@ -21,15 +21,25 @@ import lombok.RequiredArgsConstructor;
 public class NotificationTemplates {
 
     private final EmailLayout layout;
+    private final InvoicePdf invoicePdf;
 
     /**
      * @param html null for channels that cannot render it. SMS and push take the text.
      */
-    public record Rendered(String subject, String body, String html) {
+    public record Rendered(String subject, String body, String html, Attachment attachment) {
+
+        /** Most messages carry nothing but words. */
+        public Rendered(String subject, String body, String html) {
+            this(subject, body, html, null);
+        }
 
         public static Rendered text(String subject, String body) {
             return new Rendered(subject, body, null);
         }
+    }
+
+    /** A file hung off a message - an invoice somebody can keep, rather than a page they must revisit. */
+    public record Attachment(String filename, byte[] bytes, String contentType) {
     }
 
     /** "Hi Priya, " when there is a name, and "Your " when there is not. */
@@ -116,6 +126,50 @@ public class NotificationTemplates {
                                     + layout.paragraph("Your shuttle seat is confirmed. Open the app to see "
                                             + "your boarding code and show it to the driver when you get on.")
                                     + layout.note("The code is in the app only - it is never sent by email.")));
+
+            // Payload: the reference on the first line, then "label|value" rows, the last of
+            // which is the total. The same rows render as HTML, as text, and into the PDF, so a
+            // fare can never disagree with itself across three copies of the same message.
+            case "SHUTTLE_INVOICE" -> {
+                List<String> rows = List.of(payload.split("\n"));
+                // First line is "<reference>|<payment status>|<paid?>": whether the money has
+                // actually been taken is the question a filed receipt exists to answer, so it
+                // goes on the invoice's face rather than being inferred from the total.
+                String[] head = rows.get(0).split("\\|", 3);
+                String reference = head[0];
+                String paymentStatus = head.length > 1 ? head[1] : "";
+                boolean paid = head.length > 2 && Boolean.parseBoolean(head[2]);
+                List<String> lines = rows.subList(1, rows.size());
+                String total = lines.get(lines.size() - 1).split("\\|", 2)[1];
+
+                yield new Rendered(
+                        "Your RideX shuttle invoice - " + total,
+                        "Thanks for booking with RideX.\n\nInvoice " + reference + "\n\n"
+                                + lines.stream().map(row -> row.replace('|', ' '))
+                                        .collect(java.util.stream.Collectors.joining("\n"))
+                                + "\n\nThe same invoice is attached as a PDF.",
+                        layout.wrap("Your RideX shuttle invoice",
+                                "Your seat came to " + total + ".",
+                                layout.heading("Your shuttle invoice")
+                                        + layout.paragraph("Here is what your seat came to, line by line. "
+                                                + "The same invoice is attached as a PDF you can keep.")
+                                        + layout.lines(lines)
+                                        + layout.note("Invoice " + reference)),
+                        new Attachment(
+                                "ridex-invoice-" + reference + ".pdf",
+                                invoicePdf.render(
+                                        "Invoice",
+                                        reference,
+                                        java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy")
+                                                .withZone(java.time.ZoneId.systemDefault())
+                                                .format(java.time.Instant.now()),
+                                        message.getRecipient(),
+                                        paymentStatus,
+                                        paid,
+                                        lines.stream().map(row -> row.split("\\|", 2)).toList(),
+                                        "Thank you for travelling with RideX."),
+                                "application/pdf"));
+            }
 
             case "SHUTTLE_BOARDED" -> new Rendered(
                     "You are on board",

@@ -16,7 +16,13 @@ import com.ridex.ride.domain.RideStatus;
 
 public interface RideRequestRepository extends JpaRepository<RideRequest, String> {
 
-    List<RideRequest> findByRiderIdOrderByRequestedAtDesc(String riderId);
+    /**
+     * The rider's own history, minus the searches that never found a driver.
+     *
+     * <p>Filtered in the query rather than after loading: a rider in a quiet area can accumulate
+     * plenty of these, and they would all be fetched only to be dropped.
+     */
+    List<RideRequest> findByRiderIdAndStatusNotOrderByRequestedAtDesc(String riderId, RideStatus status);
 
     // Scoped by rider as well as id: an ownership check nobody can forget to write.
     Optional<RideRequest> findByIdAndRiderId(String id, String riderId);

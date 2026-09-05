@@ -8,7 +8,7 @@ import type { ShuttleBooking } from '../api/shuttle';
 export type TabParamList = {
   Home: undefined;
   MyRides: undefined;
-  Wallet: undefined;
+  Rewards: undefined;
   Profile: undefined;
 };
 
@@ -36,14 +36,37 @@ export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<TabParamList>;
 
   // Booking flow, in the order a rider walks it.
-  SearchDestination: undefined;
-  RoutePreview: { destination: string; destinationCoord?: [number, number] };
-  ChooseRide: { destination: string; destinationCoord?: [number, number] };
-  FareEstimate: { destination: string; tierId: string; estimateId?: string };
+  /** `picked` is how PickOnMap hands a pinned point back to whichever field asked for it. */
+  SearchDestination: {
+    picked?: { field: 'pickup' | 'destination'; name: string; coord: [number, number] };
+  } | undefined;
+  PickOnMap: { mode: 'pickup' | 'destination'; initial?: [number, number] };
+  RoutePreview: {
+    destination: string;
+    destinationCoord?: [number, number];
+    /** Omitted means "wherever the phone is", which is still the common case. */
+    pickup?: { name: string; coord: [number, number] };
+  };
+  ChooseRide: {
+    destination: string;
+    destinationCoord?: [number, number];
+    pickup?: { name: string; coord: [number, number] };
+  };
+  FareEstimate: {
+    destination: string;
+    tierId: string;
+    estimateId?: string;
+    // Carried through so the quote can be re-priced against the route the rider actually chose.
+    pickupCoord?: [number, number];
+    pickupName?: string;
+    destinationCoord?: [number, number];
+  };
   FindingDriver: { destination: string; rideId?: string };
   DriverAssigned: { destination: string; rideId?: string };
-  DriverApproaching: { destination: string };
-  DriverArrived: { destination: string };
+  // The ride id is carried the whole way: the pickup code lives on the ride, and the screen that
+  // has to show it is the last one in this chain.
+  DriverApproaching: { destination: string; rideId?: string };
+  DriverArrived: { destination: string; rideId?: string };
   TripInProgress: { destination: string };
   RideCompleted: { destination: string; rideId?: string };
   RateDriver: { rideId?: string };

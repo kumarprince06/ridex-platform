@@ -63,7 +63,7 @@ class DispatchSweepTest {
     @BeforeEach
     void setUp() {
         when(mapsProvider.route(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                .thenReturn(new RouteEstimate(8200, 1080, "8.2 km", "18 mins"));
+                .thenReturn(new RouteEstimate(8200, 1080, "8.2 km", "18 mins", null));
         riderUserId = newRider();
     }
 

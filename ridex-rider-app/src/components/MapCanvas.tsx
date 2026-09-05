@@ -19,9 +19,9 @@ type Props = {
   driverAt?: number;
   driverLabel?: string;
   showUserDot?: boolean;
-  pickupLabel?: string;
-  destinationLabel?: string;
-  /** A real searched place, when the rider picked one. Overrides the mock dropoff offset. */
+  /** The trip's real ends, when the caller knows them. A past trip did not start where the
+   *  rider is standing now, so the device position is the wrong pickup for it. */
+  pickupCoord?: [number, number];
   destinationCoord?: [number, number];
   style?: ViewStyle;
 };
@@ -38,32 +38,30 @@ type Props = {
 // (near-greyscale) and 'liberty' if the colour ever needs toning down - one URL, no other change.
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
 
-/**
- * Mock trip geometry, offset from wherever the device actually is rather than pinned to a fixed
- * city: a map that opens on Bengaluru while the driver stands in another country reads as broken.
- * Real pickup and dropoff coordinates arrive with the offer (T10).
- */
-const DESTINATION_OFFSET: [number, number] = [-0.006, 0.011];
-
 export function MapCanvas({
   showRoute = false,
   driverAt,
   driverLabel,
   showUserDot = false,
-  pickupLabel = 'Pickup',
-  destinationLabel = 'Destination',
+  pickupCoord,
   destinationCoord,
   style,
 }: Props) {
   const { coord } = useCurrentLocation();
   const here = coord ?? FALLBACK_CENTER;
 
-  // The rider's pickup is where the rider is, not an offset from it.
-  const PICKUP: [number, number] = here;
-  const DESTINATION: [number, number] = destinationCoord ?? [
-    here[0] + DESTINATION_OFFSET[0],
-    here[1] + DESTINATION_OFFSET[1],
-  ];
+  // The rider's pickup is where the rider is, unless the caller knows the real one.
+  const PICKUP: [number, number] | null = pickupCoord ?? coord;
+  const DESTINATION: [number, number] | null = destinationCoord ?? null;
+
+  /**
+   * A route is drawn only when both of its ends are real.
+   *
+   * The offset destination this used to invent drew a confident line to a place nobody was going,
+   * and a denied location fix drew it across a city the rider is not in. An empty map says "not
+   * known yet", which is true; a wrong line says something false.
+   */
+  const hasRoute = showRoute && PICKUP !== null && DESTINATION !== null;
 
   // Road geometry when the router answers, the straight line between the pins until then. The
   // map must draw something the moment it mounts - a blank map while a request is in flight looks
@@ -71,22 +69,23 @@ export function MapCanvas({
   const [road, setRoad] = useState<LngLat[] | null>(null);
 
   useEffect(() => {
-    if (!showRoute) {
+    if (!hasRoute) {
+      setRoad(null);
       return;
     }
 
     const controller = new AbortController();
-    fetchRoute(PICKUP, DESTINATION, controller.signal)
+    fetchRoute(PICKUP!, DESTINATION!, controller.signal)
       .then((route) => setRoad(route?.coordinates ?? null))
       .catch(() => setRoad(null));
 
     return () => controller.abort();
-  }, [showRoute, PICKUP[0], PICKUP[1], DESTINATION[0], DESTINATION[1]]);
+  }, [hasRoute, PICKUP?.[0], PICKUP?.[1], DESTINATION?.[0], DESTINATION?.[1]]);
 
-  const line = road ?? [PICKUP, DESTINATION];
+  const line = hasRoute ? (road ?? [PICKUP!, DESTINATION!]) : [];
 
   const driver: [number, number] | undefined =
-    driverAt === undefined
+    driverAt === undefined || line.length === 0
       ? undefined
       : line[Math.min(line.length - 1, Math.max(0, Math.round((line.length - 1) * driverAt)))];
 
@@ -106,14 +105,14 @@ export function MapCanvas({
         <Camera
           // key, so the camera re-mounts and recentres once the device position arrives instead
           // of staying on the fallback centre it opened with.
-          key={coord ? 'located' : 'fallback'}
+          key={pickupCoord ? 'trip' : coord ? 'located' : 'fallback'}
           initialViewState={{
-            center: showRoute ? midpoint(PICKUP, DESTINATION) : here,
-            zoom: showRoute ? 12.5 : 14.5,
+            center: hasRoute ? midpoint(PICKUP!, DESTINATION!) : here,
+            zoom: hasRoute ? 12.5 : 14.5,
           }}
         />
 
-        {showRoute ? (
+        {hasRoute ? (
           <GeoJSONSource
             id="route"
             data={{
@@ -144,15 +143,15 @@ export function MapCanvas({
           )
         ) : null}
 
-        {showRoute ? (
+        {hasRoute ? (
           <>
-            <ViewAnnotation lngLat={PICKUP}>
+            <ViewAnnotation lngLat={PICKUP!}>
               <View style={styles.pickupMarker}>
                 <View style={styles.pickupCore} />
               </View>
             </ViewAnnotation>
 
-            <ViewAnnotation lngLat={DESTINATION}>
+            <ViewAnnotation lngLat={DESTINATION!}>
               <View style={styles.destMarker}>
                 <Ionicons name="location" size={14} color="#2B1A05" />
               </View>
@@ -169,13 +168,6 @@ export function MapCanvas({
         ) : null}
       </Map>
 
-      {showRoute ? (
-        <View style={styles.labels} pointerEvents="none">
-          <Label icon="ellipse" text={pickupLabel} tint={colors.primary} />
-          <Label icon="location" text={destinationLabel} tint={colors.amber} />
-        </View>
-      ) : null}
-
       {driverLabel ? (
         <View style={styles.driverPill} pointerEvents="none">
           <Text style={styles.driverPillLabel}>{driverLabel}</Text>
@@ -188,17 +180,6 @@ export function MapCanvas({
 /** Keeps both ends of the route on screen without asking MapLibre to fit bounds. */
 function midpoint(a: [number, number], b: [number, number]): [number, number] {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-}
-
-function Label({ icon, text, tint }: { icon: 'ellipse' | 'location'; text: string; tint: string }) {
-  return (
-    <View style={styles.label}>
-      <Ionicons name={icon} size={11} color={tint} />
-      <Text style={styles.labelText} numberOfLines={1}>
-        {text}
-      </Text>
-    </View>
-  );
 }
 
 const styles = StyleSheet.create({
@@ -247,28 +228,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: colors.bg,
-  },
-  labels: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    top: spacing.xxl + spacing.lg,
-    gap: spacing.sm,
-  },
-  label: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    maxWidth: '80%',
-    backgroundColor: colors.overlay,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-  },
-  labelText: {
-    ...type.caption,
-    color: colors.text,
   },
   driverPill: {
     position: 'absolute',

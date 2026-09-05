@@ -87,7 +87,8 @@ function RouteCard({ route, onPress }: { route: ShuttleRoute; onPress: () => voi
 
 const styles = StyleSheet.create({
   spinner: {
-    marginTop: spacing.xl,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   error: {
     ...type.body,

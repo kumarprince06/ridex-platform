@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { routeEstimate, trafficOf, useCurrentAddress } from '../api/maps';
+import { useQuery } from '../api/useQuery';
+import { useCurrentLocation } from '../lib/location';
 
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
@@ -13,11 +17,24 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'RoutePreview'>;
 
 export function RoutePreviewScreen({ navigation, route }: Props) {
-  const { destination, destinationCoord } = route.params;
+  const { destination, destinationCoord, pickup } = route.params;
+  const { coord } = useCurrentLocation();
+  const here = useCurrentAddress();
+  // A chosen pickup wins over the device: the rider said where they are, and the phone guessed.
+  const from = pickup?.coord ?? coord;
+
+  // Asked of the backend, not measured on the device: this is the number the fare is built from.
+  const { data: leg, loading } = useQuery(
+    () =>
+      from && destinationCoord
+        ? routeEstimate(from, destinationCoord)
+        : Promise.resolve(null),
+    [from?.[0], from?.[1], destinationCoord?.[0], destinationCoord?.[1]],
+  );
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute destinationCoord={destinationCoord} destinationLabel={destination} />
+      <MapCanvas showRoute pickupCoord={pickup?.coord} destinationCoord={destinationCoord} />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <View style={styles.headerRow}>
@@ -33,7 +50,9 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
           <View style={styles.stops}>
             <View style={styles.stopRow}>
               <View style={styles.dotMint} />
-              <Text style={styles.stopText}>Midtown, New York</Text>
+              <Text style={styles.stopText} numberOfLines={1}>
+                {pickup?.name ?? here ?? 'Current location'}
+              </Text>
             </View>
             <View style={styles.stopRow}>
               <View style={styles.dotAmber} />
@@ -44,17 +63,42 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
       </SafeAreaView>
 
       <Sheet>
-        <StatTiles
-          stats={[
-            { value: '2.4 km', label: 'Distance' },
-            { value: '~8 min', label: 'ETA' },
-            { value: 'Light', label: 'Traffic', tone: '#5FD68A' },
-          ]}
-        />
+        {/* The traffic tile appears only when the router actually reported traffic - the free
+            routers model an empty road, and a "Light" that is always Light says nothing. */}
+        {loading && !leg ? (
+          <ActivityIndicator color={colors.primary} style={styles.stats} />
+        ) : (
+          <StatTiles
+            stats={[
+              {
+                value: leg ? `${(leg.distanceMeters / 1000).toFixed(1)} km` : '—',
+                label: 'Distance',
+              },
+              {
+                // The traffic-aware time when there is one: that is the minute the rider arrives.
+                value: leg
+                  ? `${Math.max(1, Math.round((leg.durationInTrafficSeconds ?? leg.durationSeconds) / 60))} min`
+                  : '—',
+                label: 'ETA',
+              },
+              ...(leg && trafficOf(leg)
+                ? [
+                    {
+                      value: trafficOf(leg)!.label,
+                      label: 'Traffic',
+                      tone: trafficOf(leg)!.tone,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        )}
 
         <Button
           label="Choose Ride Type"
-          onPress={() => navigation.navigate('ChooseRide', { destination })}
+          onPress={() =>
+            navigation.navigate('ChooseRide', { destination, destinationCoord, pickup })
+          }
           style={styles.action}
         />
       </Sheet>
@@ -66,6 +110,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  stats: {
+    paddingVertical: spacing.xl,
   },
   header: {
     paddingHorizontal: spacing.lg,

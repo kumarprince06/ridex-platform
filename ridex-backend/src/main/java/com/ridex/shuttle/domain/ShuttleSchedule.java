@@ -45,6 +45,16 @@ public class ShuttleSchedule {
     @Column(name = "seats_per_row", nullable = false)
     private short seatsPerRow = SeatMap.DEFAULT_SEATS_PER_ROW;
 
+    /**
+     * The crew that normally runs this departure, copied onto every trip materialised from it.
+     * A per-date swap is set on the trip instead.
+     */
+    @Column(name = "driver_id", length = 26)
+    private String driverId;
+
+    @Column(name = "vehicle_id", length = 26)
+    private String vehicleId;
+
     @Column(name = "active", nullable = false)
     private boolean active = true;
 

@@ -53,15 +53,61 @@ public class GoogleMapsProvider implements MapsProvider {
 
     @Override
     public GeoLocation geocode(String query) {
-        List<GeoLocation> results = search(query, 1);
+        List<GeoLocation> results = geocodeAll(query, 1);
         if (results.isEmpty()) {
             throw new NotFoundException("No place found for that search.");
         }
         return results.get(0);
     }
 
+    /**
+     * Google does not answer place search here, so the free geocoder does.
+     *
+     * <p>Geocoding resolves one address to one point - ask it for "Big Bazaar" and it returns
+     * nothing, because that is a shop name and not an address. A "where to?" box needs the Places
+     * API, which is a separate product this project has not enabled, and which bills per keystroke
+     * rather than per trip.
+     *
+     * <p>Unavailable rather than empty, so the caller falls through instead of showing a rider an
+     * empty list. Enable Places and this method is where it goes.
+     */
     @Override
     public List<GeoLocation> search(String query, int limit) {
+        throw new ProviderUnavailableException("Google is used for geocoding and routing, not place search.");
+    }
+
+    @Override
+    public GeoLocation reverse(double latitude, double longitude) {
+        if (!isConfigured()) {
+            throw new ProviderUnavailableException("Google Maps API key is not configured");
+        }
+        requireBudget();
+
+        String uri = String.format("%s?latlng=%s,%s&key=%s",
+                GEOCODE_PATH, latitude, longitude, properties.getApiKey());
+
+        try {
+            GoogleGeocodeResponse response = restClient().get()
+                    .uri(uri)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(GoogleGeocodeResponse.class);
+
+            requireUsable(response == null ? null : response.status());
+            if (response == null || response.results() == null || response.results().isEmpty()) {
+                throw new NotFoundException("No address at that point.");
+            }
+
+            // Google orders reverse results most specific first, so the first is the street
+            // address rather than the city that contains it.
+            GoogleGeocodeResult best = response.results().get(0);
+            return new GeoLocation(latitude, longitude, best.formattedAddress());
+        } catch (RestClientException ex) {
+            throw new ProviderUnavailableException("Google Maps reverse geocoding failed", ex);
+        }
+    }
+
+    private List<GeoLocation> geocodeAll(String query, int limit) {
         if (query == null || query.isBlank()) {
             throw new ValidationException("Location query must not be blank");
         }
@@ -109,8 +155,10 @@ public class GoogleMapsProvider implements MapsProvider {
         requireBudget();
 
         RestClient client = restClient();
+        // departure_time=now is what makes Google return duration_in_traffic. Without it the
+        // answer is a free-flow road, which is the same number at 4am and at 6pm.
         String uri = String.format(
-                "%s?origins=%s,%s&destinations=%s,%s&key=%s",
+                "%s?origins=%s,%s&destinations=%s,%s&departure_time=now&key=%s",
                 DISTANCE_MATRIX_PATH,
                 pickupLat,
                 pickupLng,
@@ -140,7 +188,8 @@ public class GoogleMapsProvider implements MapsProvider {
                     element.distance().value(),
                     element.duration().value(),
                     element.distance().text(),
-                    element.duration().text());
+                    element.duration().text(),
+                    element.durationInTraffic() == null ? null : element.durationInTraffic().value());
         } catch (RestClientException ex) {
             throw new ProviderUnavailableException("Google Maps route request failed", ex);
         }
@@ -217,7 +266,11 @@ public class GoogleMapsProvider implements MapsProvider {
 
     private record GoogleDistanceRow(List<GoogleDistanceElement> elements) {}
 
-    private record GoogleDistanceElement(GoogleDistance distance, GoogleDuration duration) {}
+    private record GoogleDistanceElement(
+            GoogleDistance distance,
+            GoogleDuration duration,
+            @com.fasterxml.jackson.annotation.JsonProperty("duration_in_traffic")
+            GoogleDuration durationInTraffic) {}
 
     private record GoogleDistance(String text, double value) {}
 

@@ -153,6 +153,13 @@
 			<version>0.12.6</version>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- The invoice attached to a booking mail. A receipt somebody can file needs to be a
+		     file; building PDF bytes by hand is xref-offset arithmetic nobody should maintain. -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>3.0.3</version>
+		</dependency>
 	</dependencies>
 
 	<build>

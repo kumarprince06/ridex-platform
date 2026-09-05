@@ -34,6 +34,8 @@ public class PaymentWebhookService {
     private final PaymentEventRepository paymentEventRepository;
     private final PaymentRepository paymentRepository;
     private final ObjectMapper objectMapper;
+    private final com.ridex.shuttle.ShuttleService shuttleService;
+    private final com.ridex.shuttle.ShuttleBookingRepository shuttleBookingRepository;
 
     /**
      * Records one verified webhook and applies it.
@@ -110,6 +112,14 @@ public class PaymentWebhookService {
             payment.setFailureReason(errorIn(root));
         }
         paymentRepository.save(payment);
+
+        // The rider who pays and closes the app never makes the confirmation call, so this is the
+        // only thing that confirms their seat. Idempotent on the booking, because the same capture
+        // arrives here and from the app.
+        if (next == PaymentStatus.SUCCEEDED && payment.getShuttleBookingId() != null) {
+            shuttleBookingRepository.findById(payment.getShuttleBookingId())
+                    .ifPresent(shuttleService::confirmBooking);
+        }
         log.info("Payment {} is now {} after {}", payment.getId(), next, type);
     }
 

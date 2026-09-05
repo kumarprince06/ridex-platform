@@ -77,10 +77,22 @@ export function Screen({ children, onBack, title, headerRight, footer, scroll = 
   );
 }
 
-export function ScreenTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+/**
+ * @param small for screens whose title is a long name rather than a short heading - a route name
+ *        at full size wraps to two lines on a small phone and pushes the content off it.
+ */
+export function ScreenTitle({
+  title,
+  subtitle,
+  small = false,
+}: {
+  title: string;
+  subtitle?: string;
+  small?: boolean;
+}) {
   return (
-    <View style={styles.titleBlock}>
-      <Text style={styles.title}>{title}</Text>
+    <View style={[styles.titleBlock, small && styles.titleBlockSmall]}>
+      <Text style={[styles.title, small && styles.titleSmall]}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );
@@ -95,6 +107,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   body: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
   },
   scrollContent: {
@@ -136,6 +149,12 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     marginBottom: spacing.xxl,
+  },
+  titleBlockSmall: {
+    marginBottom: spacing.lg,
+  },
+  titleSmall: {
+    fontSize: 22,
   },
   title: {
     ...type.title,

@@ -25,7 +25,11 @@ export function PickupPass({ payload, code }: Props) {
       </View>
 
       <Text style={styles.codeLabel}>or read out this code</Text>
-      <Text style={styles.code}>{code.split('').join(' ')}</Text>
+      {/* Spaced by letterSpacing, not by inserted spaces: a six-digit code built out of "6 1 8"
+          wrapped onto a second line and stopped reading as one number. */}
+      <Text style={styles.code} numberOfLines={1} adjustsFontSizeToFit>
+        {code}
+      </Text>
     </View>
   );
 }

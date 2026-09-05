@@ -82,12 +82,11 @@ export function ProfileScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('SavedPlaces')}
         />
         <Row
-          icon="card"
-          title="Payment Methods"
-          subtitle="Cards, wallet, UPI"
+          icon="sparkles"
+          title="Rewards & Referrals"
+          subtitle="Points, invite code"
           tone="#E0B252"
-          badge="Default"
-          onPress={() => navigation.navigate('Wallet')}
+          onPress={() => navigation.navigate('Rewards')}
         />
 
         <SectionLabel>PREFERENCES</SectionLabel>

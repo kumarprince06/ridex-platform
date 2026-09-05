@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError } from './problem';
 
@@ -15,12 +15,24 @@ export function useQuery<T>(fetcher: () => Promise<T>, deps: unknown[] = []): St
 } {
   const [state, setState] = useState<State<T>>({ data: null, loading: true, error: null });
   const [nonce, setNonce] = useState(0);
+  const asked = useRef<string | null>(null);
 
   const refetch = useCallback(() => setNonce((value) => value + 1), []);
 
   useEffect(() => {
     let cancelled = false;
-    setState((previous) => ({ ...previous, loading: true, error: null }));
+    // A different question gets a blank answer, not the last one's. Keeping it meant a seat map
+    // for Monday stayed on screen while Tuesday's loaded - and a rider could tap a seat that was
+    // only taken on the day they had already left.
+    const question = JSON.stringify(deps);
+    const changed = asked.current !== null && asked.current !== question;
+    asked.current = question;
+
+    setState((previous) => ({
+      data: changed ? null : previous.data,
+      loading: true,
+      error: null,
+    }));
 
     fetcher()
       .then((data) => {

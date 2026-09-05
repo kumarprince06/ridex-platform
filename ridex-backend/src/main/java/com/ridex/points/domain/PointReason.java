@@ -9,5 +9,8 @@ public enum PointReason {
     REFERRAL_REWARD,
     REFERRAL_WELCOME,
     REDEEMED_ON_RIDE,
+    // A cancelled shuttle seat comes back as points rather than money: the fare has already
+    // cleared the gateway, and points keep the rider on the platform instead of off it.
+    SHUTTLE_CANCELLED,
     ADMIN_ADJUSTMENT
 }

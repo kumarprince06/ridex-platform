@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
-import { bookSeat, seatMap, type Seat } from '../api/shuttle';
+import { payForSeat } from '../api/shuttleCheckout';
+import { bookSeat, seatMap, type Seat, type ShuttlePaymentMethod } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { BrandLoader } from '../components/BrandLoader';
@@ -24,6 +25,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
   );
 
   const [chosen, setChosen] = useState<string | null>(null);
+  const [method, setMethod] = useState<ShuttlePaymentMethod>('UPI');
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
 
@@ -40,8 +42,13 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         boardingStopId,
         alightingStopId,
         seatLabel: chosen,
+        paymentMethod: method,
       });
-      navigation.replace('ShuttleBooked', { booking: result });
+
+      // Checkout runs here rather than on the ticket: the seat is only held for ten minutes, and
+      // a rider who lands on a ticket screen and wanders off loses it.
+      const paid = result.checkout ? await payForSeat(result) : result;
+      navigation.replace('ShuttleBooked', { booking: paid });
     } catch (caught) {
       setBookError(caught instanceof ApiError ? caught.userMessage : 'Could not book that seat.');
       // Somebody else may have taken it in the meantime, so the map is refetched rather than left
@@ -82,7 +89,13 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
           {bookError ? <Text style={styles.error}>{bookError}</Text> : null}
           <Button
             label={
-              booking ? 'Booking…' : chosen ? `Book seat ${chosen}` : 'Choose a seat'
+              booking
+                ? 'Booking…'
+                : !chosen
+                  ? 'Choose a seat'
+                  : method === 'CASH'
+                    ? `Book seat ${chosen}`
+                    : `Pay & book seat ${chosen}`
             }
             disabled={!chosen || booking}
             onPress={confirm}
@@ -132,7 +145,56 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         <Legend style={styles.seatChosen} label="Yours" />
         <Legend style={styles.seatTaken} label="Taken" />
       </View>
+
+      <Text style={styles.payLabel}>PAY WITH</Text>
+      <View style={styles.methods}>
+        <MethodButton
+          icon="phone-portrait-outline"
+          label="Online"
+          note="Pay now"
+          selected={method === 'UPI'}
+          onPress={() => setMethod('UPI')}
+        />
+        <MethodButton
+          icon="cash-outline"
+          label="Cash"
+          note="Pay the driver"
+          selected={method === 'CASH'}
+          onPress={() => setMethod('CASH')}
+        />
+      </View>
     </Screen>
+  );
+}
+
+function MethodButton({
+  icon,
+  label,
+  note,
+  selected,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  note: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      style={({ pressed }) => [
+        styles.method,
+        selected && styles.methodSelected,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name={icon} size={18} color={selected ? colors.primary : colors.textMuted} />
+      <Text style={[styles.methodLabel, selected && styles.methodLabelSelected]}>{label}</Text>
+      <Text style={styles.methodNote}>{note}</Text>
+    </Pressable>
   );
 }
 
@@ -181,7 +243,45 @@ function Legend({ style, label }: { style: object; label: string }) {
 }
 
 const styles = StyleSheet.create({
-  spinner: { marginTop: spacing.xl },
+  payLabel: {
+    ...type.eyebrow,
+    color: colors.textMuted,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  methods: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  method: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  methodSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt,
+  },
+  methodLabel: {
+    ...type.button,
+    fontSize: 14,
+    color: colors.text,
+  },
+  methodLabelSelected: { color: colors.primary },
+  methodNote: {
+    ...type.caption,
+    color: colors.textMuted,
+  },
+  pressed: { opacity: 0.75 },
+  spinner: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   empty: {
     ...type.body,
     color: colors.textMuted,

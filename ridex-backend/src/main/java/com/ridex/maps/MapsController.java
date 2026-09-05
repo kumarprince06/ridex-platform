@@ -33,6 +33,18 @@ public class MapsController {
         return mapsService.search(query, limit);
     }
 
+    /**
+     * The address at a point the rider pinned on the map.
+     *
+     * <p>Through the backend like every other maps call, so the key stays on the server and the
+     * daily budget is counted in one place.
+     */
+    @GetMapping("/reverse")
+    @ResponseStatus(HttpStatus.OK)
+    public GeoLocation reverse(@RequestParam double lat, @RequestParam double lng) {
+        return mapsService.reverse(lat, lng);
+    }
+
     @GetMapping("/route")
     @ResponseStatus(HttpStatus.OK)
     public RouteEstimate route(

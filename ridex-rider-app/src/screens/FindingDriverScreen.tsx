@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { cancelRide } from '../api/rides';
 import { useRideStatus } from '../api/rideStatus';
@@ -16,6 +16,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'FindingDriver'>;
 // Long enough to read the confirmation before the screen changes under the rider.
 const FOUND_HOLD_MS = 1300;
 
+// One full pass of the three skeletons, so each lifts for a third of it.
+const SKELETON_CYCLE_MS = 1500;
+const SKELETONS = [0, 1, 2];
+
 export function FindingDriverScreen({ navigation, route }: Props) {
   const { destination, rideId } = route.params;
   const { ride } = useRideStatus(rideId ?? null);
@@ -24,6 +28,29 @@ export function FindingDriverScreen({ navigation, route }: Props) {
   // the badge and the copy change, so this is a state rather than a second route.
   const found = ride?.status === 'DRIVER_ASSIGNED';
   const [gaveUp, setGaveUp] = useState(false);
+  const skeletonClock = useRef(new Animated.Value(0)).current;
+  const searching = !found && !gaveUp;
+
+  useEffect(() => {
+    // Same trick as PulseRings: one clock, each card a third of a cycle behind the last.
+    if (!searching) {
+      skeletonClock.stopAnimation();
+      skeletonClock.setValue(0);
+      return;
+    }
+
+    const loop = Animated.loop(
+      Animated.timing(skeletonClock, {
+        toValue: 1,
+        duration: SKELETON_CYCLE_MS,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [searching, skeletonClock]);
 
   useEffect(() => {
     if (!found) {
@@ -80,12 +107,40 @@ export function FindingDriverScreen({ navigation, route }: Props) {
 
             {/* Skeleton driver cards - placeholders for the candidates being polled. */}
             <View style={styles.skeletons}>
-              {[0, 1, 2].map((index) => (
-                <View key={index} style={styles.skeleton}>
-                  <View style={styles.skeletonAvatar} />
-                  <View style={styles.skeletonLine} />
-                </View>
-              ))}
+              {SKELETONS.map((index) => {
+                const progress = Animated.modulo(
+                  Animated.add(skeletonClock, index / SKELETONS.length),
+                  1,
+                );
+                // A short lift and brighten near the start of each card's slot, flat the rest.
+                const inputRange = [0, 0.12, 0.28, 0.4, 1];
+
+                return (
+                  <Animated.View
+                    key={index}
+                    style={[
+                      styles.skeleton,
+                      {
+                        opacity: progress.interpolate({
+                          inputRange,
+                          outputRange: [0.45, 1, 1, 0.45, 0.45],
+                        }),
+                        transform: [
+                          {
+                            translateY: progress.interpolate({
+                              inputRange,
+                              outputRange: [0, -6, -6, 0, 0],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <View style={styles.skeletonAvatar} />
+                    <View style={styles.skeletonLine} />
+                  </Animated.View>
+                );
+              })}
             </View>
           </>
         )}

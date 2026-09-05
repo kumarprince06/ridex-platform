@@ -2,6 +2,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
+import { useSession } from '../auth/session';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -12,6 +13,7 @@ const DOT_INTERVAL_MS = 500;
 
 export function SplashScreen({ navigation }: Props) {
   const [step, setStep] = useState(0);
+  const { ready, signedIn } = useSession();
 
   useEffect(() => {
     const timer = setInterval(() => setStep((prev) => prev + 1), DOT_INTERVAL_MS);
@@ -19,12 +21,18 @@ export function SplashScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => {
-    if (step < DOTS) {
+    // Held until the stored tokens have been checked, or a signed-in rider is shown the
+    // welcome screen for a moment on every launch and reads it as being signed out.
+    if (step < DOTS || !ready) {
       return;
     }
     // replace, not navigate: the splash must not be reachable with the back gesture.
-    navigation.replace('Welcome');
-  }, [step, navigation]);
+    if (signedIn) {
+      navigation.replace('MainTabs', { screen: 'Home' });
+    } else {
+      navigation.replace('Welcome');
+    }
+  }, [step, ready, signedIn, navigation]);
 
   return (
     <View style={styles.root}>

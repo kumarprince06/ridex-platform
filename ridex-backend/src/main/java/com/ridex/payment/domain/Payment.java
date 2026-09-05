@@ -22,10 +22,15 @@ public class Payment {
     @Column(name = "id", nullable = false, length = 26, updatable = false)
     private String id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "trip_id", nullable = false, updatable = false,
+    /** Null for a shuttle seat. Exactly one subject is set - the CHECK constraint enforces it. */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "trip_id", updatable = false,
             foreignKey = @ForeignKey(name = "fk_payments_trip"))
     private Trip trip;
+
+    /** The seat this paid for, when it is a shuttle booking rather than a trip. */
+    @Column(name = "shuttle_booking_id", length = 26, updatable = false)
+    private String shuttleBookingId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "rider_id", nullable = false, updatable = false,

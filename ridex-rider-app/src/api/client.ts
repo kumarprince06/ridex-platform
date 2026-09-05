@@ -7,6 +7,13 @@ type Options = {
   body?: unknown;
   /** Public endpoints skip the token and the refresh dance entirely. */
   auth?: boolean;
+  /**
+   * Cancels the request.
+   *
+   * <p>For search-as-you-type: without it a slow response for "mara" arrives after the one for
+   * "marathahalli" and overwrites it.
+   */
+  signal?: AbortSignal;
 };
 
 /** Called when a refresh fails, so the session context can drop the user back to sign-in. */
@@ -52,6 +59,7 @@ async function send(path: string, options: Options, accessToken?: string): Promi
   try {
     return await fetch(`${API_BASE_URL}${path}`, {
       method: options.method ?? 'GET',
+      signal: options.signal,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });

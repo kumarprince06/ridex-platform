@@ -114,6 +114,11 @@ app:
   # was under app.mail, so no JavaMailSender was ever created.
   mail:
     from: ${RIDEX_MAIL_FROM:no-reply@ridex.local}
+    # The display name beside the address. Without one a client shows the raw mailbox, which is
+    # what most spam looks like.
+    from-name: ${RIDEX_MAIL_FROM_NAME:RideX}
+    # Printed in the footer of every message, so a reply has somewhere to go.
+    support-address: ${RIDEX_MAIL_SUPPORT:support@ridex.local}
     # Off by default. On, the verification code goes to the log and no mail is sent - the only
     # way to sign up with no SMTP server, and there is no free SMS route to fall back to.
     echo-to-log: ${RIDEX_MAIL_ECHO:false}

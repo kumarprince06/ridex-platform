@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClientException;
 
 import com.ridex.notification.DeliveryChannel;
 import com.ridex.notification.NotificationChannel;
+import com.ridex.notification.NotificationTemplates;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +44,7 @@ public class PushChannel implements NotificationChannel {
     }
 
     @Override
-    public void send(String recipient, String subject, String body) {
+    public void send(String recipient, NotificationTemplates.Rendered rendered) {
         List<DeviceToken> devices = deviceTokenRepository.findByUserId(recipient);
         if (devices.isEmpty()) {
             // Not a failure: plenty of people never grant the permission, and retrying a message
@@ -55,8 +56,9 @@ public class PushChannel implements NotificationChannel {
         List<Map<String, Object>> messages = devices.stream()
                 .map(device -> Map.<String, Object>of(
                         "to", device.getToken(),
-                        "title", subject,
-                        "body", body,
+                        // The plain text, never the HTML: a notification tray is not a browser.
+                        "title", rendered.subject(),
+                        "body", rendered.body(),
                         // Wakes the app on Android rather than only showing a tray entry.
                         "priority", "high"))
                 .toList();

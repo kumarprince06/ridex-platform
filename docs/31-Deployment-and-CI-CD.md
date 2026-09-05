@@ -1,9 +1,18 @@
 # Deployment, CI/CD and Release
 
-How to get RideX running on the internet on a free or near-free tier, keep it deployed
-automatically, and get the apps into people's hands. Written against what the repo actually needs:
-a Spring Boot service on Java 21, PostgreSQL 17, Redis, SMTP, a Vite admin panel, and two Expo
-apps.
+**The goal here is a demo deployment, not a launch.** RideX is going up so it can be shown and
+explained — to an interviewer, on LinkedIn, to anyone being told what was built and why. Nobody is
+booking a real ride on it and no real money moves through it.
+
+That changes what matters. A demo has to be *reachable, seeded and honest*: a link that works when
+somebody clicks it three days later, data that makes the product legible in two minutes, and no
+pretending it is production. It does not need high availability, backups, GST invoicing or a
+payout gateway — [32-Business-Readiness-and-New-Lines.md](32-Business-Readiness-and-New-Lines.md)
+covers what a real launch would need, and being able to hand somebody that list is itself worth
+more than a half-built version of it.
+
+Written against what the repo actually needs: a Spring Boot service on Java 21, PostgreSQL 17,
+Redis, SMTP, a Vite admin panel, and two Expo apps.
 
 ---
 
@@ -27,13 +36,16 @@ Two things to fix before any of this is deployed:
 
 ---
 
-## Option A — the free stack (recommended to start)
+## Option A — the free stack (this is the one)
 
-Everything free, no card for the base tier, good enough to demo and to let real people use it.
+Everything free, no card for the base tier. For a demo this is not a compromise, it is the correct
+choice.
 
 - **Backend → Render free web service** or **Fly.io**. Render's free tier sleeps after 15 minutes
-  of no traffic and takes ~30s to wake; fine for a demo, not for a live pilot. Fly's free
-  allowance stays warm and is the better choice if the account has one.
+  of no traffic and takes ~30s to wake. That matters more than it sounds for a demo: the person
+  you sent the link to opens it, waits thirty seconds on a blank screen, and decides it is broken.
+  Two ways round it — Fly's free allowance stays warm, or ping the Render service every 10 minutes
+  from a GitHub Actions cron. Do one of them.
 - **Postgres → Neon free tier.** 0.5 GB, allows `btree_gist`, and branches per environment, which
   is genuinely useful for testing migrations.
 - **Redis → Upstash free tier.** 10k commands a day.
@@ -43,15 +55,15 @@ Everything free, no card for the base tier, good enough to demo and to let real 
 
 Cost: zero. Ceiling: the sleeping backend and 0.5 GB of database.
 
-## Option B — cheap and always-on (when it needs to be real)
+## Option B — cheap and always-on (only if the demo needs to be reliably instant)
 
 - One **VPS at ₹350–500/month** (Hetzner CX22, DigitalOcean, or an Indian provider for latency):
   2 vCPU, 4 GB. Runs the backend, Postgres, Redis and Caddy in Docker Compose on one box.
 - Caddy for automatic HTTPS on a domain (~₹800/year).
 - Backups: `pg_dump` on a cron to object storage. Not optional once anybody real is using it.
 
-This is the honest recommendation for a portfolio piece somebody might be shown live: one small
-box, always awake, one command to redeploy.
+Worth it only if the sleeping-backend problem becomes annoying, or if several people are being
+walked through it in the same week. Otherwise Option A and a keep-warm ping is enough.
 
 ---
 
@@ -67,9 +79,12 @@ deployment:
 3. **Secrets out of `.env`.** `.env` currently holds a real Brevo SMTP key, real Razorpay test
    keys and the JWT secret. It is gitignored, but the moment this is deployed those must come from
    the host's secret store, and the ones in the file should be rotated because they have been on
-   disk in plaintext next to a repo.
-4. **Production profile** — `app.mail.echo-to-log` off, Hibernate `ddl-auto` untouched (Flyway
-   owns the schema), actuator locked down to health only, CORS set to the admin panel's domain.
+   disk in plaintext next to a repo. This one still applies to a demo — a real SMTP key can be
+   abused to send spam from your domain whatever the deployment is for.
+4. **A demo profile** — CORS set to the admin panel's domain, actuator locked to health, Flyway
+   left in charge of the schema. Keep Razorpay on **test keys**: the checkout still opens, the test
+   card still works, and nobody can accidentally be charged. Mail can either go to Brevo, or point
+   at a Mailpit instance so invoices are visible without emailing strangers.
 5. **A real health check** — `/actuator/health` already exists; the platform's health check should
    point at it.
 
@@ -108,7 +123,12 @@ Both apps are Expo with prebuilt `android/` directories, so both routes are open
 install. EAS has a free tier with a build queue; a local `./gradlew assembleRelease` is unlimited
 and free if the machine is available.
 
-**For the Play Store**, in order:
+**For a demo, an APK link is usually enough.** Send the build, or put it behind a QR on the
+project page. If it needs to be installable from the store, the shortest route is Play's
+**internal testing** track — up to 100 testers by email, no review wait, and none of the closed
+testing requirements below.
+
+**For a full public Play Store listing**, in order:
 1. Google Play developer account — **$25, one time**. The only unavoidable cost in this document.
 2. A privacy policy URL and a data-safety declaration. The apps collect location, email, phone and
    payment identifiers — that has to be declared accurately, and location is the one Google reads
@@ -118,7 +138,8 @@ and free if the machine is available.
 4. Store listing: icon, feature graphic, at least two screenshots per app, short and full
    description.
 5. **Closed testing with 12 testers for 14 days** before a personal developer account can go to
-   production. Plan two weeks for this — it is the step people are surprised by.
+   production. Plan two weeks for this — it is the step people are surprised by, and it is the
+   reason internal testing is the better answer for a demo.
 6. Two separate listings: RideX (rider) and RideX Partner. Same account, different package ids.
 
 **Before submitting:** the API base URL cannot stay at a LAN IP — the apps read
@@ -126,6 +147,37 @@ and free if the machine is available.
 the backend needs a real certificate. Android blocks plaintext HTTP by default.
 
 ---
+
+## Demo data and accounts
+
+A demo lives or dies on what is in the database when somebody opens it. Prepare, and script:
+
+- **Seeded, re-runnable data.** `ridex-backend/src/main/resources/seed/kolkata-shuttle.sql` already
+  does this for the shuttle: real Kolkata corridors, 16 stops, drivers, a 40-seat bus and a 22-seat
+  Traveller, a timetable. Do the same for riders, drivers and a few completed trips so Trips,
+  Earnings and Analytics are not empty.
+- **Fixed demo logins** for rider, driver and admin, written on the project page.
+- **A reset script** that puts the database back to the seeded state, so a walkthrough is
+  repeatable after somebody has cancelled half of it.
+- **Test payments only.** Razorpay test key, card `4111 1111 1111 1111`. Say so on screen or in the
+  notes, so nobody thinks they are being asked for money.
+- **Clean out the test pollution** first: integration tests have been run against the dev database
+  and left ~35 duplicate "Whitefield to Electronic City" routes. They are deactivated, not deleted.
+
+## A walkthrough worth watching
+
+The strongest two minutes this project has, in order:
+
+1. Book a shuttle seat: pick stops from a real Kolkata route, choose a seat on a 2+2 bus, pay with
+   points *and* Razorpay test, get a ticket with a QR and an OTP.
+2. Open the invoice PDF from the email — branded, with payment status, method and gateway
+   reference on it.
+3. Cancel a seat 30 minutes out and watch 80% come back as points, then spend those points on the
+   next booking.
+4. Open the admin panel next to it: the same payment, the same rider, the audit trail.
+
+That sequence shows inventory, payments, loyalty, refunds-as-credit, documents and operations —
+which is the argument that this is a platform, not a screen collection.
 
 ## What to fix before showing it to anyone
 

@@ -1,5 +1,6 @@
 package com.ridex.maps.google;
 
+import com.ridex.maps.DailyCallBudget;
 import com.ridex.maps.MapsProvider;
 import com.ridex.maps.domain.GeoLocation;
 import com.ridex.maps.domain.RouteEstimate;
@@ -32,6 +33,7 @@ public class GoogleMapsProvider implements MapsProvider {
     private static final String DISTANCE_MATRIX_PATH = "/maps/api/distancematrix/json";
 
     private final GoogleMapsProperties properties;
+    private final DailyCallBudget dailyCallBudget;
 
     @Override
     public boolean isConfigured() {
@@ -66,6 +68,7 @@ public class GoogleMapsProvider implements MapsProvider {
         if (!isConfigured()) {
             throw new ProviderUnavailableException("Google Maps API key is not configured");
         }
+        requireBudget();
 
         RestClient client = restClient();
         String uri = String.format("%s?address=%s&key=%s",
@@ -103,6 +106,7 @@ public class GoogleMapsProvider implements MapsProvider {
         if (apiKey == null || apiKey.isBlank()) {
             throw new ProviderUnavailableException("Google Maps API key is not configured");
         }
+        requireBudget();
 
         RestClient client = restClient();
         String uri = String.format(
@@ -139,6 +143,18 @@ public class GoogleMapsProvider implements MapsProvider {
                     element.duration().text());
         } catch (RestClientException ex) {
             throw new ProviderUnavailableException("Google Maps route request failed", ex);
+        }
+    }
+
+    /**
+     * Stops before the call when today's budget is spent.
+     *
+     * <p>Thrown as unavailable rather than as a hard error: the caller falls through to the free
+     * provider, so the platform keeps answering and only the bill stops.
+     */
+    private void requireBudget() {
+        if (!dailyCallBudget.tryConsume("google-maps", properties.getDailyCallLimit())) {
+            throw new ProviderUnavailableException("Google Maps daily call budget is spent");
         }
     }
 

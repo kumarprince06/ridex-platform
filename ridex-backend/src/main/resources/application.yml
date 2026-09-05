@@ -125,6 +125,9 @@ app:
       # No default. A key committed here is a key someone else can bill, and the previous one
       # is already in git history and must be treated as burned.
       api-key: ${GOOGLE_MAPS_API_KEY:}
+      # Counted here, because Google's own daily quota is not adjustable. Past this the maps
+      # service falls through to the free provider rather than failing.
+      daily-call-limit: ${GOOGLE_MAPS_DAILY_LIMIT:300}
 
   # Sender address only. The connection lives under spring.mail, which is where Boot looks - it
   # was under app.mail, so no JavaMailSender was ever created.

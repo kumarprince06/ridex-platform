@@ -206,7 +206,8 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
   spinner: {
-    marginTop: spacing.xl,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   error: {
     ...type.body,

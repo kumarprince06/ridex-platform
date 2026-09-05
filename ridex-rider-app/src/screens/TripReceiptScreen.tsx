@@ -131,7 +131,8 @@ export function TripReceiptScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   spinner: {
-    marginTop: spacing.xl,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   empty: {
     ...type.body,

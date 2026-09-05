@@ -1,22 +1,32 @@
 package com.ridex.maps;
 
 import java.util.List;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import org.springframework.stereotype.Service;
 
 import com.ridex.maps.domain.GeoLocation;
 import com.ridex.maps.domain.RouteEstimate;
+import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ProviderUnavailableException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * Picks which maps provider answers.
+ * Picks which maps provider answers, and falls through when one cannot.
  *
- * <p>Google when a key is configured, OpenStreetMap otherwise. Not a preference: without the key
- * Google throws on every call, and a console that cannot search for a place is a console where
- * somebody types coordinates by hand and gets one digit wrong.
+ * <p>Providers are tried in {@code @Order}: Google first when a key is set, then the free ones.
+ * That order is deliberate - Google's data is better, and its free allowance should be spent before
+ * anything else is asked.
+ *
+ * <p>The fallback is the point. A quota that runs out on the 28th of the month would otherwise take
+ * fare estimates down with it, and "no rides today" is a worse outcome than a slightly rougher
+ * distance. Only availability failures fall through: a genuine "no such place" is an answer, and
+ * asking a second provider the same question would just be a slower way to say it.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MapsService {
@@ -24,34 +34,51 @@ public class MapsService {
     private final List<MapsProvider> providers;
 
     public List<GeoLocation> search(String query, int limit) {
-        return geocoder().search(query, limit);
+        return attempt("search", MapsProvider::canGeocode, provider -> provider.search(query, limit));
     }
 
     public GeoLocation geocode(String query) {
-        return geocoder().geocode(query);
+        return attempt("geocode", MapsProvider::canGeocode, provider -> provider.geocode(query));
+    }
+
+    public RouteEstimate route(double pickupLat, double pickupLng,
+            double destinationLat, double destinationLng) {
+        return attempt("route", MapsProvider::canRoute,
+                provider -> provider.route(pickupLat, pickupLng, destinationLat, destinationLng));
     }
 
     /**
-     * Routing has one implementation, and it needs the key.
+     * Runs the call against each capable provider until one answers.
      *
-     * <p>Deliberately not falling back: a straight line between two points is not a road distance,
-     * and quoting a fare against it would undercharge every trip that goes round a lake.
+     * @param capable which providers can do this at all - routing and geocoding are separate
+     *                abilities, and the free ones each have only one of them.
      */
-    public RouteEstimate route(double pickupLat, double pickupLng,
-            double destinationLat, double destinationLng) {
-        return providers.stream()
-                .filter(provider -> provider.isConfigured() && provider.canRoute())
-                .findFirst()
-                .orElseThrow(() -> new ProviderUnavailableException(
-                        "No routing provider is configured."))
-                .route(pickupLat, pickupLng, destinationLat, destinationLng);
-    }
+    private <T> T attempt(String what, Predicate<MapsProvider> capable,
+            Function<MapsProvider, T> call) {
+        List<MapsProvider> candidates = providers.stream()
+                .filter(provider -> provider.isConfigured() && capable.test(provider))
+                .toList();
 
-    private MapsProvider geocoder() {
-        return providers.stream()
-                .filter(provider -> provider.isConfigured() && provider.canGeocode())
-                .findFirst()
-                .orElseThrow(() -> new ProviderUnavailableException(
-                        "No maps provider is available."));
+        if (candidates.isEmpty()) {
+            throw new ProviderUnavailableException("No maps provider is configured for " + what + ".");
+        }
+
+        ProviderUnavailableException last = null;
+        for (MapsProvider provider : candidates) {
+            try {
+                return call.apply(provider);
+            } catch (ProviderUnavailableException ex) {
+                // Quota exhausted, key rejected, the provider is down. Worth trying the next one.
+                last = ex;
+                log.warn("{} failed on {}: {}", what, provider.getClass().getSimpleName(),
+                        ex.getMessage());
+            } catch (NotFoundException ex) {
+                // "Nowhere by that name" is an answer, not a failure. Every provider would give
+                // the same one, so asking again only costs time.
+                throw ex;
+            }
+        }
+
+        throw last;
     }
 }

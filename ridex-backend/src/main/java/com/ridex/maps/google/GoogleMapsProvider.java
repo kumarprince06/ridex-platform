@@ -81,6 +81,7 @@ public class GoogleMapsProvider implements MapsProvider {
             if (response == null || response.results() == null) {
                 return List.of();
             }
+            requireUsable(response.status());
 
             // Google ranks its own results, so taking the first N is taking its ranking rather
             // than imposing one.
@@ -120,6 +121,7 @@ public class GoogleMapsProvider implements MapsProvider {
                     .retrieve()
                     .body(GoogleDistanceMatrixResponse.class);
 
+            requireUsable(response == null ? null : response.status());
             if (response == null || response.rows() == null || response.rows().isEmpty()) {
                 throw new ProviderUnavailableException("No route estimate returned from Google Maps");
             }
@@ -140,6 +142,28 @@ public class GoogleMapsProvider implements MapsProvider {
         }
     }
 
+    /**
+     * Turns a quota or key problem into an availability failure, so the caller falls through.
+     *
+     * <p>Google answers 200 OK with a status field for these, which is exactly the shape that gets
+     * mistaken for an empty result - and a quota that ran out would silently look like "no such
+     * place" rather than "ask somebody else".
+     */
+    private static void requireUsable(String status) {
+        if (status == null) {
+            return;
+        }
+        switch (status) {
+            case "OVER_QUERY_LIMIT", "OVER_DAILY_LIMIT" ->
+                throw new ProviderUnavailableException("Google Maps quota is exhausted");
+            case "REQUEST_DENIED" ->
+                throw new ProviderUnavailableException("Google Maps rejected the key");
+            default -> {
+                // OK and ZERO_RESULTS both mean Google answered; the caller reads the payload.
+            }
+        }
+    }
+
     private RestClient restClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);
@@ -156,7 +180,7 @@ public class GoogleMapsProvider implements MapsProvider {
         return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    private record GoogleGeocodeResponse(List<GoogleGeocodeResult> results) {}
+    private record GoogleGeocodeResponse(String status, List<GoogleGeocodeResult> results) {}
 
     private record GoogleGeocodeResult(String formattedAddress, GoogleGeometry geometry) {}
 
@@ -164,7 +188,7 @@ public class GoogleMapsProvider implements MapsProvider {
 
     private record GoogleLocation(double lat, double lng) {}
 
-    private record GoogleDistanceMatrixResponse(List<GoogleDistanceRow> rows) {}
+    private record GoogleDistanceMatrixResponse(String status, List<GoogleDistanceRow> rows) {}
 
     private record GoogleDistanceRow(List<GoogleDistanceElement> elements) {}
 

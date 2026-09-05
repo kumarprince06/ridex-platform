@@ -19,8 +19,6 @@ type Props = {
   driverAt?: number;
   driverLabel?: string;
   showUserDot?: boolean;
-  pickupLabel?: string;
-  destinationLabel?: string;
   /** The trip's real ends, when the caller knows them. A past trip did not start where the
    *  rider is standing now, so the device position is the wrong pickup for it. */
   pickupCoord?: [number, number];
@@ -45,8 +43,6 @@ export function MapCanvas({
   driverAt,
   driverLabel,
   showUserDot = false,
-  pickupLabel = 'Pickup',
-  destinationLabel = 'Destination',
   pickupCoord,
   destinationCoord,
   style,
@@ -172,13 +168,6 @@ export function MapCanvas({
         ) : null}
       </Map>
 
-      {hasRoute ? (
-        <View style={styles.labels} pointerEvents="none">
-          <Label icon="ellipse" text={pickupLabel} tint={colors.primary} />
-          <Label icon="location" text={destinationLabel} tint={colors.amber} />
-        </View>
-      ) : null}
-
       {driverLabel ? (
         <View style={styles.driverPill} pointerEvents="none">
           <Text style={styles.driverPillLabel}>{driverLabel}</Text>
@@ -191,17 +180,6 @@ export function MapCanvas({
 /** Keeps both ends of the route on screen without asking MapLibre to fit bounds. */
 function midpoint(a: [number, number], b: [number, number]): [number, number] {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-}
-
-function Label({ icon, text, tint }: { icon: 'ellipse' | 'location'; text: string; tint: string }) {
-  return (
-    <View style={styles.label}>
-      <Ionicons name={icon} size={11} color={tint} />
-      <Text style={styles.labelText} numberOfLines={1}>
-        {text}
-      </Text>
-    </View>
-  );
 }
 
 const styles = StyleSheet.create({
@@ -250,28 +228,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: colors.bg,
-  },
-  labels: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    top: spacing.xxl + spacing.lg,
-    gap: spacing.sm,
-  },
-  label: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    maxWidth: '80%',
-    backgroundColor: colors.overlay,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-  },
-  labelText: {
-    ...type.caption,
-    color: colors.text,
   },
   driverPill: {
     position: 'absolute',

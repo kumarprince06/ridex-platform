@@ -57,8 +57,6 @@ export function TripDetailsScreen({ navigation, route }: Props) {
           showRoute
           pickupCoord={rideRoute(ride).pickup}
           destinationCoord={rideRoute(ride).destination}
-          pickupLabel={ride.pickupAddress ?? 'Pickup'}
-          destinationLabel={ride.destinationAddress ?? 'Destination'}
         />
       </View>
 

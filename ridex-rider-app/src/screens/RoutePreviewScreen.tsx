@@ -31,7 +31,7 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute destinationCoord={destinationCoord} destinationLabel={destination} />
+      <MapCanvas showRoute destinationCoord={destinationCoord} />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <View style={styles.headerRow}>

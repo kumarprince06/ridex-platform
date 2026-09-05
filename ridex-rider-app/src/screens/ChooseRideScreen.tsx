@@ -8,6 +8,7 @@ import { estimate, formatMoney, type EstimateOption } from '../api/rides';
 import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
+import { RouteStops } from '../components/RouteStops';
 import { RIDE_TIERS } from '../data/mock';
 import { FALLBACK_CENTER, useCurrentLocation } from '../lib/location';
 import { RootStackParamList } from '../navigation/types';
@@ -51,7 +52,6 @@ export function ChooseRideScreen({ navigation, route }: Props) {
         showRoute
         pickupCoord={pickup}
         destinationCoord={destinationCoord}
-        destinationLabel={destination}
       />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
@@ -67,10 +67,23 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
         <Text style={styles.title}>Choose your ride</Text>
-        <Text style={styles.subtitle}>
-          {destination}
-          {selected ? ` · ${(selected.distanceMeters / 1000).toFixed(1)} km` : ''}
-        </Text>
+
+        {/* Both ends, in the sheet where there is room to read them. The map used to draw its own
+            pair of pills over the back button, which said the same thing twice and badly. */}
+        <View style={styles.stops}>
+          <RouteStops
+            compact
+            style={styles.flex}
+            pickup={{ name: 'Current location' }}
+            dropoff={{ name: destination }}
+          />
+          {selected ? (
+            <Text style={styles.leg}>
+              {(selected.distanceMeters / 1000).toFixed(1)} km ·{' '}
+              {Math.max(1, Math.round(selected.durationSeconds / 60))} min
+            </Text>
+          ) : null}
+        </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -184,15 +197,25 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: colors.border,
   },
+  stops: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.md,
+  },
+  leg: {
+    ...type.caption,
+    color: colors.textMuted,
+  },
   title: {
     ...type.title,
     fontSize: 22,
     color: colors.text,
-  },
-  subtitle: {
-    ...type.caption,
-    color: colors.textMuted,
-    marginTop: 2,
   },
   list: {
     paddingVertical: spacing.lg,

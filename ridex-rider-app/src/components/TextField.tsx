@@ -26,6 +26,8 @@ type Props = {
   autoCapitalize?: 'none' | 'words';
   /** Shown under the field and turns the border red, as in the mismatch mockup. */
   error?: string;
+  /** Off for a value the form shows but cannot change, such as the account's own email. */
+  editable?: boolean;
   style?: ViewStyle;
 };
 
@@ -39,6 +41,7 @@ export function TextField({
   keyboardType,
   autoCapitalize = 'none',
   error,
+  editable = true,
   style,
 }: Props) {
   const [focused, setFocused] = useState(false);
@@ -72,9 +75,10 @@ export function TextField({
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           autoCorrect={false}
+          editable={editable}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          style={styles.input}
+          style={[styles.input, !editable && styles.inputReadOnly]}
         />
       </View>
 
@@ -84,6 +88,9 @@ export function TextField({
 }
 
 const styles = StyleSheet.create({
+  inputReadOnly: {
+    color: colors.textMuted,
+  },
   label: {
     ...type.label,
     color: colors.textMuted,

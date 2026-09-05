@@ -45,7 +45,7 @@ export type RootStackParamList = {
   TripInProgress: { destination: string };
   RideCompleted: { destination: string; rideId?: string };
   RateDriver: undefined;
-  CancelRide: undefined;
+  CancelRide: { rideId?: string };
   RideCancelled: undefined;
 
   TripDetails: { rideId: string };

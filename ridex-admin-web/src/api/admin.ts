@@ -1,4 +1,4 @@
-import { request } from './client';
+import { request, requestBlob } from './client';
 
 /**
  * Ten rows, because a console table is read in one glance and the operator picks a larger page
@@ -432,6 +432,24 @@ export function addSchedule(
   });
 }
 
+/**
+ * Puts a driver and their vehicle on one dated departure.
+ *
+ * The departure only exists once a seat has been sold on it - it is materialised on first booking,
+ * so an unbooked route does not fill the table with a row for every day of the year.
+ */
+export function assignDeparture(
+  scheduleId: string,
+  serviceDate: string,
+  driverId: string,
+  vehicleId: string,
+) {
+  return request<void>(
+    `${SHUTTLE}/schedules/${scheduleId}/departures/${serviceDate}/assign`,
+    { method: 'POST', body: { driverId, vehicleId } },
+  );
+}
+
 export function updateSchedule(
   routeId: string,
   scheduleId: string,
@@ -469,3 +487,103 @@ export function searchPlaces(query: string, limit = 6) {
     `/api/v1/maps/search?query=${encodeURIComponent(query)}&limit=${limit}`,
   );
 }
+
+/* ------------------------------------------------------------------ driver documents and vehicles */
+
+export type DocumentType =
+  | 'DRIVING_LICENCE' | 'IDENTITY_PROOF' | 'ADDRESS_PROOF'
+  | 'VEHICLE_REGISTRATION' | 'VEHICLE_INSURANCE' | 'BACKGROUND_CHECK';
+
+export type DocumentStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+
+export type DriverDocument = {
+  id: string;
+  documentType: DocumentType;
+  status: DocumentStatus;
+  expiresAt: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  createdAt: string;
+};
+
+export type VehicleType =
+  | 'BICYCLE' | 'SCOOTER' | 'MOTORCYCLE' | 'E_RICKSHAW' | 'AUTO_RICKSHAW'
+  | 'HATCHBACK' | 'SEDAN' | 'MPV' | 'SUV' | 'VAN' | 'PICKUP' | 'MINIBUS' | 'BUS';
+
+export type VehicleStatus = 'PENDING_REVIEW' | 'ACTIVE' | 'INACTIVE' | 'REJECTED';
+
+export type Vehicle = {
+  id: string;
+  vehicleType: VehicleType;
+  status: VehicleStatus;
+  make: string;
+  model: string;
+  manufactureYear: number;
+  color: string | null;
+  seatCapacity: number;
+  registrationNumber: string;
+  createdAt: string;
+};
+
+export function getDriver(driverId: string) {
+  return request<AdminDriver>(`/api/v1/admin/drivers/${driverId}`);
+}
+
+export function driverDocuments(driverId: string) {
+  return request<DriverDocument[]>(`/api/v1/admin/drivers/${driverId}/documents`);
+}
+
+export function approveDocument(documentId: string) {
+  return request<DriverDocument>(`/api/v1/admin/drivers/documents/${documentId}/approve`, {
+    method: 'POST',
+  });
+}
+
+export function rejectDocument(documentId: string, reason: string) {
+  return request<DriverDocument>(`/api/v1/admin/drivers/documents/${documentId}/reject`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+/**
+ * Opens the document itself in a new tab.
+ *
+ * <p>Fetched with the token and handed to the browser as a blob, because the endpoint is
+ * authenticated - and it is authenticated because a KYC document behind a plain URL is readable by
+ * anybody who finds the link. The object URL is revoked on the next tick; the tab keeps its copy.
+ */
+export async function openDocument(documentId: string) {
+  const blob = await requestBlob(`/api/v1/admin/drivers/documents/${documentId}/file`);
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+export function driverVehicles(driverId: string) {
+  return request<Vehicle[]>(`/api/v1/admin/drivers/${driverId}/vehicles`);
+}
+
+export function approveVehicle(vehicleId: string) {
+  return request<Vehicle>(`/api/v1/admin/drivers/vehicles/${vehicleId}/approve`, { method: 'POST' });
+}
+
+export function rejectVehicle(vehicleId: string) {
+  return request<Vehicle>(`/api/v1/admin/drivers/vehicles/${vehicleId}/reject`, { method: 'POST' });
+}
+
+export const DOCUMENT_LABELS: Record<DocumentType, string> = {
+  DRIVING_LICENCE: "Driver's licence",
+  IDENTITY_PROOF: 'Identity proof',
+  ADDRESS_PROOF: 'Address proof',
+  VEHICLE_REGISTRATION: 'Vehicle registration',
+  VEHICLE_INSURANCE: 'Insurance certificate',
+  BACKGROUND_CHECK: 'Background check',
+};
+
+export const VEHICLE_LABELS: Record<VehicleType, string> = {
+  BICYCLE: 'Bicycle', SCOOTER: 'Scooter', MOTORCYCLE: 'Motorcycle',
+  E_RICKSHAW: 'E-rickshaw', AUTO_RICKSHAW: 'Auto rickshaw',
+  HATCHBACK: 'Hatchback', SEDAN: 'Sedan', MPV: 'MPV', SUV: 'SUV',
+  VAN: 'Van', PICKUP: 'Pickup', MINIBUS: 'Minibus', BUS: 'Bus',
+};

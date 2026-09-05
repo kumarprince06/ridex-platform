@@ -4,6 +4,7 @@ import {
   DEFAULT_PAGE_SIZE,
   addSchedule,
   addStop,
+  assignDeparture,
   createRoute,
   getRoute,
   listRoutes,
@@ -30,7 +31,7 @@ import {
 } from '../components/ui';
 
 /** Which dialog is open. One at a time - these are all edits to the same route. */
-type Dialog = 'route' | 'stop' | 'schedule' | null;
+type Dialog = 'route' | 'stop' | 'schedule' | 'assign' | null;
 
 /**
  * Routes, stops, fares and departures on one screen.
@@ -204,6 +205,7 @@ function RouteDetail({
   act: (what: () => Promise<unknown>) => void;
 }) {
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [assigning, setAssigning] = useState<string | null>(null);
 
   const lastStop = route.stops[route.stops.length - 1];
 
@@ -301,6 +303,22 @@ function RouteDetail({
                 <Pill tone={row.active ? 'success' : 'muted'}>{row.active ? 'Running' : 'Paused'}</Pill>
               ),
             },
+            {
+              key: 'assign',
+              header: '',
+              align: 'right',
+              render: (row) => (
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    setAssigning(row.id);
+                    setDialog('assign');
+                  }}
+                >
+                  Assign driver
+                </Button>
+              ),
+            },
           ]}
           rows={route.schedules}
           empty="No departures. Add at least one so the route appears to riders."
@@ -356,6 +374,40 @@ function RouteDetail({
                 longitude: Number(values.longitude),
                 offsetMinutes: Number(values.offsetMinutes),
               }),
+            );
+          }}
+        />
+      ) : null}
+
+      {dialog === 'assign' && assigning ? (
+        <FormDialog
+          title="Assign a driver to a departure"
+          body="One dated departure at a time. The departure exists only once a seat has been sold on it, and the vehicle must seat at least as many as the schedule."
+          submitLabel="Assign"
+          fields={[
+            {
+              name: 'serviceDate',
+              label: 'Service date',
+              placeholder: '2026-09-10',
+              hint: 'The day this departure runs, as YYYY-MM-DD.',
+            },
+            {
+              name: 'driverId',
+              label: 'Driver ID',
+              hint: 'From the driver page. They must be approved with valid documents.',
+            },
+            { name: 'vehicleId', label: 'Vehicle ID', hint: 'One of that driver\u2019s approved vehicles.' },
+          ]}
+          onCancel={() => {
+            setDialog(null);
+            setAssigning(null);
+          }}
+          onSubmit={(values) => {
+            const scheduleId = assigning;
+            setDialog(null);
+            setAssigning(null);
+            act(() =>
+              assignDeparture(scheduleId, values.serviceDate, values.driverId, values.vehicleId),
             );
           }}
         />

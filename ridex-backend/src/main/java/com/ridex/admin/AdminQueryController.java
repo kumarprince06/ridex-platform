@@ -56,6 +56,12 @@ public class AdminQueryController {
         return adminQueryService.drivers(status, q, page, size);
     }
 
+    @GetMapping("/drivers/{driverId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminDriverResponse driver(@org.springframework.web.bind.annotation.PathVariable String driverId) {
+        return adminQueryService.driver(driverId);
+    }
+
     @GetMapping("/trips")
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<AdminTripResponse> trips(

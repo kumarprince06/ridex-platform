@@ -146,6 +146,14 @@ public class AdminQueryService {
                 this::toDriver);
     }
 
+    /** One driver, for the detail screen. The same shape as a list row, so nothing renders twice. */
+    @Transactional(readOnly = true)
+    public AdminDriverResponse driver(String driverId) {
+        return driverProfileRepository.findById(driverId)
+                .map(this::toDriver)
+                .orElseThrow(() -> new com.ridex.shared.exception.NotFoundException("No such driver."));
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<AdminTripResponse> trips(RideStatus status, int page, int size) {
         return PageResponse.of(

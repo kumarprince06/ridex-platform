@@ -77,6 +77,22 @@ async function send(path: string, options: Options, token: string | null): Promi
   }
 }
 
+/**
+ * An authorised GET that returns bytes rather than JSON.
+ *
+ * <p>A plain link cannot be used for these: the endpoint needs a bearer token, and putting a KYC
+ * document behind an unauthenticated URL is exactly what streaming it through the API avoids.
+ */
+export async function requestBlob(path: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!response.ok) {
+    throw new Error('That document could not be opened.');
+  }
+  return response.blob();
+}
+
 export async function request<T>(path: string, options: Options = {}): Promise<T> {
   const useAuth = options.auth ?? true;
   let response = await send(path, options, useAuth ? accessToken : null);

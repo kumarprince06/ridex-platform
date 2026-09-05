@@ -104,6 +104,10 @@ app:
     directory: ${RIDEX_DOCUMENTS_DIR:./var/documents}
     expiry-sweep-ms: 3600000
 
+  payments:
+    # Which gateway clears cards and UPI. Cash never routes here - the driver is handed the money.
+    gateway: ${RIDEX_PAYMENT_GATEWAY:RAZORPAY}
+
   # Test keys until an account is activated. The key id is public - it goes to the client to open
   # checkout - while the secret and the webhook secret never leave this process.
   razorpay:

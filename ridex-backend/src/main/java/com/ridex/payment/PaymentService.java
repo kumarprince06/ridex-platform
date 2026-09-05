@@ -40,6 +40,10 @@ public class PaymentService {
     private final DriverEarningRepository driverEarningRepository;
     private final TripRepository tripRepository;
     private final LedgerService ledger;
+
+    /** Which gateway clears cards and UPI. One property, so a swap needs no code change. */
+    @org.springframework.beans.factory.annotation.Value("${app.payments.gateway:RAZORPAY}")
+    private String gateway;
     private final SettingsService settings;
     private final List<PaymentProvider> providers;
     private final com.ridex.driver.DriverProfileRepository driverProfileRepository;
@@ -198,11 +202,15 @@ public class PaymentService {
      * Which gateway settles this method.
      *
      * <p>Cash has no gateway - the driver is handed the money - so it routes to its own provider.
-     * Everything else is a card or a UPI collection, which is the same Razorpay call either way:
-     * the customer picks the instrument inside checkout, not before it.
+     * Everything else goes to the configured one, because the rider is choosing an instrument
+     * (UPI, card, netbanking) inside a checkout, not choosing a gateway: every gateway offers all
+     * of them, and which company clears the money is the platform's decision, not theirs.
+     *
+     * <p>Named in configuration rather than in code so adding a second gateway is a new class and
+     * one property, with nothing above this line to change.
      */
     private PaymentProvider providerFor(PaymentMethod method) {
-        String wanted = method == PaymentMethod.CASH ? "CASH" : "RAZORPAY";
+        String wanted = method == PaymentMethod.CASH ? "CASH" : gateway;
 
         return providers.stream()
                 .filter(provider -> provider.name().equals(wanted))

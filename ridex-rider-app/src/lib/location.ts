@@ -20,12 +20,23 @@ export const FALLBACK_CENTER: LngLat = [77.5946, 12.9716];
 let cached: LngLat | null = null;
 
 /**
+ * When the cached fix was taken. A fix from two minutes ago is still where you are, and asking
+ * the GPS again on every screen that mounts a map is what makes opening one feel slow.
+ */
+let cachedAt = 0;
+const FRESH_MS = 2 * 60 * 1000;
+
+/**
  * Warms the cache at launch, so the first map already has somewhere to point.
  *
  * Two reads: the OS's last known fix comes back instantly and is usually metres out at worst,
  * then a fresh fix corrects it. Waiting only for the fresh one is what makes the map jump.
  */
 export async function primeLocation() {
+  if (cached && Date.now() - cachedAt < FRESH_MS) {
+    return;
+  }
+
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -41,6 +52,7 @@ export async function primeLocation() {
     // noticeably longer first fix.
     const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     cached = [fresh.coords.longitude, fresh.coords.latitude];
+    cachedAt = Date.now();
   } catch {
     // A failed fix is not an error state for the UI - maps fall back to their default centre.
   }

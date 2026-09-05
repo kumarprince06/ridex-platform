@@ -194,14 +194,21 @@ public class PaymentService {
                 .orElseThrow(() -> new NotFoundException("No payment for that trip.")));
     }
 
+    /**
+     * Which gateway settles this method.
+     *
+     * <p>Cash has no gateway - the driver is handed the money - so it routes to its own provider.
+     * Everything else is a card or a UPI collection, which is the same Razorpay call either way:
+     * the customer picks the instrument inside checkout, not before it.
+     */
     private PaymentProvider providerFor(PaymentMethod method) {
-        String wanted = method == PaymentMethod.CASH ? "CASH" : "CASH";
-        // ponytail: cash is the only provider wired. A card gateway is a second implementation of
-        // PaymentProvider and this lookup, not a change anywhere above it.
+        String wanted = method == PaymentMethod.CASH ? "CASH" : "RAZORPAY";
+
         return providers.stream()
                 .filter(provider -> provider.name().equals(wanted))
                 .findFirst()
-                .orElseThrow(() -> new ConflictException("No payment provider is configured."));
+                .orElseThrow(() -> new ConflictException(
+                        "No payment provider is configured for " + method + "."));
     }
 
     private PaymentResponse toResponse(Payment payment) {

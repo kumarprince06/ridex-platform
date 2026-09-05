@@ -104,6 +104,13 @@ app:
     directory: ${RIDEX_DOCUMENTS_DIR:./var/documents}
     expiry-sweep-ms: 3600000
 
+  # Test keys until an account is activated. The key id is public - it goes to the client to open
+  # checkout - while the secret and the webhook secret never leave this process.
+  razorpay:
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+
   google:
     maps:
       # No default. A key committed here is a key someone else can bill, and the previous one

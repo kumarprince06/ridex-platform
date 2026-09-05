@@ -15,6 +15,10 @@ public interface ShuttleTripRepository extends JpaRepository<ShuttleTrip, String
 
     Optional<ShuttleTrip> findByScheduleIdAndServiceDate(String scheduleId, LocalDate serviceDate);
 
+    /** What this driver is running on one day, earliest first. */
+    java.util.List<ShuttleTrip> findByDriverIdAndServiceDateOrderByDepartsAtAsc(
+            String driverId, LocalDate serviceDate);
+
     /**
      * Creates the departure if nobody has yet.
      *

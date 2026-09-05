@@ -52,11 +52,35 @@ public class ShuttleService {
         return scheduleRepository.findByRouteIdAndActiveTrueOrderByDepartureTimeAsc(routeId);
     }
 
-    /** The seat picker. Shows every seat, marking the ones already gone. */
+    /**
+     * The seat picker, for the leg the rider is actually travelling.
+     *
+     * <p>Availability is per leg, not per departure. A seat sold from stop 1 to stop 2 is free
+     * again from stop 2 onwards - treating it as gone for the whole run empties the far end of a
+     * commuter route while telling people it is full.
+     *
+     * <p>With no leg given it falls back to the whole route, which is the honest answer to "what
+     * is free on this bus" and the wrong one to show somebody booking two stops of it.
+     */
     @Transactional
-    public SeatMapResponse seatMap(String scheduleId, LocalDate serviceDate) {
+    public SeatMapResponse seatMap(String scheduleId, LocalDate serviceDate,
+            String boardingStopId, String alightingStopId) {
         ShuttleTrip trip = departureFor(scheduleId, serviceDate);
-        Set<String> taken = Set.copyOf(bookingRepository.takenSeats(trip.getId()));
+
+        short fromSeq = 1;
+        short toSeq = Short.MAX_VALUE;
+        if (boardingStopId != null && alightingStopId != null) {
+            RouteStop boarding = stopOn(trip, boardingStopId);
+            RouteStop alighting = stopOn(trip, alightingStopId);
+            if (boarding.getSequence() >= alighting.getSequence()) {
+                throw new ValidationException("Choose a stop further along the route to get off at.");
+            }
+            fromSeq = boarding.getSequence();
+            toSeq = alighting.getSequence();
+        }
+
+        Set<String> taken = Set.copyOf(
+                bookingRepository.takenSeatsOverLeg(trip.getId(), fromSeq, toSeq));
 
         List<SeatMapResponse.SeatResponse> seats =
                 SeatMap.labelsFor(trip.getSeatCapacity(), trip.getSeatsPerRow()).stream()
@@ -116,6 +140,8 @@ public class ShuttleService {
         booking.setSeatLabel(request.seatLabel());
         booking.setBoardingStopId(boarding.getId());
         booking.setAlightingStopId(alighting.getId());
+        booking.setBoardingSeq(boarding.getSequence());
+        booking.setAlightingSeq(alighting.getSequence());
         booking.setCurrency(currencyFor(routeId, boarding, alighting));
         booking.setFareMinor(fare);
         booking.setPassId(pass == null ? null : pass.getId());
@@ -125,8 +151,9 @@ public class ShuttleService {
         try {
             bookingRepository.saveAndFlush(booking);
         } catch (DataIntegrityViolationException ex) {
-            // The partial unique index is what actually decides this. Two riders tapping 4A at the
-            // same instant both pass an availability check; only one survives the insert.
+            // The gist exclusion constraint is what actually decides this. Two riders tapping 4A
+            // for overlapping legs at the same instant both pass an availability check; only one
+            // survives the insert.
             throw new ConflictException("That seat has just been taken. Please pick another.");
         }
 

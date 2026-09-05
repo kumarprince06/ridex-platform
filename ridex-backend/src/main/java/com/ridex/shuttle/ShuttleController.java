@@ -54,8 +54,11 @@ public class ShuttleController {
     /** The seat picker. Every seat, and which are already gone. */
     @GetMapping("/departures/{scheduleId}/seats")
     @ResponseStatus(HttpStatus.OK)
-    public SeatMapResponse seats(@PathVariable String scheduleId, @RequestParam String date) {
-        return shuttleService.seatMap(scheduleId, LocalDate.parse(date));
+    public SeatMapResponse seats(@PathVariable String scheduleId, @RequestParam String date,
+            @RequestParam(required = false) String boardingStopId,
+            @RequestParam(required = false) String alightingStopId) {
+        return shuttleService.seatMap(scheduleId, LocalDate.parse(date),
+                boardingStopId, alightingStopId);
     }
 
     @PostMapping("/bookings")

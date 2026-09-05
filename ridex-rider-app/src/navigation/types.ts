@@ -44,7 +44,7 @@ export type RootStackParamList = {
   DriverArrived: { destination: string };
   TripInProgress: { destination: string };
   RideCompleted: { destination: string; rideId?: string };
-  RateDriver: undefined;
+  RateDriver: { rideId?: string };
   CancelRide: { rideId?: string };
   RideCancelled: undefined;
 

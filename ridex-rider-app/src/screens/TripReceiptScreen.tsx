@@ -1,29 +1,41 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { Avatar } from '../components/Avatar';
 import { RouteStops } from '../components/RouteStops';
 import { Screen } from '../components/Screen';
-import { formatMoney, getReceipt, type Receipt } from '../api/rides';
-import { DRIVER, FARE_LINES } from '../data/mock';
+import { formatMoney, formatWhen, getReceipt, getRide } from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripReceipt'>;
 
 export function TripReceiptScreen({ navigation, route }: Props) {
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const { rideId } = route.params;
 
-  useEffect(() => {
-    // Falls back to the static lines when the ride has no finished trip, so an old mock id still
-    // renders rather than showing an empty card.
-    void getReceipt(route.params.rideId).then(setReceipt).catch(() => undefined);
-  }, [route.params.rideId]);
+  // Two calls because the split is real: the receipt is what was charged, the ride is where it
+  // went and when. Neither response carries the other's half.
+  const { data, loading, error } = useQuery(
+    () => Promise.all([getReceipt(rideId), getRide(rideId)]),
+    [rideId],
+  );
+  const [receipt, ride] = data ?? [null, null];
 
-  const lines = receipt?.chargedLines;
-  const overrun = receipt ? receipt.differenceMinor : 0;
+  if (!receipt || !ride) {
+    return (
+      <Screen onBack={() => navigation.goBack()} title="Trip Receipt">
+        {loading ? (
+          <ActivityIndicator color={colors.primary} style={styles.spinner} />
+        ) : (
+          <Text style={styles.empty}>{error ?? 'No receipt for this trip yet.'}</Text>
+        )}
+      </Screen>
+    );
+  }
+
+  const lines = receipt.chargedLines;
+  const overrun = receipt.differenceMinor;
 
   return (
     <Screen
@@ -40,48 +52,48 @@ export function TripReceiptScreen({ navigation, route }: Props) {
           <Ionicons name="navigate" size={22} color={colors.onPrimary} />
         </View>
 
-        <Text style={styles.total}>$10.88</Text>
-        <Text style={styles.date}>Aug 16, 2026 · 2:30 PM</Text>
+        <Text style={styles.total}>
+          {formatMoney(receipt.chargedTotalMinor, receipt.currency)}
+        </Text>
+        <Text style={styles.date}>{formatWhen(ride.requestedAt)}</Text>
 
+        {/* Cash is the only method the platform settles today, so naming a card here would be
+            inventing a payment that never happened. */}
         <View style={styles.paidPill}>
-          <Text style={styles.paidText}>Paid · Visa ••4892</Text>
+          <Text style={styles.paidText}>Paid</Text>
         </View>
       </View>
 
       <View style={styles.card}>
         <RouteStops
-          pickup={{ name: 'Midtown, New York', detail: '2:12 PM' }}
-          dropoff={{ name: 'Grand Central Terminal', detail: '2:30 PM · 18 min · 2.4 km' }}
+          pickup={{ name: ride.pickupAddress ?? 'Pickup' }}
+          dropoff={{
+            name: ride.destinationAddress ?? 'Destination',
+            detail: `${(receipt.actualDistanceMeters / 1000).toFixed(1)} km driven`,
+          }}
         />
       </View>
 
       <View style={styles.card}>
-        {lines
-          ? lines.map((line, index) => (
-              <View key={`${line.type}-${index}`} style={styles.row}>
-                <Text style={styles.label}>{line.label}</Text>
-                <Text style={[styles.amount, line.amountMinor < 0 && styles.credit]}>
-                  {formatMoney(line.amountMinor, receipt!.currency)}
-                </Text>
-              </View>
-            ))
-          : FARE_LINES.map((line) => (
-              <View key={line.label} style={styles.row}>
-                <Text style={styles.label}>{line.label}</Text>
-                <Text style={[styles.amount, line.credit && styles.credit]}>{line.amount}</Text>
-              </View>
-            ))}
+        {lines.map((line, index) => (
+          <View key={`${line.type}-${index}`} style={styles.row}>
+            <Text style={styles.label}>{line.label}</Text>
+            <Text style={[styles.amount, line.amountMinor < 0 && styles.credit]}>
+              {formatMoney(line.amountMinor, receipt.currency)}
+            </Text>
+          </View>
+        ))}
 
         <View style={styles.divider} />
 
         <View style={styles.row}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>
-            {receipt ? formatMoney(receipt.chargedTotalMinor, receipt.currency) : '$10.88'}
+            {formatMoney(receipt.chargedTotalMinor, receipt.currency)}
           </Text>
         </View>
 
-        {receipt && overrun !== 0 ? (
+        {overrun !== 0 ? (
           <View style={styles.compare}>
             {/* The thing no competitor shows: what was quoted, against what was charged. */}
             <View style={styles.row}>
@@ -101,16 +113,15 @@ export function TripReceiptScreen({ navigation, route }: Props) {
         ) : null}
       </View>
 
+      {/* No driver card: the receipt endpoint carries no driver, and a name copied from a fixture
+          on a document about money is the worst place to guess. */}
       <View style={[styles.card, styles.driverCard]}>
-        <Avatar name={DRIVER.name} size={44} />
         <View style={styles.flex}>
-          <Text style={styles.driverName}>{DRIVER.name}</Text>
-          <Text style={styles.driverMeta}>
-            ★ {DRIVER.rating} · {DRIVER.tier}
-          </Text>
+          <Text style={styles.driverName}>{ride.rideTypeCode}</Text>
+          <Text style={styles.driverMeta}>{formatWhen(ride.requestedAt)}</Text>
         </View>
         <View style={styles.tripPill}>
-          <Text style={styles.tripPillText}>Trip #{route.params.rideId}</Text>
+          <Text style={styles.tripPillText}>Trip #{ride.id.slice(-8)}</Text>
         </View>
       </View>
     </Screen>
@@ -118,6 +129,15 @@ export function TripReceiptScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  spinner: {
+    marginTop: spacing.xl,
+  },
+  empty: {
+    ...type.body,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+  },
   compare: {
     marginTop: spacing.md,
     paddingTop: spacing.md,

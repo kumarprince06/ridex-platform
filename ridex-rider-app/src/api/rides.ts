@@ -146,3 +146,11 @@ export function formatWhen(iso: string): string {
   if (daysAgo === 1) return `Yesterday, ${time}`;
   return `${at.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
 }
+
+/** One rating per ride, and only once it completed. The server rejects a second attempt. */
+export function rateRide(rideId: string, stars: number, comment?: string) {
+  return request<void>(`/api/v1/rides/${rideId}/rating`, {
+    method: 'POST',
+    body: { stars, comment },
+  });
+}

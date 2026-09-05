@@ -39,6 +39,13 @@
           "cameraPermission": "RideX Partner uses the camera to scan the rider's pickup QR code."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "RideX Partner needs your photos so you can upload licence and identity documents.",
+          "cameraPermission": "RideX Partner uses the camera to photograph your documents."
+        }
+      ],
       "expo-asset"
     ]
   }

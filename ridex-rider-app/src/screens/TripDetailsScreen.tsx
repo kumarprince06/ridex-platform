@@ -2,20 +2,43 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Avatar } from '../components/Avatar';
+import {
+  formatMoney,
+  formatWhen,
+  getRide,
+  isCancelled,
+  isLive,
+  rideStatusLabel,
+} from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { RouteStops } from '../components/RouteStops';
+import { BrandLoader } from '../components/BrandLoader';
 import { Screen } from '../components/Screen';
-import { Stars } from '../components/Stars';
-import { DRIVER, RIDES } from '../data/mock';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetails'>;
 
 export function TripDetailsScreen({ navigation, route }: Props) {
-  const ride = RIDES.find((item) => item.id === route.params.rideId) ?? RIDES[0]!;
+  const { rideId } = route.params;
+  const { data: ride, loading, error } = useQuery(() => getRide(rideId), [rideId]);
+
+  if (!ride) {
+    return (
+      <Screen onBack={() => navigation.goBack()} title="Trip Details">
+        {loading ? (
+          <BrandLoader size={72} label="Loading the trip" style={styles.spinner} />
+        ) : (
+          <Text style={styles.error}>{error ?? 'That trip could not be found.'}</Text>
+        )}
+      </Screen>
+    );
+  }
+
+  const cancelled = isCancelled(ride.status);
+  const live = isLive(ride.status);
 
   return (
     <Screen
@@ -33,34 +56,62 @@ export function TripDetailsScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.metaRow}>
-        <View style={styles.status}>
-          <Ionicons name="checkmark" size={11} color={colors.primary} />
-          <Text style={styles.statusText}>{ride.status}</Text>
+        <View style={[styles.status, cancelled && styles.statusCancelled]}>
+          <Ionicons
+            name={cancelled ? 'close' : live ? 'ellipse' : 'checkmark'}
+            size={11}
+            color={cancelled ? colors.danger : colors.primary}
+          />
+          <Text style={[styles.statusText, cancelled && styles.statusTextCancelled]}>
+            {rideStatusLabel(ride.status)}
+          </Text>
         </View>
-        <Text style={styles.when}>{ride.when}</Text>
+        <Text style={styles.when}>{formatWhen(ride.requestedAt)}</Text>
       </View>
 
       <View style={styles.card}>
         <View style={styles.cardRow}>
           <RouteStops
             style={styles.flex}
-            pickup={{ name: ride.pickup, detail: 'Pickup' }}
-            dropoff={{ name: ride.dropoff, detail: `Drop-off · ${ride.duration}` }}
+            pickup={{ name: ride.pickupAddress ?? 'Pickup', detail: 'Pickup' }}
+            dropoff={{ name: ride.destinationAddress ?? 'Destination', detail: 'Drop-off' }}
           />
-          <Text style={styles.fare}>{ride.fare}</Text>
+          <Text style={styles.fare}>{formatMoney(ride.quotedFareMinor, ride.currency)}</Text>
         </View>
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.driverRow}>
-          <Avatar name={DRIVER.name} size={50} />
-          <View style={styles.flex}>
-            <Text style={styles.driverName}>{DRIVER.name}</Text>
-            <Text style={styles.driverMeta}>{DRIVER.vehicle}</Text>
-            <Stars value={ride.rating} size={13} />
-          </View>
+      {/* The fare breakdown, not a driver card: the endpoint carries no driver, and "why am I
+          paying this" is the question this screen is actually opened to answer. */}
+      {ride.fareLines.length > 0 ? (
+        <View style={styles.card}>
+          {ride.fareLines.map((line) => (
+            <View key={line.type + line.label} style={styles.lineRow}>
+              <Text style={styles.lineLabel}>{line.label}</Text>
+              <Text style={styles.lineAmount}>{formatMoney(line.amountMinor, ride.currency)}</Text>
+            </View>
+          ))}
+          {ride.redeemedPoints > 0 ? (
+            <View style={styles.lineRow}>
+              <Text style={styles.lineLabel}>Points redeemed</Text>
+              <Text style={styles.lineAmount}>{ride.redeemedPoints}</Text>
+            </View>
+          ) : null}
         </View>
-      </View>
+      ) : null}
+
+      {cancelled && ride.cancellationFeeMinor ? (
+        <View style={styles.card}>
+          <View style={styles.lineRow}>
+            <Text style={styles.lineLabel}>Cancellation fee</Text>
+            <Text style={styles.lineAmount}>
+              {formatMoney(ride.cancellationFeeMinor, ride.currency)}
+            </Text>
+          </View>
+          {ride.cancellationReason ? (
+            <Text style={styles.reason}>{ride.cancellationReason}</Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.actions}>
         <Button
@@ -69,11 +120,14 @@ export function TripDetailsScreen({ navigation, route }: Props) {
           onPress={() => navigation.navigate('ReportIssue')}
           style={styles.flex}
         />
-        <Button
-          label="View Receipt"
-          onPress={() => navigation.navigate('TripReceipt', { rideId: ride.id })}
-          style={styles.flex}
-        />
+        {/* A receipt exists only once the trip was actually charged. */}
+        {ride.status === 'COMPLETED' ? (
+          <Button
+            label="View Receipt"
+            onPress={() => navigation.navigate('TripReceipt', { rideId: ride.id })}
+            style={styles.flex}
+          />
+        ) : null}
       </View>
     </Screen>
   );
@@ -140,21 +194,39 @@ const styles = StyleSheet.create({
     fontSize: 21,
     color: colors.primary,
   },
-  driverRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  statusCancelled: {
+    backgroundColor: 'rgba(255, 92, 122, 0.14)',
   },
-  driverName: {
-    ...type.button,
-    fontSize: 16,
+  statusTextCancelled: {
+    color: colors.danger,
+  },
+  spinner: {
+    marginTop: spacing.xl,
+  },
+  error: {
+    ...type.body,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+  },
+  lineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  lineLabel: {
+    ...type.body,
+    color: colors.textMuted,
+  },
+  lineAmount: {
+    ...type.body,
     color: colors.text,
   },
-  driverMeta: {
+  reason: {
     ...type.caption,
     color: colors.textMuted,
-    marginTop: 1,
-    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
   },
   actions: {
     flexDirection: 'row',

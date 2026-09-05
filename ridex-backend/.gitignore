@@ -47,3 +47,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Runtime uploads - driver documents the app writes, not source.
+var/

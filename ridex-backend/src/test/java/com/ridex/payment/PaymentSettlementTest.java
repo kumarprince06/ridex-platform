@@ -26,7 +26,7 @@ import com.ridex.driver.DriverProfileService;
 import com.ridex.driver.domain.DriverOnboardingStatus;
 import com.ridex.driver.domain.DriverProfile;
 import com.ridex.location.DriverPresence;
-import com.ridex.maps.MapsProvider;
+import com.ridex.maps.MapsService;
 import com.ridex.maps.domain.RouteEstimate;
 import com.ridex.payment.domain.LedgerAccountType;
 import com.ridex.points.PointsService;
@@ -50,7 +50,7 @@ class PaymentSettlementTest {
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);
     private static final Currency INR = Currency.getInstance("INR");
 
-    @MockitoBean private MapsProvider mapsProvider;
+    @MockitoBean private MapsService mapsProvider;
     @MockitoBean private DriverPresence driverPresence;
     @MockitoBean private OfferNotifier offerNotifier;
 
@@ -160,7 +160,7 @@ class PaymentSettlementTest {
     private String book(int redeemPoints) {
         return rideRequestService.create(riderUserId, new CreateRideRequest(
                 fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(),
-                "Koramangala", "Indiranagar", redeemPoints)).id();
+                "Koramangala", "Indiranagar", redeemPoints, null)).id();
     }
 
     private String runTripToCompletion(String rideId) {

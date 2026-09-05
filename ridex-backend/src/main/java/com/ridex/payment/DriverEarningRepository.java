@@ -17,4 +17,13 @@ public interface DriverEarningRepository extends JpaRepository<DriverEarning, St
 
     @Query("SELECT COALESCE(SUM(e.netAmountMinor), 0) FROM DriverEarning e WHERE e.driver.id = :driverId")
     long totalNetFor(@Param("driverId") String driverId);
+
+    /** Earnings no payout has claimed. This is the batch, and the reason a trip cannot pay twice. */
+    List<DriverEarning> findByDriverIdAndPayoutIdIsNullOrderByCreatedAtAsc(String driverId);
+
+    List<DriverEarning> findByPayoutIdOrderByCreatedAtAsc(String payoutId);
+
+    /** Drivers with money owed, so a batch run does not have to walk every driver on the platform. */
+    @Query("SELECT DISTINCT e.driver.id FROM DriverEarning e WHERE e.payoutId IS NULL")
+    List<String> driverIdsWithUnsettledEarnings();
 }

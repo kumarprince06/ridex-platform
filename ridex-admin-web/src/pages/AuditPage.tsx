@@ -1,61 +1,66 @@
 import { useState } from 'react';
 
-import { Card, PageHeader, Pill, SearchInput, Table } from '../components/ui';
-import { AUDIT, AuditEntry } from '../data/mock';
-
-const ACTION_TONE = (action: string) => {
-  if (action.includes('REFUND') || action.includes('SUSPEND') || action.includes('REJECT')) return 'danger' as const;
-  if (action.includes('GRANT') || action.includes('APPROVE')) return 'success' as const;
-  return 'info' as const;
-};
+import { DEFAULT_PAGE_SIZE, listAuditLog, type AuditEntry } from '../api/admin';
+import { useQuery } from '../api/useQuery';
+import { Card, PageHeader, Pagination, Pill, Table } from '../components/ui';
 
 /**
- * FR-OPS-010. Read-only for everyone, including super admins - the console's credibility rests on
- * this screen, and a log its own operators can edit proves nothing.
+ * Every mutating action operations took, and why.
+ *
+ * Super admin only: it records what everyone else did, including them.
  */
 export function AuditPage() {
-  const [query, setQuery] = useState('');
-  const needle = query.trim().toLowerCase();
-
-  const rows = needle
-    ? AUDIT.filter((entry) =>
-        [entry.actor, entry.action, entry.entity, entry.reason].some((field) =>
-          field.toLowerCase().includes(needle),
-        ),
-      )
-    : AUDIT;
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  const { data, loading, error } = useQuery(() => listAuditLog(page, size), [page, size]);
 
   return (
     <>
       <PageHeader
         title="Audit log"
-        subtitle="Every privileged action, with the reason its operator gave. Read-only for all roles."
+        subtitle={data ? `${data.totalItems} recorded actions` : loading ? 'Loading...' : ''}
       />
 
-      <Card actions={<SearchInput value={query} onChange={setQuery} placeholder="Actor, action, entity or reason" />}>
+      <Card>
         <Table<AuditEntry>
           columns={[
-            { key: 'at', header: 'When', render: (row) => <span className="cell-muted">{row.at}</span> },
-            { key: 'actor', header: 'Actor', render: (row) => (
-              <>
-                <div className="cell-strong">{row.actor}</div>
-                <div className="cell-muted mono">{row.role}</div>
-              </>
+            { key: 'when', header: 'When', render: (row) => (
+              <span className="cell-muted">{new Date(row.occurredAt).toLocaleString()}</span>
             ) },
-            { key: 'action', header: 'Action', render: (row) => <Pill tone={ACTION_TONE(row.action)}>{row.action}</Pill> },
-            { key: 'entity', header: 'Entity', render: (row) => <span className="mono">{row.entity}</span> },
-            { key: 'reason', header: 'Reason given', render: (row) => row.reason },
+            { key: 'actor', header: 'Who', render: (row) => (
+              <span className="cell-strong">{row.actorEmail ?? 'System'}</span>
+            ) },
+            { key: 'action', header: 'Action', render: (row) => <Pill tone="info">{row.action}</Pill> },
+            { key: 'target', header: 'Target', render: (row) =>
+              row.targetId ? (
+                <span className="mono">
+                  {row.targetType} {row.targetId.slice(-8)}
+                </span>
+              ) : '—' },
+            { key: 'reason', header: 'Reason', render: (row) => row.reason ?? '—' },
+            { key: 'ip', header: 'From', render: (row) => (
+              <span className="cell-muted mono">{row.ipAddress ?? '—'}</span>
+            ) },
           ]}
-          rows={rows}
-          empty={`No audit entry matches “${query}”.`}
+          rows={data?.items ?? []}
+          empty={error ?? (loading ? 'Loading...' : 'Nothing recorded yet.')}
         />
-      </Card>
 
-      <Card>
-        <p className="cell-muted">
-          The <code className="mono">audit_logs</code> table does not exist yet — T1 deferred it on
-          purpose, and T15 needs it. These rows are static until it lands.
-        </p>
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="actions"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

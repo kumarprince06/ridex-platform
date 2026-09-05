@@ -47,6 +47,19 @@ public class ShuttleBooking {
     @Column(name = "alighting_stop_id", nullable = false, length = 26, updatable = false)
     private String alightingStopId;
 
+    /**
+     * The stop sequences, copied from the route.
+     *
+     * <p>Denormalised so the database can compare intervals: the exclusion constraint that stops a
+     * seat being sold twice over the same stretch needs numbers, not foreign keys. Stops are
+     * append-only and never resequenced, so these cannot drift from the route they came off.
+     */
+    @Column(name = "boarding_seq", nullable = false, updatable = false)
+    private short boardingSeq;
+
+    @Column(name = "alighting_seq", nullable = false, updatable = false)
+    private short alightingSeq;
+
     @Column(name = "currency", nullable = false, length = 3, updatable = false)
     private String currency;
 
@@ -66,6 +79,15 @@ public class ShuttleBooking {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    /**
+     * When the driver checked this passenger in, null until then.
+     *
+     * <p>A timestamp rather than a status: the seat's unique index is scoped to status 'BOOKED',
+     * so changing the status on boarding would free the seat somebody is sitting in.
+     */
+    @Column(name = "boarded_at")
+    private Instant boardedAt;
 
     @Column(name = "cancelled_at")
     private Instant cancelledAt;

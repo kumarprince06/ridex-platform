@@ -3,6 +3,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { formatMoney, getReceipt } from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { StatTiles } from '../components/StatTiles';
 import { RootStackParamList } from '../navigation/types';
@@ -11,7 +13,12 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'RideCompleted'>;
 
 export function RideCompletedScreen({ navigation, route }: Props) {
-  const { destination } = route.params;
+  const { destination, rideId } = route.params;
+
+  const { data: receipt } = useQuery(
+    () => (rideId ? getReceipt(rideId) : Promise.resolve(null)),
+    [rideId],
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -30,30 +37,49 @@ export function RideCompletedScreen({ navigation, route }: Props) {
         <Text style={styles.destination}>{destination}</Text>
 
         <View style={styles.fareRow}>
-          <Text style={styles.fare}>$10.88</Text>
+          <Text style={styles.fare}>
+            {receipt ? formatMoney(receipt.chargedTotalMinor, receipt.currency) : '—'}
+          </Text>
           <View>
-            <Text style={styles.chargedTo}>charged to</Text>
-            <Text style={styles.card}>Visa ••4892</Text>
+            <Text style={styles.chargedTo}>paid by</Text>
+            <Text style={styles.card}>Cash</Text>
           </View>
         </View>
 
+        {/* Distance and the quote comparison, because those are what the receipt actually knows.
+            Duration and a driver rating are not on this response. */}
         <StatTiles
           stats={[
-            { value: '2.4 km', label: 'Distance' },
-            { value: '18 min', label: 'Duration' },
-            { value: '★ 4.9', label: 'Driver' },
+            {
+              value: receipt ? `${(receipt.actualDistanceMeters / 1000).toFixed(1)} km` : '—',
+              label: 'Distance',
+            },
+            {
+              value: receipt ? formatMoney(receipt.quotedTotalMinor, receipt.currency) : '—',
+              label: 'Quoted',
+            },
+            {
+              value:
+                receipt && receipt.differenceMinor !== 0
+                  ? formatMoney(receipt.differenceMinor, receipt.currency)
+                  : 'As quoted',
+              label: 'Difference',
+            },
           ]}
         />
       </View>
 
       <View style={styles.footer}>
-        <Button label="Rate Your Ride" onPress={() => navigation.navigate('RateDriver')} />
-        <Button
-          label="View Receipt"
-          variant="secondary"
-          onPress={() => navigation.navigate('TripReceipt', { rideId: '3841' })}
-          style={styles.secondary}
-        />
+        <Button label="Rate Your Ride" onPress={() => navigation.navigate('RateDriver', { rideId })} />
+        {/* Was navigating to a hardcoded fixture id, which opened somebody else's receipt. */}
+        {rideId ? (
+          <Button
+            label="View Receipt"
+            variant="secondary"
+            onPress={() => navigation.navigate('TripReceipt', { rideId })}
+            style={styles.secondary}
+          />
+        ) : null}
         <Pressable
           onPress={() => navigation.popToTop()}
           accessibilityRole="button"

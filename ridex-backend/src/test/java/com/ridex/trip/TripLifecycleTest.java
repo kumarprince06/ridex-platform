@@ -27,7 +27,7 @@ import com.ridex.driver.DriverProfileService;
 import com.ridex.driver.domain.DriverOnboardingStatus;
 import com.ridex.driver.domain.DriverProfile;
 import com.ridex.location.DriverPresence;
-import com.ridex.maps.MapsProvider;
+import com.ridex.maps.MapsService;
 import com.ridex.maps.domain.RouteEstimate;
 import com.ridex.pricing.FareEstimateService;
 import com.ridex.pricing.domain.FareLineType;
@@ -48,7 +48,7 @@ class TripLifecycleTest {
 
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);
 
-    @MockitoBean private MapsProvider mapsProvider;
+    @MockitoBean private MapsService mapsProvider;
     @MockitoBean private DriverPresence driverPresence;
     @MockitoBean private OfferNotifier offerNotifier;
 
@@ -82,7 +82,7 @@ class TripLifecycleTest {
 
         rideId = rideRequestService.create(riderUserId, new CreateRideRequest(
                 fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(),
-                "Koramangala", "Indiranagar", null)).id();
+                "Koramangala", "Indiranagar", null, null)).id();
 
         dispatchService.offerRide(rideId, 1);
         String offerId = dispatchService.liveOffers(driverUserId).get(0).offerId();

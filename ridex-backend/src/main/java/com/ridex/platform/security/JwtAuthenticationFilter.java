@@ -76,12 +76,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
                             .toList());
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            filterChain.doFilter(request, response);
         } catch (Exception ex) {
+            // Only token problems land here. The chain call is deliberately outside this block:
+            // with it inside, any unhandled exception from any controller came back as
+            // "Invalid or expired JWT token" with a 401, and a 500 masquerading as an auth
+            // failure sends everyone looking in the wrong place.
             SecurityContextHolder.clearContext();
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired JWT token.");
+            return;
+        }
+
+        try {
+            filterChain.doFilter(request, response);
         } finally {
+            // Stateless: nothing may leak to the next request on this thread.
             SecurityContextHolder.clearContext();
         }
     }

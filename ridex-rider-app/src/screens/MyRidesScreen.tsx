@@ -1,12 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  formatMoney,
+  formatWhen,
+  isCancelled,
+  isLive,
+  listRides,
+  rideStatusLabel,
+  type Ride,
+} from '../api/rides';
+import { useQuery } from '../api/useQuery';
+import { BrandLoader } from '../components/BrandLoader';
 import { Chip } from '../components/Chip';
 import { RouteStops } from '../components/RouteStops';
-import { Stars } from '../components/Stars';
-import { Ride, RIDES } from '../data/mock';
 import { TabScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -16,16 +32,20 @@ const FILTERS = ['All', 'Completed', 'Cancelled'] as const;
 
 export function MyRidesScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
+  const { data, loading, error, refetch } = useQuery(listRides, []);
 
-  const rides = filter === 'All' ? RIDES : RIDES.filter((ride) => ride.status === filter);
+  // Filtered here rather than server-side: the endpoint returns this rider's own history, which
+  // is tens of rows, not the thousands that would make a round trip worth it.
+  const rides = (data ?? []).filter((ride) => {
+    if (filter === 'Completed') return ride.status === 'COMPLETED';
+    if (filter === 'Cancelled') return isCancelled(ride.status);
+    return true;
+  });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.heading}>My Rides</Text>
-        <View style={styles.filterButton}>
-          <Text style={styles.filterButtonText}>Filter</Text>
-        </View>
       </View>
 
       <View style={styles.filters}>
@@ -39,7 +59,30 @@ export function MyRidesScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={loading && data != null} onRefresh={refetch} tintColor={colors.primary} />
+        }
+      >
+        {loading && data == null ? <BrandLoader size={72} label="Loading your rides" style={styles.spinner} /> : null}
+
+        {error ? (
+          <Pressable onPress={refetch} style={styles.notice} accessibilityRole="button">
+            <Text style={styles.noticeText}>{error}</Text>
+            <Text style={styles.noticeAction}>Tap to try again</Text>
+          </Pressable>
+        ) : null}
+
+        {!loading && !error && rides.length === 0 ? (
+          <View style={styles.notice}>
+            <Text style={styles.noticeText}>
+              {filter === 'All' ? 'No rides yet.' : `No ${filter.toLowerCase()} rides.`}
+            </Text>
+          </View>
+        ) : null}
+
         {rides.map((ride) => (
           <RideCard
             key={ride.id}
@@ -53,7 +96,8 @@ export function MyRidesScreen({ navigation }: Props) {
 }
 
 function RideCard({ ride, onPress }: { ride: Ride; onPress: () => void }) {
-  const cancelled = ride.status === 'Cancelled';
+  const cancelled = isCancelled(ride.status);
+  const live = isLive(ride.status);
 
   return (
     <Pressable
@@ -64,32 +108,30 @@ function RideCard({ ride, onPress }: { ride: Ride; onPress: () => void }) {
       <View style={styles.cardTop}>
         <View style={[styles.status, cancelled && styles.statusCancelled]}>
           <Ionicons
-            name={cancelled ? 'close' : 'checkmark'}
+            name={cancelled ? 'close' : live ? 'ellipse' : 'checkmark'}
             size={11}
             color={cancelled ? colors.danger : colors.primary}
           />
           <Text style={[styles.statusText, cancelled && styles.statusTextCancelled]}>
-            {ride.status}
+            {rideStatusLabel(ride.status)}
           </Text>
         </View>
-        <Text style={styles.tier}>{ride.tier}</Text>
-        <Text style={styles.fare}>{ride.fare}</Text>
+        <Text style={styles.tier}>{ride.rideTypeCode}</Text>
+        <Text style={styles.fare}>{formatMoney(ride.quotedFareMinor, ride.currency)}</Text>
       </View>
 
       <RouteStops
         compact
-        pickup={{ name: ride.pickup }}
-        dropoff={{ name: ride.dropoff }}
+        pickup={{ name: ride.pickupAddress ?? 'Pickup' }}
+        dropoff={{ name: ride.destinationAddress ?? 'Destination' }}
         style={styles.stops}
       />
 
       <View style={styles.cardFooter}>
-        <Text style={styles.when}>{ride.when}</Text>
-        <View style={styles.footerRight}>
-          <Ionicons name="time-outline" size={12} color={colors.textMuted} />
-          <Text style={styles.duration}>{ride.duration}</Text>
-          {ride.rating > 0 ? <Stars value={ride.rating} size={12} /> : null}
-        </View>
+        <Text style={styles.when}>{formatWhen(ride.requestedAt)}</Text>
+        {/* No duration or rating here: the list endpoint carries neither, and inventing them is
+            how a screen starts lying about a completed trip. */}
+        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
       </View>
     </Pressable>
   );
@@ -111,13 +153,24 @@ const styles = StyleSheet.create({
     ...type.title,
     color: colors.text,
   },
-  filterButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(46, 231, 199, 0.16)',
+  spinner: {
+    marginTop: spacing.xl,
   },
-  filterButtonText: {
+  notice: {
+    padding: spacing.xl,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  noticeText: {
+    ...type.body,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  noticeAction: {
     ...type.label,
     color: colors.primary,
   },
@@ -192,15 +245,5 @@ const styles = StyleSheet.create({
   when: {
     ...type.caption,
     color: colors.textMuted,
-  },
-  footerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  duration: {
-    ...type.caption,
-    color: colors.textMuted,
-    marginRight: spacing.xs,
   },
 });

@@ -26,15 +26,7 @@ public class ShuttleController {
     @GetMapping("/routes")
     @ResponseStatus(HttpStatus.OK)
     public List<RouteResponse> routes() {
-        return shuttleService.routes().stream()
-                .map(route -> new RouteResponse(
-                        route.getId(), route.getCode(), route.getName(), route.getDescription(),
-                        route.getStops().stream()
-                                .map(stop -> new RouteResponse.StopResponse(
-                                        stop.getId(), stop.getSequence(), stop.getName(),
-                                        stop.getOffsetMinutes()))
-                                .toList()))
-                .toList();
+        return shuttleService.routeResponses();
     }
 
     @GetMapping("/routes/{routeId}/departures")
@@ -50,8 +42,11 @@ public class ShuttleController {
     /** The seat picker. Every seat, and which are already gone. */
     @GetMapping("/departures/{scheduleId}/seats")
     @ResponseStatus(HttpStatus.OK)
-    public SeatMapResponse seats(@PathVariable String scheduleId, @RequestParam String date) {
-        return shuttleService.seatMap(scheduleId, LocalDate.parse(date));
+    public SeatMapResponse seats(@PathVariable String scheduleId, @RequestParam String date,
+            @RequestParam(required = false) String boardingStopId,
+            @RequestParam(required = false) String alightingStopId) {
+        return shuttleService.seatMap(scheduleId, LocalDate.parse(date),
+                boardingStopId, alightingStopId);
     }
 
     @PostMapping("/bookings")

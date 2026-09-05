@@ -17,8 +17,10 @@ public class SmsChannel implements NotificationChannel {
     }
 
     @Override
-    public void send(String recipient, String subject, String body) {
-        // Never log the body in production - it carries the OTP.
-        log.info("SMS to {} ({} chars) - no provider configured, not sent", recipient, body.length());
+    public void send(String recipient, NotificationTemplates.Rendered rendered) {
+        // Never log the body in production - it carries the OTP. No subject either: SMS has none,
+        // and prefixing one would eat characters out of a 160-character budget.
+        log.info("SMS to {} ({} chars) - no provider configured, not sent",
+                recipient, rendered.body().length());
     }
 }

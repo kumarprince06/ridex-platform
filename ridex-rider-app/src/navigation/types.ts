@@ -2,6 +2,8 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import type { ShuttleBooking } from '../api/shuttle';
+
 /** The four persistent destinations behind the bottom bar. */
 export type TabParamList = {
   Home: undefined;
@@ -44,9 +46,28 @@ export type RootStackParamList = {
   DriverArrived: { destination: string };
   TripInProgress: { destination: string };
   RideCompleted: { destination: string; rideId?: string };
-  RateDriver: undefined;
-  CancelRide: undefined;
+  RateDriver: { rideId?: string };
+  CancelRide: { rideId?: string };
   RideCancelled: undefined;
+
+  // Shuttle: fixed routes and chosen seats, not dispatch. There are no offers and no driver
+  // search - the vehicle is already going, and the question is whether a seat on it is free.
+  ShuttleRoutes: undefined;
+  ShuttleDepartures: { routeId: string };
+  ShuttleSeats: {
+    routeId: string;
+    scheduleId: string;
+    serviceDate: string;
+    boardingStopId: string;
+    alightingStopId: string;
+  };
+  /**
+   * Carries the whole booking, not an id.
+   *
+   * The boarding code is returned once and only its hash is stored, so there is nothing to
+   * re-fetch it from - passing the id would lose the one thing this screen exists to show.
+   */
+  ShuttleBooked: { booking: ShuttleBooking };
 
   TripDetails: { rideId: string };
   TripReceipt: { rideId: string };

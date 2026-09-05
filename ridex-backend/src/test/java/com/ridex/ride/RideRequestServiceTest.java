@@ -20,7 +20,7 @@ import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.User;
 import com.ridex.auth.domain.UserRole;
 import com.ridex.auth.domain.UserStatus;
-import com.ridex.maps.MapsProvider;
+import com.ridex.maps.MapsService;
 import com.ridex.maps.domain.RouteEstimate;
 import com.ridex.pricing.FareEstimateRepository;
 import com.ridex.pricing.FareEstimateService;
@@ -40,7 +40,7 @@ class RideRequestServiceTest {
 
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);
 
-    @MockitoBean private MapsProvider mapsProvider;
+    @MockitoBean private MapsService mapsProvider;
 
     @Autowired private RideRequestService rideRequestService;
     @Autowired private FareEstimateService fareEstimateService;
@@ -64,7 +64,7 @@ class RideRequestServiceTest {
         var option = fareEstimateService.estimate(riderId, ROUTE).get(0);
 
         RideResponse ride = rideRequestService.create(riderId,
-                new CreateRideRequest(option.estimateId(), "Koramangala", "Indiranagar", null));
+                new CreateRideRequest(option.estimateId(), "Koramangala", "Indiranagar", null, null));
 
         // The client sent no price and could not have.
         assertThat(ride.quotedFareMinor()).isEqualTo(option.totalMinor());
@@ -81,7 +81,7 @@ class RideRequestServiceTest {
 
         // Re-quoting is the rider's choice, not something to do silently at a price they never saw.
         assertThatThrownBy(() -> rideRequestService.create(riderId,
-                new CreateRideRequest(option.estimateId(), null, null, null)))
+                new CreateRideRequest(option.estimateId(), null, null, null, null)))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("expired");
     }
@@ -89,10 +89,10 @@ class RideRequestServiceTest {
     @Test
     void oneQuoteBooksOneRide() {
         var option = fareEstimateService.estimate(riderId, ROUTE).get(0);
-        rideRequestService.create(riderId, new CreateRideRequest(option.estimateId(), null, null, null));
+        rideRequestService.create(riderId, new CreateRideRequest(option.estimateId(), null, null, null, null));
 
         assertThatThrownBy(() -> rideRequestService.create(riderId,
-                new CreateRideRequest(option.estimateId(), null, null, null)))
+                new CreateRideRequest(option.estimateId(), null, null, null, null)))
                 .isInstanceOf(ConflictException.class);
     }
 
@@ -102,7 +102,7 @@ class RideRequestServiceTest {
 
         // Not found rather than forbidden: whether it exists is not the caller's business.
         assertThatThrownBy(() -> rideRequestService.create(riderId,
-                new CreateRideRequest(option.estimateId(), null, null, null)))
+                new CreateRideRequest(option.estimateId(), null, null, null, null)))
                 .isInstanceOf(NotFoundException.class);
     }
 
@@ -155,7 +155,7 @@ class RideRequestServiceTest {
 
     private RideResponse book(String rider) {
         var option = fareEstimateService.estimate(rider, ROUTE).get(0);
-        return rideRequestService.create(rider, new CreateRideRequest(option.estimateId(), null, null, null));
+        return rideRequestService.create(rider, new CreateRideRequest(option.estimateId(), null, null, null, null));
     }
 
     private String newRider() {

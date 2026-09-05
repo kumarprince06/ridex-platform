@@ -17,12 +17,20 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MapsController {
 
-    private final MapsProvider mapsProvider;
+    private final MapsService mapsService;
 
     @GetMapping("/geocode")
     @ResponseStatus(HttpStatus.OK)
     public GeoLocation geocode(@RequestParam String query) {
-        return mapsProvider.geocode(query);
+        return mapsService.geocode(query);
+    }
+
+    /** Candidates for a partial query, for a picker rather than a lookup. */
+    @GetMapping("/search")
+    @ResponseStatus(HttpStatus.OK)
+    public java.util.List<GeoLocation> search(@RequestParam String query,
+            @RequestParam(defaultValue = "6") int limit) {
+        return mapsService.search(query, limit);
     }
 
     @GetMapping("/route")
@@ -32,6 +40,6 @@ public class MapsController {
             @RequestParam double pickupLng,
             @RequestParam double destinationLat,
             @RequestParam double destinationLng) {
-        return mapsProvider.route(pickupLat, pickupLng, destinationLat, destinationLng);
+        return mapsService.route(pickupLat, pickupLng, destinationLat, destinationLng);
     }
 }

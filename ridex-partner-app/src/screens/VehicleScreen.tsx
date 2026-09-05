@@ -1,41 +1,106 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
+import { ApiError } from '../api/problem';
+import {
+  VEHICLE_LABELS,
+  deactivateVehicle,
+  listVehicles,
+  type Vehicle,
+  type VehicleStatus,
+} from '../api/vehicles';
+import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { VEHICLE } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
-import { colors, radius, spacing, type } from '../theme';
+import { colors, IconName, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'Vehicle'>;
 
+const STATUS: Record<VehicleStatus, { label: string; colour: string; icon: IconName }> = {
+  ACTIVE: { label: 'Approved', colour: colors.success, icon: 'checkmark-circle' },
+  PENDING_REVIEW: { label: 'Under review', colour: colors.warning, icon: 'hourglass' },
+  REJECTED: { label: 'Rejected', colour: colors.danger, icon: 'close-circle' },
+  INACTIVE: { label: 'Off the road', colour: colors.textMuted, icon: 'pause-circle' },
+};
+
 export function VehicleScreen({ navigation }: Props) {
+  const { data, loading, error, refetch } = useQuery(listVehicles, []);
+  const vehicles = data ?? [];
+
+  async function takeOffRoad(vehicle: Vehicle) {
+    try {
+      await deactivateVehicle(vehicle.id);
+      refetch();
+    } catch (caught) {
+      Alert.alert(
+        'Could not update',
+        caught instanceof ApiError ? caught.userMessage : 'Something went wrong.',
+      );
+    }
+  }
+
   return (
     <Screen
       onBack={() => navigation.goBack()}
       title="Vehicle"
-      footer={<Button label="Request a change" variant="secondary" />}
+      footer={
+        <Button
+          label="Add a vehicle"
+          variant="secondary"
+          onPress={() => navigation.navigate('VehicleDetails')}
+        />
+      }
     >
-      <View style={styles.hero}>
-        <View style={styles.icon}>
-          <Ionicons name="car-sport" size={30} color={colors.primary} />
-        </View>
-        <Text style={styles.name}>
-          {VEHICLE.make} {VEHICLE.model}
-        </Text>
-        <View style={styles.statusPill}>
-          <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-          <Text style={styles.statusLabel}>{VEHICLE.status}</Text>
-        </View>
-      </View>
+      {loading && data == null ? (
+        <ActivityIndicator color={colors.primary} style={styles.spinner} />
+      ) : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.card}>
-        <Line label="Plate" value={VEHICLE.plate} />
-        <Line label="Year" value={VEHICLE.year} />
-        <Line label="Colour" value={VEHICLE.colour} />
-        <Line label="Ride type" value={VEHICLE.type} />
-        <Line label="Seats" value={VEHICLE.seats} last />
-      </View>
+      {!loading && vehicles.length === 0 ? (
+        <Text style={styles.empty}>
+          No vehicle yet. Add one and operations will review it before you can drive.
+        </Text>
+      ) : null}
+
+      {vehicles.map((vehicle) => {
+        const status = STATUS[vehicle.status];
+
+        return (
+          <View key={vehicle.id} style={styles.block}>
+            <View style={styles.hero}>
+              <View style={styles.icon}>
+                <Ionicons name="car-sport" size={30} color={colors.primary} />
+              </View>
+              <Text style={styles.name}>
+                {vehicle.make} {vehicle.model}
+              </Text>
+              <View style={[styles.statusPill, { backgroundColor: colors.surfaceAlt }]}>
+                <Ionicons name={status.icon} size={14} color={status.colour} />
+                <Text style={[styles.statusLabel, { color: status.colour }]}>{status.label}</Text>
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <Line label="Plate" value={vehicle.registrationNumber} />
+              <Line label="Year" value={String(vehicle.manufactureYear)} />
+              <Line label="Colour" value={vehicle.color ?? '—'} />
+              <Line label="Type" value={VEHICLE_LABELS[vehicle.vehicleType]} />
+              <Line label="Seats" value={String(vehicle.seatCapacity)} last />
+            </View>
+
+            {/* Only an on-road vehicle can be taken off it. Coming back needs another review. */}
+            {vehicle.status === 'ACTIVE' || vehicle.status === 'PENDING_REVIEW' ? (
+              <Button
+                label="Take off the road"
+                variant="secondary"
+                onPress={() => takeOffRoad(vehicle)}
+                style={styles.deactivate}
+              />
+            ) : null}
+          </View>
+        );
+      })}
 
       <Text style={styles.note}>
         Changing your vehicle needs a fresh registration and insurance check, so it goes back through
@@ -55,6 +120,25 @@ function Line({ label, value, last = false }: { label: string; value: string; la
 }
 
 const styles = StyleSheet.create({
+  spinner: {
+    marginTop: spacing.xl,
+  },
+  error: {
+    ...type.body,
+    color: colors.danger,
+  },
+  empty: {
+    ...type.body,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+  },
+  block: {
+    marginBottom: spacing.xl,
+  },
+  deactivate: {
+    marginTop: spacing.md,
+  },
   hero: {
     alignItems: 'center',
     marginBottom: spacing.xl,

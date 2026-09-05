@@ -93,3 +93,43 @@ export function completeTrip(tripId: string, distanceMeters: number, durationSec
 export function formatMoney(amountMinor: number, currency: string): string {
   return `${currency} ${(amountMinor / 100).toFixed(2)}`;
 }
+
+export type EarningLine = {
+  tripId: string;
+  grossAmountMinor: number;
+  commissionRate: number;
+  commissionMinor: number;
+  netAmountMinor: number;
+  createdAt: string;
+};
+
+export type Earnings = {
+  currency: string;
+  lifetimeNetMinor: number;
+  /** What the ledger says is owed right now, after payouts already settled. */
+  ledgerBalanceMinor: number;
+  recent: EarningLine[];
+};
+
+export type PayoutStatus = 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED';
+
+export type Payout = {
+  id: string;
+  currency: string;
+  amountMinor: number;
+  status: PayoutStatus;
+  periodStart: string;
+  periodEnd: string;
+  reference: string | null;
+  failureReason: string | null;
+  createdAt: string;
+  settledAt: string | null;
+};
+
+export function getEarnings() {
+  return request<Earnings>('/api/v1/driver/earnings');
+}
+
+export function listPayouts() {
+  return request<Payout[]>('/api/v1/driver/earnings/payouts');
+}

@@ -111,6 +111,32 @@ button.stat-tile:focus-visible {
   font-size: 12px;
   color: var(--text-faint);
 }
+.stat-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-height: 18px;
+}
+.stat-delta {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+/* Arrow and sign carry the direction; the tint is a second encoding, never the only one. */
+.delta-good {
+  color: var(--success-strong, #0d8a74);
+  background: color-mix(in srgb, var(--success-strong, #0d8a74) 10%, transparent);
+}
+.delta-bad {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+.delta-flat {
+  color: var(--text-faint);
+  background: var(--surface-sunken, rgba(0, 0, 0, 0.04));
+}
 .stat-tile.tone-danger::after { background: var(--danger); }
 .stat-tile.tone-warning::after { background: var(--warning); }
 .stat-tile.tone-success::after { background: var(--success); }
@@ -338,11 +364,133 @@ button.stat-tile:focus-visible {
   font-size: 12px;
   color: var(--text-muted);
 }
-.filter-tab.active {
+.filter-tab:hover {
+  background: var(--surface-alt);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.filter-tab.active,
+.filter-tab.active:hover {
   background: var(--primary-surface);
   border-color: var(--primary-strong);
   color: var(--primary-strong);
   font-weight: 600;
+}
+
+/* --- pagination --- */
+/* Sits inside .card-body, which drops its padding when it holds a table - so the footer carries
+   its own, and the top border is what separates it from the last row. */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--thead-bg);
+}
+
+.page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.page-size-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* A native select with its own arrow: appearance:none removes the platform one, which is the
+   only part of a select that looks foreign in a designed table. */
+.page-size-select {
+  appearance: none;
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6779' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 26px 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
+}
+.page-size-select:hover {
+  border-color: var(--border-strong);
+}
+.page-size-select:focus-visible {
+  outline: 2px solid var(--primary-surface);
+  border-color: var(--primary-strong);
+}
+
+.pagination-range {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.pagination-range strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+/* Square, icon-only, sized to the same 28px as the select so the footer reads as one row. */
+.page-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background 140ms var(--ease), border-color 140ms var(--ease), color 140ms var(--ease);
+}
+.page-btn:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.page-btn:focus-visible {
+  outline: 2px solid var(--primary-surface);
+  border-color: var(--primary-strong);
+}
+/* Greyed rather than hidden: a control that vanishes on the first page moves the other one. */
+.page-btn:disabled {
+  color: var(--text-faint);
+  background: var(--surface-alt);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.page-position {
+  min-width: 54px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  padding: 0 var(--space-1);
+}
+.page-position-of {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+/* Under a narrow card the range text is the first thing to go - the two controls are what the
+   operator actually reaches for. */
+@media (max-width: 560px) {
+  .pagination-range {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
 }
 
 /* --- modal --- */
@@ -441,4 +589,268 @@ button.stat-tile:focus-visible {
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.15);
   cursor: pointer;
+}
+
+/* A route's stops, numbered in travel order. Larger than a driver dot because the number has to
+   be legible at the zoom that fits a whole route. */
+.route-map {
+  height: 320px;
+  border-bottom: 1px solid var(--border);
+}
+.stop-dot {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary-strong);
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(16, 24, 40, 0.35);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+/* --- charts --- */
+.chart {
+  position: relative;
+  padding: var(--space-4) var(--space-3) var(--space-2);
+}
+.chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+/* Recessive: hairline, solid, one step off the surface. Never dashed. */
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.chart-crosshair {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+/* Text wears text tokens, never the series colour. */
+.chart-tick {
+  fill: var(--text-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.chart-endlabel {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.chart-empty {
+  padding: var(--space-5);
+  color: var(--text-faint);
+  font-size: 13px;
+  text-align: center;
+}
+.chart-tooltip {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-3);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-4) var(--space-5);
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 64px;
+  align-items: center;
+  gap: var(--space-3);
+}
+.bar-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.bar-track {
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  /* Rounded at the data end, square at the baseline. */
+  border-radius: 0 4px 4px 0;
+}
+.bar-value {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The filter strip and the search box share a card head that is already holding a title, so they
+   wrap together rather than pushing the header wider than the card. */
+.card-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Two or three buttons in a table cell. Right-aligned by the column, spaced by this. */
+.row-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* --- seat layout preview --- */
+.seat-layout {
+  margin-top: var(--space-4);
+}
+.seat-grid {
+  display: grid;
+  gap: 6px;
+  justify-content: center;
+  padding: var(--space-3);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* Capped so a 60-seat coach scrolls inside the dialog rather than pushing the buttons off it. */
+  max-height: 220px;
+  overflow-y: auto;
+}
+.seat {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* --- location picker --- */
+.location-picker {
+  margin-top: var(--space-4);
+}
+.place-search {
+  display: flex;
+  gap: var(--space-2);
+}
+.place-search .input {
+  flex: 1;
+}
+.place-results {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  /* Capped rather than growing: six results must not push the Save button off the dialog. */
+  max-height: 160px;
+  overflow-y: auto;
+}
+.place-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+}
+.place-results li:last-child .place-result {
+  border-bottom: none;
+}
+.place-result:hover {
+  background: var(--row-hover);
+}
+.picker-map {
+  height: 220px;
+  margin-top: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.search-status {
+  align-self: center;
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* --- fare matrix --- */
+.fare-matrix th,
+.fare-matrix td {
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+/* The row and column heads are the only place the stop names appear, so they get the width. */
+.fare-corner,
+.fare-row-head {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--thead-bg);
+  font-weight: 600;
+  font-size: 12px;
+  text-align: left;
+}
+.fare-row-head {
+  background: var(--surface);
+  color: var(--text);
+}
+/* A leg the shuttle does not run. Hatched rather than empty so it reads as impossible, not blank. */
+.fare-blank {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--surface-alt),
+    var(--surface-alt) 4px,
+    var(--surface) 4px,
+    var(--surface) 8px
+  );
+}
+.fare-input {
+  width: 72px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  background: var(--surface);
+  color: var(--text);
+}
+.fare-input:focus {
+  border-color: var(--primary-strong);
+  outline: 2px solid var(--primary-surface);
+}
+.fare-matrix-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--thead-bg);
 }

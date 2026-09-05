@@ -15,5 +15,14 @@ public record CreateRideRequest(
 
         // Optional. The server decides what they are worth and how many are actually spendable -
         // a client naming a discount would be a client naming its own price.
-        @Min(0) Integer redeemPoints) {
+        @Min(0) Integer redeemPoints,
+
+        /**
+         * CASH or UPI. Null means cash, which is what most riders pick and what the platform
+         * settled on before there was a choice.
+         *
+         * <p>CARD and UPI both open the same checkout - the instrument is chosen inside it - so
+         * the app only ever sends one of two values.
+         */
+        com.ridex.payment.domain.PaymentMethod paymentMethod) {
 }

@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RECENT_PLACES, SAVED_PLACES } from '../data/mock';
-import { FALLBACK_CENTER, LngLat, useCurrentLocation } from '../lib/location';
+import { LngLat } from '../lib/location';
 import { Place, searchPlaces } from '../lib/places';
 import { RootStackParamList } from '../navigation/types';
 import { colors, IconName, radius, spacing, type } from '../theme';
@@ -28,9 +28,6 @@ export function SearchDestinationScreen({ navigation }: Props) {
   const [results, setResults] = useState<Place[]>([]);
   const [searching, setSearching] = useState(false);
   const [failed, setFailed] = useState(false);
-  const { coord } = useCurrentLocation();
-  const near = coord ?? FALLBACK_CENTER;
-
   // One in-flight request at a time: an older, slower response must not overwrite a newer one.
   const inFlight = useRef<AbortController | null>(null);
 
@@ -49,7 +46,7 @@ export function SearchDestinationScreen({ navigation }: Props) {
       const controller = new AbortController();
       inFlight.current = controller;
 
-      searchPlaces(query, near, controller.signal)
+      searchPlaces(query, controller.signal)
         .then((found) => {
           setResults(found);
           setFailed(false);
@@ -67,8 +64,7 @@ export function SearchDestinationScreen({ navigation }: Props) {
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-    // near is a fresh array each render; its contents are what matter.
-  }, [destination, near[0], near[1]]);
+  }, [destination]);
 
   useEffect(() => () => inFlight.current?.abort(), []);
 
@@ -90,7 +86,9 @@ export function SearchDestinationScreen({ navigation }: Props) {
         <View style={styles.fields}>
           <View style={styles.field}>
             <View style={styles.dotMint} />
-            <Text style={styles.fieldValue}>Midtown, New York</Text>
+            {/* Not a hardcoded city: the pickup is wherever the phone is, and naming a place the
+                rider is not in is the fastest way to lose trust in the whole screen. */}
+            <Text style={styles.fieldValue}>Current location</Text>
           </View>
 
           <View style={[styles.field, styles.fieldActive]}>

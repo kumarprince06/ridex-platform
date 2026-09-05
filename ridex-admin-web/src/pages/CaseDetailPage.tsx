@@ -1,99 +1,141 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
-import { useSession } from '../auth/session';
+import { getTicket, replyToTicket, resolveTicket } from '../api/admin';
+import { ApiError } from '../api/problem';
+import { useQuery } from '../api/useQuery';
+import { Button, Card, humanState, PageHeader, Pill, stateTone } from '../components/ui';
 import { ConfirmWithReason } from '../components/ConfirmWithReason';
-import { Button, Card, DetailList, Grid, humanState, PageHeader, StatTile, stateTone, Timeline } from '../components/ui';
-import { CASES } from '../data/mock';
 
+/** The conversation is the case. A status with no thread is a queue entry, not support. */
 export function CaseDetailPage() {
-  const { caseId } = useParams();
-  const { can } = useSession();
-  const [resolving, setResolving] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { caseId = '' } = useParams();
+  const navigate = useNavigate();
+  const { data: ticket, loading, error, refetch } = useQuery(() => getTicket(caseId), [caseId]);
 
-  const item = CASES.find((candidate) => candidate.id === caseId);
-  if (!item) {
-    return <PageHeader title="Case not found" subtitle={`No case with ID ${caseId}`} />;
+  const [draft, setDraft] = useState('');
+  const [internal, setInternal] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  async function send() {
+    if (!draft.trim()) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      await replyToTicket(caseId, draft.trim(), internal);
+      setDraft('');
+      refetch();
+    } catch (caught) {
+      setFailure(caught instanceof ApiError ? caught.userMessage : 'Could not send.');
+    } finally {
+      setBusy(false);
+    }
   }
+
+  if (loading) return <PageHeader title="Loading..." />;
+  if (error || !ticket) return <PageHeader title="Not found" subtitle={error ?? ''} />;
 
   return (
     <>
       <PageHeader
-        title={item.subject}
-        subtitle={`${item.id} · opened ${item.opened}`}
+        title={ticket.subject}
+        subtitle={`${humanState(ticket.category)} · raised by ${ticket.raisedByEmail ?? 'unknown'}`}
         actions={
-          item.state !== 'RESOLVED' ? <Button variant="primary" onClick={() => setResolving(true)}>Resolve case</Button> : null
+          <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+            <Pill tone={stateTone(ticket.status)}>{humanState(ticket.status)}</Pill>
+            {ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED' ? (
+              <Button variant="secondary" onClick={() => setResolving(true)}>Resolve</Button>
+            ) : null}
+          </span>
         }
       />
 
-      {notice ? (
-        <Card>
-          <strong>Recorded.</strong> <span className="cell-muted">{notice}</span>
+      {failure ? <p style={{ color: 'var(--danger)' }}>{failure}</p> : null}
+
+      <Card title="Conversation">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16 }}>
+          {ticket.messages.map((message) => (
+            <div
+              key={message.id}
+              style={{
+                alignSelf: message.fromSupport ? 'flex-end' : 'flex-start',
+                maxWidth: '72%',
+                padding: '10px 14px',
+                borderRadius: 12,
+                // Internal notes look different on purpose: an agent must never mistake one for
+                // something the customer can read.
+                background: message.internal
+                  ? 'var(--warning-surface)'
+                  : message.fromSupport
+                    ? 'var(--primary-surface)'
+                    : 'var(--surface-alt)',
+                border: message.internal ? '1px dashed var(--warning)' : '1px solid var(--border)',
+              }}
+            >
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+                {humanState(message.authorRole)}
+                {message.internal ? ' · internal note' : ''}
+                {' · '}
+                {new Date(message.createdAt).toLocaleString()}
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.45 }}>{message.body}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ borderTop: '1px solid var(--border)', padding: 16 }}>
+          <textarea
+            className="field-input"
+            style={{ width: '100%', height: 80, padding: 10, resize: 'vertical' }}
+            placeholder="Write a reply..."
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+            <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              <input
+                type="checkbox"
+                checked={internal}
+                onChange={(event) => setInternal(event.target.checked)}
+              />{' '}
+              Internal note — not shown to {humanState(ticket.raisedByRole).toLowerCase()}
+            </label>
+            <Button disabled={busy || !draft.trim()} onClick={() => void send()}>
+              {busy ? 'Sending...' : 'Send'}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {ticket.resolution ? (
+        <Card title="Resolution">
+          <div style={{ padding: 16, fontSize: 14 }}>{ticket.resolution}</div>
         </Card>
       ) : null}
-
-      <Grid columns={4}>
-        <StatTile label="State" value={humanState(item.state)} tone={stateTone(item.state)} />
-        <StatTile label="Priority" value={item.priority} tone={item.priority === 'Urgent' ? 'danger' : 'default'} />
-        <StatTile label="Age" value={`${item.ageHours}h`} tone={item.ageHours > 24 ? 'warning' : 'default'} />
-        <StatTile label="Assignee" value={item.assignee} />
-      </Grid>
-
-      <Grid columns={2}>
-        <Card title="Case">
-          <DetailList
-            items={[
-              { label: 'Category', value: item.category },
-              { label: 'Reported by', value: item.reporter },
-              { label: 'Trip', value: <Link to={`/trips/${item.tripId}`}>{item.tripId}</Link> },
-              { label: 'Opened', value: item.opened },
-            ]}
-          />
-        </Card>
-
-        <Card title="Activity">
-          <Timeline
-            items={[
-              { title: 'Case opened', at: item.opened, actor: item.reporter, tone: 'info' },
-              { title: 'Assigned', at: '+ 12 min', actor: item.assignee, tone: 'info' },
-              ...(item.state === 'RESOLVED'
-                ? [{ title: 'Resolved with refund', at: '+ 3h 40m', actor: 'Aisha Bello', tone: 'success' as const }]
-                : []),
-            ]}
-          />
-        </Card>
-      </Grid>
-
-      <Card title="Financial action">
-        {/* Support raises the case; finance releases the money. One person doing both is the
-            single most common internal-fraud pattern in a marketplace. */}
-        {can('FINANCE') ? (
-          <p>
-            Refunds and adjustments are issued from the payment behind the trip.{' '}
-            <Link to="/payments">Open payments</Link>.
-          </p>
-        ) : (
-          <p className="cell-muted">
-            Your role can record the case and its outcome, but not move money. Escalate to finance
-            with the trip and payment reference above.
-          </p>
-        )}
-      </Card>
 
       {resolving ? (
         <ConfirmWithReason
-          title={`Resolve ${item.id}?`}
-          body="The resolution is shown to the reporter and stays attached to the trip."
-          confirmLabel="Resolve case"
-          presets={['Fare recalculated and explained to the rider', 'No fault found, evidence reviewed', 'Escalated to finance for a refund']}
+          title="Resolve this ticket?"
+          body="The person who raised it reads this word for word, and it closes the thread."
+          confirmLabel="Resolve"
+          presets={[
+            'Refunded the difference to your original payment method',
+            'Passed to the driver-conduct team for review',
+            'The fare was correct: the route was longer than quoted',
+          ]}
           onCancel={() => setResolving(false)}
-          onConfirm={(reason) => {
+          onConfirm={(resolution) => {
             setResolving(false);
-            setNotice(`Audit entry written against ${item.id}: “${reason}”`);
+            void resolveTicket(caseId, resolution).then(refetch).catch(() =>
+              setFailure('Could not resolve.'),
+            );
           }}
         />
       ) : null}
+
+      <Button variant="ghost" onClick={() => navigate('/cases')}>Back to queue</Button>
     </>
   );
 }

@@ -36,6 +36,16 @@ public interface RideRequestRepository extends JpaRepository<RideRequest, String
     @Query("SELECT r.status, COUNT(r) FROM RideRequest r GROUP BY r.status")
     List<Object[]> countByStatus();
 
+    // Grouped in the database rather than pulling every ride back to count them in Java.
+    @Query(value = "SELECT DATE(requested_at AT TIME ZONE :zone) AS day, COUNT(*) FROM ride_requests "
+            + "WHERE requested_at >= :since GROUP BY day", nativeQuery = true)
+    List<Object[]> dailyRequested(@Param("since") Instant since, @Param("zone") String zone);
+
+    @Query(value = "SELECT DATE(t.completed_at AT TIME ZONE :zone) AS day, COUNT(*), "
+            + "COALESCE(SUM(t.final_fare_minor), 0) "
+            + "FROM trips t WHERE t.completed_at >= :since GROUP BY day", nativeQuery = true)
+    List<Object[]> dailyCompleted(@Param("since") Instant since, @Param("zone") String zone);
+
     long countByStatusInAndRequestedAtAfter(java.util.Collection<RideStatus> statuses, Instant since);
 
     @Query("SELECT COALESCE(SUM(t.finalFareMinor), 0) FROM com.ridex.trip.domain.Trip t "

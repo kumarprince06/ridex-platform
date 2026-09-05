@@ -34,6 +34,8 @@ export type Ride = {
   currency: string;
   quotedFareMinor: number;
   fareLines: FareLine[];
+  redeemedPoints: number;
+  discountMinor: number;
   cancellationFeeMinor: number | null;
   cancellationReason: string | null;
   requestedAt: string;
@@ -99,4 +101,56 @@ export function formatMoney(amountMinor: number, currency: string): string {
   const sign = amountMinor < 0 ? '-' : '';
   const abs = Math.abs(amountMinor);
   return `${sign}${currency} ${(abs / 100).toFixed(2)}`;
+}
+
+const STATUS_LABELS: Record<RideStatus, string> = {
+  REQUESTED: 'Requested',
+  SEARCHING: 'Finding a driver',
+  DRIVER_ASSIGNED: 'Driver assigned',
+  DRIVER_ARRIVING: 'Driver on the way',
+  DRIVER_AT_PICKUP: 'Driver waiting',
+  TRIP_STARTED: 'On the trip',
+  COMPLETED: 'Completed',
+  CANCELLED_BY_RIDER: 'Cancelled',
+  CANCELLED_BY_DRIVER: 'Cancelled by driver',
+  CANCELLED_BY_SYSTEM: 'Cancelled',
+  EXPIRED: 'No driver found',
+};
+
+/** One place decides what a status reads as, so two screens cannot word it differently. */
+export function rideStatusLabel(status: RideStatus): string {
+  return STATUS_LABELS[status];
+}
+
+export function isCancelled(status: RideStatus): boolean {
+  return status.startsWith('CANCELLED') || status === 'EXPIRED';
+}
+
+export function isLive(status: RideStatus): boolean {
+  return !isCancelled(status) && status !== 'COMPLETED';
+}
+
+/**
+ * Today and yesterday get named, because "Today, 2:30 PM" is what the rider is actually scanning
+ * for in a list. Anything older is just a date.
+ */
+export function formatWhen(iso: string): string {
+  const at = new Date(iso);
+  const time = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  const daysAgo = Math.floor((midnight.getTime() - at.getTime()) / 86_400_000) + 1;
+
+  if (daysAgo <= 0) return `Today, ${time}`;
+  if (daysAgo === 1) return `Yesterday, ${time}`;
+  return `${at.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
+}
+
+/** One rating per ride, and only once it completed. The server rejects a second attempt. */
+export function rateRide(rideId: string, stars: number, comment?: string) {
+  return request<void>(`/api/v1/rides/${rideId}/rating`, {
+    method: 'POST',
+    body: { stars, comment },
+  });
 }

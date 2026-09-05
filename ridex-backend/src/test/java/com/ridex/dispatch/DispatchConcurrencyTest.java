@@ -30,7 +30,7 @@ import com.ridex.driver.DriverProfileService;
 import com.ridex.driver.domain.DriverOnboardingStatus;
 import com.ridex.driver.domain.DriverProfile;
 import com.ridex.location.DriverPresence;
-import com.ridex.maps.MapsProvider;
+import com.ridex.maps.MapsService;
 import com.ridex.maps.domain.RouteEstimate;
 import com.ridex.pricing.FareEstimateService;
 import com.ridex.pricing.dto.EstimateRequest;
@@ -53,7 +53,7 @@ class DispatchConcurrencyTest {
 
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);
 
-    @MockitoBean private MapsProvider mapsProvider;
+    @MockitoBean private MapsService mapsProvider;
     @MockitoBean private DriverPresence driverPresence;
     @MockitoBean private OfferNotifier offerNotifier;
 
@@ -92,7 +92,7 @@ class DispatchConcurrencyTest {
     @Test
     void twoDriversAcceptingTheSameRideProduceOneWinnerAndOneConflict() throws Exception {
         String rideId = rideRequestService.create(riderUserId, new CreateRideRequest(
-                fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(), null, null, null)).id();
+                fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(), null, null, null, null)).id();
 
         List<String> offerIds = new ArrayList<>();
         for (String driverUserId : driverUserIds) {

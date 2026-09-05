@@ -21,7 +21,7 @@ import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.User;
 import com.ridex.auth.domain.UserRole;
 import com.ridex.auth.domain.UserStatus;
-import com.ridex.maps.MapsProvider;
+import com.ridex.maps.MapsService;
 import com.ridex.maps.domain.RouteEstimate;
 import com.ridex.pricing.domain.FareEstimate;
 import com.ridex.pricing.domain.FareLineType;
@@ -38,7 +38,7 @@ class FareEstimateServiceTest {
             new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);
 
     @MockitoBean
-    private MapsProvider mapsProvider;
+    private MapsService mapsProvider;
 
     @Autowired private FareEstimateService fareEstimateService;
     @Autowired private FareEstimateRepository fareEstimateRepository;

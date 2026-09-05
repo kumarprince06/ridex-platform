@@ -2,6 +2,9 @@
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100%;
+  /* The two columns scroll themselves. Without this the page behind them scrolls too and the
+     sidebar rides up out of view. */
+  overflow: hidden;
 }
 
 /* Dark chrome, light workspace: the sidebar is navigation, not data, and this stops it competing
@@ -13,6 +16,12 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  /* A grid item's default min-height is its content, so a long nav would push the row taller
+     than the viewport instead of scrolling inside it. */
+  min-height: 0;
+  /* The light thumb would be a bright stripe on this near-black ground. */
+  --scrollbar-thumb: #2c3a4d;
+  --scrollbar-thumb-hover: #46586f;
 }
 
 .logo {
@@ -65,7 +74,9 @@
 }
 .nav-link {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 8px var(--space-3);
   margin-bottom: 2px;
   border-radius: var(--radius-sm);
@@ -73,6 +84,20 @@
   font-size: 13px;
   transition: background 140ms var(--ease), color 140ms var(--ease);
 }
+/* Recessive until the row matters, so fifteen glyphs read as texture and not as fifteen signals. */
+.nav-icon {
+  flex: none;
+  opacity: 0.55;
+  transition: opacity 140ms var(--ease);
+}
+.nav-link:hover .nav-icon,
+.nav-link.active .nav-icon {
+  opacity: 1;
+}
+.nav-link.active .nav-icon {
+  color: var(--primary);
+}
+
 .nav-link:hover {
   background: var(--sidebar-surface);
   color: var(--sidebar-text-strong);
@@ -98,6 +123,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* Same reason as the sidebar: this is what lets .content scroll rather than the window. */
+  min-height: 0;
   background: var(--bg);
 }
 
@@ -110,7 +137,8 @@
   padding: 0 var(--space-5);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  /* Sticky so the search stays reachable while an operator scrolls a long table. */
+  /* .content owns the scrolling, so this stays put by layout; the positioning is here only to
+     hold the z-index that keeps it above page content. */
   position: sticky;
   top: 0;
   z-index: 20;

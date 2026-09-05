@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getPoints } from '../api/points';
+import { getPoints, spendableNow } from '../api/points';
 import { ApiError } from '../api/problem';
 import { formatMoney } from '../api/rides';
 import { payForSeat } from '../api/shuttleCheckout';
@@ -48,7 +48,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         seatLabel: chosen,
         paymentMethod: method,
         // The whole balance is offered; the server takes only what this fare can absorb.
-        redeemPoints: usePoints ? points?.balance : undefined,
+        redeemPoints: usePoints && points ? spendableNow(points).points : undefined,
       });
 
       // Checkout runs here rather than on the ticket: the seat is only held for ten minutes, and
@@ -152,7 +152,9 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         <Legend style={styles.seatTaken} label="Taken" />
       </View>
 
-      {points && points.balance > 0 ? (
+      {/* Only when there is something to spend: a toggle that can take nothing off is worse
+          than no toggle. A balance below one rupee's worth counts as nothing. */}
+      {points && spendableNow(points).points > 0 ? (
         <Pressable
           onPress={() => setUsePoints((on) => !on)}
           accessibilityRole="switch"
@@ -169,10 +171,15 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
             color={usePoints ? colors.primary : colors.textMuted}
           />
           <View style={styles.flex}>
-            <Text style={styles.pointsTitle}>Use {points.balance} points</Text>
-            {/* What they are worth at most - the server decides what this fare can absorb. */}
+            <Text style={styles.pointsTitle}>
+              Use {spendableNow(points).points} points
+            </Text>
+            {/* Capped per journey; the fare caps it again server-side. */}
             <Text style={styles.pointsNote}>
-              Up to {formatMoney(points.redeemableValueMinor, points.currency)} off
+              Up to {formatMoney(spendableNow(points).valueMinor, points.currency)} off
+              {points.balance > points.maxRedeemPerJourney
+                ? ` · ${points.balance} in your balance`
+                : ''}
             </Text>
           </View>
         </Pressable>

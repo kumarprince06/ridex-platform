@@ -69,6 +69,17 @@ public class PointsService {
         return settings.getInt("points.per-currency-unit", 100);
     }
 
+    /**
+     * The most that can be spent on a single journey, whatever the balance.
+     *
+     * <p>Without a cap a rider empties months of credit into one fare, which costs the platform
+     * the whole balance at once and gives the rider no reason to come back. 5000 points is fifty
+     * rupees at the default rate. A setting, so operations can move it without a deploy.
+     */
+    private int maxRedeemPerJourney() {
+        return settings.getInt("points.max-redeem-per-journey", 5000);
+    }
+
     /** Deliberately high: a cash referral is the first thing anyone farms. */
     private int driverQualifyingTrips() {
         return settings.getInt("referrals.driver-qualifying-trips", 25);
@@ -98,6 +109,9 @@ public class PointsService {
                 // What the rate would take off a fare today. Not a withdrawable balance.
                 (long) (balance / pointsPerCurrencyUnit()) * 100,
                 pointsPerCurrencyUnit(),
+                // The app offers this rather than the whole balance, so what it shows and what
+                // the server would actually take are the same number.
+                maxRedeemPerJourney(),
                 pointEntryRepository.findTop50ByUserIdOrderByCreatedAtDesc(userId).stream()
                         .map(entry -> new PointEntryResponse(entry.getId(), entry.getPoints(),
                                 entry.getReason(), entry.getNote(), entry.getCreatedAt()))
@@ -252,7 +266,11 @@ public class PointsService {
         }
 
         int balance = pointEntryRepository.balanceOf(userId);
-        int spendable = Math.min(Math.min(requestedPoints, balance), pointsFor(fareMinor));
+        // Three ceilings, and the lowest wins: what the rider asked for, what they hold, what this
+        // fare can absorb, and what one journey is allowed to take.
+        int spendable = Math.min(
+                Math.min(requestedPoints, balance),
+                Math.min(pointsFor(fareMinor), maxRedeemPerJourney()));
         // Only whole currency units are worth redeeming.
         int usable = (spendable / pointsPerCurrencyUnit()) * pointsPerCurrencyUnit();
         if (usable <= 0) {

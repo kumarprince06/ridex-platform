@@ -11,7 +11,7 @@ import {
   type EstimateOption,
   type PaymentMethod,
 } from '../api/rides';
-import { getPoints } from '../api/points';
+import { getPoints, spendableNow } from '../api/points';
 import { useQuery } from '../api/useQuery';
 import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
@@ -70,7 +70,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
         estimateId: quote.estimateId,
         pickupAddress: pickupName ?? 'Current location',
         destinationAddress: destination,
-        redeemPoints: usePoints ? points?.balance : undefined,
+        redeemPoints: usePoints && points ? spendableNow(points).points : undefined,
         paymentMethod: methodId,
       });
       navigation.replace('FindingDriver', { destination, rideId: ride.id });
@@ -155,7 +155,9 @@ export function FareEstimateScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      {points && points.balance > 0 ? (
+      {/* Only when there is something to spend: a toggle that can take nothing off is worse
+          than no toggle. A balance below one rupee's worth counts as nothing. */}
+      {points && spendableNow(points).points > 0 ? (
         <Pressable
           onPress={() => setUsePoints((on) => !on)}
           accessibilityRole="switch"
@@ -164,11 +166,16 @@ export function FareEstimateScreen({ navigation, route }: Props) {
         >
           <View style={styles.tierRow}>
             <View style={styles.flex}>
-              <Text style={styles.tierName}>Use {points.balance} points</Text>
-              {/* The server decides how many are actually spendable on this fare, so this is
-                  what they are worth at most, not a promise. */}
+              <Text style={styles.tierName}>
+                Use {spendableNow(points).points} points
+              </Text>
+              {/* Capped per journey, and the fare caps it again server-side - so this is the most
+                  it can take off, not a promise. */}
               <Text style={styles.tierMeta}>
-                Up to {formatMoney(points.redeemableValueMinor, points.currency)} off
+                Up to {formatMoney(spendableNow(points).valueMinor, points.currency)} off
+                {points.balance > points.maxRedeemPerJourney
+                  ? ` · ${points.balance} in your balance`
+                  : ''}
               </Text>
             </View>
             <Ionicons

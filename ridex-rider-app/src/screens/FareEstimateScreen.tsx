@@ -7,6 +7,7 @@ import {
   bookRide,
   estimate,
   formatMoney,
+  outstandingDues,
   type EstimateOption,
   type PaymentMethod,
 } from '../api/rides';
@@ -33,6 +34,9 @@ export function FareEstimateScreen({ navigation, route }: Props) {
   const [methodId, setMethodId] = useState<PaymentMethod>('CASH');
   const [usePoints, setUsePoints] = useState(false);
   const { data: points } = useQuery(getPoints, []);
+  // An earlier cancellation is collected with this fare, so it is shown here rather than turning
+  // up as a bigger charge than the quote the rider agreed to.
+  const { data: dues } = useQuery(outstandingDues, []);
   const [quote, setQuote] = useState<EstimateOption | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -131,6 +135,13 @@ export function FareEstimateScreen({ navigation, route }: Props) {
             </Text>
           </View>
         ))}
+
+        {dues && !dues.free ? (
+          <View style={styles.fareRow}>
+            <Text style={styles.fareLabel}>Cancellation fee from an earlier ride</Text>
+            <Text style={styles.fareAmount}>{formatMoney(dues.feeMinor, dues.currency)}</Text>
+          </View>
+        ) : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 

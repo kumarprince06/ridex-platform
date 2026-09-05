@@ -75,6 +75,11 @@ public class OpenRouteServiceProvider implements MapsProvider {
     }
 
     @Override
+    public GeoLocation reverse(double latitude, double longitude) {
+        throw new ProviderUnavailableException("OpenRouteService is used for routing only.");
+    }
+
+    @Override
     public RouteEstimate route(double pickupLat, double pickupLng,
             double destinationLat, double destinationLng) {
         if (!isConfigured()) {

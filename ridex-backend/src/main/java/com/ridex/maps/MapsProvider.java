@@ -19,6 +19,15 @@ public interface MapsProvider {
      */
     List<GeoLocation> search(String query, int limit);
 
+    /**
+     * The address at a point, for a pin dropped on the map.
+     *
+     * <p>The rider who cannot name where they are standing is the one who most needs the pickup
+     * to be right, and a bare pair of coordinates on a confirmation screen tells them nothing
+     * about whether the pin is on their side of the road.
+     */
+    GeoLocation reverse(double latitude, double longitude);
+
     /** Whether this provider can actually be called - a key it needs, and has. */
     boolean isConfigured();
 

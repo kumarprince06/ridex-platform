@@ -76,6 +76,37 @@ public class GoogleMapsProvider implements MapsProvider {
         throw new ProviderUnavailableException("Google is used for geocoding and routing, not place search.");
     }
 
+    @Override
+    public GeoLocation reverse(double latitude, double longitude) {
+        if (!isConfigured()) {
+            throw new ProviderUnavailableException("Google Maps API key is not configured");
+        }
+        requireBudget();
+
+        String uri = String.format("%s?latlng=%s,%s&key=%s",
+                GEOCODE_PATH, latitude, longitude, properties.getApiKey());
+
+        try {
+            GoogleGeocodeResponse response = restClient().get()
+                    .uri(uri)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(GoogleGeocodeResponse.class);
+
+            requireUsable(response == null ? null : response.status());
+            if (response == null || response.results() == null || response.results().isEmpty()) {
+                throw new NotFoundException("No address at that point.");
+            }
+
+            // Google orders reverse results most specific first, so the first is the street
+            // address rather than the city that contains it.
+            GoogleGeocodeResult best = response.results().get(0);
+            return new GeoLocation(latitude, longitude, best.formattedAddress());
+        } catch (RestClientException ex) {
+            throw new ProviderUnavailableException("Google Maps reverse geocoding failed", ex);
+        }
+    }
+
     private List<GeoLocation> geocodeAll(String query, int limit) {
         if (query == null || query.isBlank()) {
             throw new ValidationException("Location query must not be blank");

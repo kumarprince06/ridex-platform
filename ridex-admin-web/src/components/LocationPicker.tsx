@@ -3,7 +3,6 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
 
 import { searchPlaces, type Place } from '../api/admin';
-import { Button } from './ui';
 import './ui.css';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
@@ -57,6 +56,8 @@ export function LocationPicker({
   const [results, setResults] = useState<Place[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set when a result is taken, so the effect does not immediately search the label it wrote. */
+  const picked = useRef(false);
 
   // Built once. Re-creating it on every keystroke would tear down the tiles mid-drag.
   useEffect(() => {
@@ -136,21 +137,47 @@ export function LocationPicker({
     map.current.easeTo({ center: [lng, lat], zoom: Math.max(map.current.getZoom(), 14) });
   }, [latitude, longitude]);
 
-  async function runSearch() {
-    if (query.trim().length < 3) {
+  /**
+   * Suggestions as you type, 400ms after you stop.
+   *
+   * <p>Not on every keystroke: the free geocoder allows about one request a second, and "marathahalli"
+   * typed out is twelve of them. The stale check matters too - a slow response for "mara" must not
+   * overwrite the results for "marathahalli" that came back first.
+   */
+  useEffect(() => {
+    const term = query.trim();
+
+    if (picked.current) {
+      picked.current = false;
       return;
     }
-    setSearching(true);
-    setError(null);
-    try {
-      setResults(await searchPlaces(query.trim()));
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Search is unavailable.');
+    if (term.length < 3) {
       setResults(null);
-    } finally {
-      setSearching(false);
+      return;
     }
-  }
+
+    let stale = false;
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setError(null);
+      try {
+        const found = await searchPlaces(term);
+        if (!stale) setResults(found);
+      } catch (caught) {
+        if (!stale) {
+          setError(caught instanceof Error ? caught.message : 'Search is unavailable.');
+          setResults(null);
+        }
+      } finally {
+        if (!stale) setSearching(false);
+      }
+    }, 400);
+
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
 
   return (
     <div className="location-picker">
@@ -161,21 +188,20 @@ export function LocationPicker({
           placeholder="Search a place — Marathahalli, Bengaluru"
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
-            // Enter searches rather than submitting: this sits inside the stop form, and a stray
-            // Enter would save a stop with no coordinates.
+            // Swallowed rather than submitting: this sits inside the stop form, and a stray Enter
+            // would save a stop with no coordinates.
             if (event.key === 'Enter') {
               event.preventDefault();
-              runSearch();
             }
           }}
         />
-        <Button type="button" onClick={runSearch} disabled={searching || query.trim().length < 3}>
-          {searching ? 'Searching' : 'Search'}
-        </Button>
+        {searching ? <span className="search-status">Searching…</span> : null}
       </div>
 
       {error ? <p className="field-hint">{error}</p> : null}
-      {results?.length === 0 ? <p className="field-hint">Nothing found for that.</p> : null}
+      {results?.length === 0 && !searching ? (
+        <p className="field-hint">Nothing found for that.</p>
+      ) : null}
 
       {results && results.length > 0 ? (
         <ul className="place-results">
@@ -191,6 +217,8 @@ export function LocationPicker({
                     // The first comma-separated part is the place; the rest is the postal tail.
                     label: place.formattedAddress.split(',')[0]?.trim(),
                   });
+                  picked.current = true;
+                  setQuery(place.formattedAddress.split(',')[0]?.trim() ?? '');
                   setResults(null);
                 }}
               >

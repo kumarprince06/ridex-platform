@@ -21,16 +21,33 @@ spring:
     enabled: true
 
   # Local development points at Mailpit, which accepts any sender and delivers nothing onward, so
-  # a wrong address can never reach a real person.
+  # a wrong address can never reach a real person. Every value is an override, because reaching a
+  # real inbox is a change of relay, not a change of code.
   mail:
     host: ${RIDEX_MAIL_HOST:localhost}
     port: ${RIDEX_MAIL_PORT:1025}
+    username: ${RIDEX_MAIL_USERNAME:}
+    password: ${RIDEX_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: false
+          # Off for Mailpit, which wants neither. Every hosted relay wants both, so these two are
+          # the difference between mail that stays on this machine and mail that arrives.
+          auth: ${RIDEX_MAIL_AUTH:false}
           starttls:
-            enable: false
+            enable: ${RIDEX_MAIL_STARTTLS:false}
+          # Without this a hung relay holds the outbox thread until the socket gives up, which on
+          # some networks is minutes.
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+  # Boot defaults to 1 MB, which would reject a phone photo of a licence before DocumentStorage
+  # ever sees it. Its own 8 MB check is the one that reports a readable error.
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 10MB
 
   data:
     redis:
@@ -67,6 +84,11 @@ app:
     admin-email: ${RIDEX_BOOTSTRAP_ADMIN_EMAIL:}
     admin-password: ${RIDEX_BOOTSTRAP_ADMIN_PASSWORD:}
 
+  # Reporting groups by calendar day, and a day only exists in a timezone. Both the chart axis
+  # and the SQL grouping read this, so they cannot disagree about where a day starts.
+  reporting:
+    zone: ${RIDEX_REPORTING_ZONE:Asia/Kolkata}
+
   # Points are not money: no currency on the ledger, and this rate is the only place they cross
   # into it. Changing it changes what future redemptions are worth, never what was already spent.
   points:
@@ -76,16 +98,49 @@ app:
     per-currency-unit: 100
     currency: INR
 
+  # ponytail: local disk. Production needs an object store - a second node cannot read this one's
+  # files, and nothing here is encrypted at rest. Only DocumentStorage touches it.
+  documents:
+    directory: ${RIDEX_DOCUMENTS_DIR:./var/documents}
+    expiry-sweep-ms: 3600000
+
+  # Road routing without a billing account: OpenRouteService gives 2,000 requests a day on a free
+  # key with no card. Only used when no Google key is set.
+  ors:
+    api-key: ${ORS_API_KEY:}
+
+  payments:
+    # Which gateway clears cards and UPI. Cash never routes here - the driver is handed the money.
+    gateway: ${RIDEX_PAYMENT_GATEWAY:RAZORPAY}
+
+  # Test keys until an account is activated. The key id is public - it goes to the client to open
+  # checkout - while the secret and the webhook secret never leave this process.
+  razorpay:
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+
   google:
     maps:
       # No default. A key committed here is a key someone else can bill, and the previous one
       # is already in git history and must be treated as burned.
       api-key: ${GOOGLE_MAPS_API_KEY:}
+      # Counted here, because Google's own daily quota is not adjustable. Past this the maps
+      # service falls through to the free provider rather than failing.
+      daily-call-limit: ${GOOGLE_MAPS_DAILY_LIMIT:300}
 
   # Sender address only. The connection lives under spring.mail, which is where Boot looks - it
   # was under app.mail, so no JavaMailSender was ever created.
   mail:
     from: ${RIDEX_MAIL_FROM:no-reply@ridex.local}
+    # The display name beside the address. Without one a client shows the raw mailbox, which is
+    # what most spam looks like.
+    from-name: ${RIDEX_MAIL_FROM_NAME:RideX}
+    # Printed in the footer of every message, so a reply has somewhere to go.
+    support-address: ${RIDEX_MAIL_SUPPORT:support@ridex.local}
+    # Off by default. On, the verification code goes to the log and no mail is sent - the only
+    # way to sign up with no SMTP server, and there is no free SMS route to fall back to.
+    echo-to-log: ${RIDEX_MAIL_ECHO:false}
 management:
   health:
     # The outbox exists so a mail outage cannot stop the platform. Letting it mark the app DOWN

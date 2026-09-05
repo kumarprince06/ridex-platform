@@ -7,8 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.dispatch.dto.DutyRequest;
 import com.ridex.dispatch.dto.LocationRequest;
+import com.ridex.driver.DriverEligibility;
 import com.ridex.driver.DriverProfileRepository;
-import com.ridex.driver.domain.DriverOnboardingStatus;
 import com.ridex.driver.domain.DriverProfile;
 import com.ridex.location.DriverPresence;
 import com.ridex.shared.exception.ConflictException;
@@ -23,14 +23,18 @@ public class DriverDutyService {
 
     private final DriverProfileRepository driverProfileRepository;
     private final DriverPresence driverPresence;
+    private final DriverEligibility driverEligibility;
 
     @Transactional
     public void setDuty(String driverUserId, DutyRequest request) {
         DriverProfile driver = requireDriver(driverUserId);
 
         if (request.onDuty()) {
-            if (driver.getOnboardingStatus() != DriverOnboardingStatus.APPROVED) {
-                throw new ConflictException("Your account is not approved to drive yet.");
+            // Approval, valid documents and an approved vehicle. Checked here rather than when
+            // an offer arrives: a driver who cannot be placed should never enter the pool.
+            String blocked = driverEligibility.blockedReason(driver.getId());
+            if (blocked != null) {
+                throw new ConflictException(blocked);
             }
             // Dispatch cannot offer to a driver it cannot place.
             if (request.latitude() == null || request.longitude() == null) {

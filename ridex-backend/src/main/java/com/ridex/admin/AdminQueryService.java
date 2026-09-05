@@ -2,7 +2,7 @@ package com.ridex.admin;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -43,10 +43,15 @@ public class AdminQueryService {
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
+    private final com.ridex.payment.PaymentRepository paymentRepository;
+
+    @org.springframework.beans.factory.annotation.Value("${app.reporting.zone}")
+    private String reportingZone;
 
     @Transactional(readOnly = true)
     public DashboardResponse dashboard() {
-        Instant startOfToday = LocalDate.now(ZoneOffset.UTC).atStartOfDay().toInstant(ZoneOffset.UTC);
+        ZoneId zone = ZoneId.of(reportingZone);
+        Instant startOfToday = LocalDate.now(zone).atStartOfDay(zone).toInstant();
 
         return new DashboardResponse(
                 riderProfileRepository.count(),
@@ -70,6 +75,62 @@ public class AdminQueryService {
         return counts;
     }
 
+    /**
+     * Daily counts for the console's charts.
+     *
+     * <p>Every day in the window appears, including empty ones: a line that skips them draws a
+     * trend that did not happen.
+     */
+    @Transactional(readOnly = true)
+    public AnalyticsResponse analytics(int days) {
+        int window = Math.min(Math.max(days, 1), 90);
+        // The axis and the SQL grouping must agree on where a day starts, or today's rides land
+        // outside the window they are plotted against.
+        ZoneId zone = ZoneId.of(reportingZone);
+        LocalDate from = LocalDate.now(zone).minusDays(window - 1L);
+        Instant since = from.atStartOfDay(zone).toInstant();
+
+        java.util.Map<LocalDate, Long> requested = new java.util.HashMap<>();
+        for (Object[] row : rideRequestRepository.dailyRequested(since, reportingZone)) {
+            requested.put(toLocalDate(row[0]), ((Number) row[1]).longValue());
+        }
+
+        java.util.Map<LocalDate, long[]> completed = new java.util.HashMap<>();
+        for (Object[] row : rideRequestRepository.dailyCompleted(since, reportingZone)) {
+            completed.put(toLocalDate(row[0]),
+                    new long[] {((Number) row[1]).longValue(), ((Number) row[2]).longValue()});
+        }
+
+        List<AnalyticsResponse.DayPoint> points = new java.util.ArrayList<>();
+        for (int i = 0; i < window; i++) {
+            LocalDate day = from.plusDays(i);
+            long[] done = completed.getOrDefault(day, new long[] {0, 0});
+            points.add(new AnalyticsResponse.DayPoint(
+                    day.toString(), requested.getOrDefault(day, 0L), done[0], done[1]));
+        }
+
+        List<AnalyticsResponse.StatusSlice> byStatus = ridesByStatus().entrySet().stream()
+                .map(entry -> new AnalyticsResponse.StatusSlice(entry.getKey(), entry.getValue()))
+                .sorted((a, b) -> Long.compare(b.count(), a.count()))
+                .toList();
+
+        List<AnalyticsResponse.StatusSlice> byMethod = paymentRepository.findAll().stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        payment -> payment.getMethod().name(),
+                        java.util.stream.Collectors.counting()))
+                .entrySet().stream()
+                .map(entry -> new AnalyticsResponse.StatusSlice(entry.getKey(), entry.getValue()))
+                .sorted((a, b) -> Long.compare(b.count(), a.count()))
+                .toList();
+
+        return new AnalyticsResponse("INR", points, byStatus, byMethod);
+    }
+
+    /** A native DATE() comes back as java.sql.Date or LocalDate depending on the driver. */
+    private static LocalDate toLocalDate(Object value) {
+        return value instanceof LocalDate date ? date : ((java.sql.Date) value).toLocalDate();
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<AdminRiderResponse> riders(String term, int page, int size) {
         return PageResponse.of(
@@ -85,11 +146,42 @@ public class AdminQueryService {
                 this::toDriver);
     }
 
+    /** One driver, for the detail screen. The same shape as a list row, so nothing renders twice. */
+    @Transactional(readOnly = true)
+    public AdminDriverResponse driver(String driverId) {
+        return driverProfileRepository.findById(driverId)
+                .map(this::toDriver)
+                .orElseThrow(() -> new com.ridex.shared.exception.NotFoundException("No such driver."));
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<AdminTripResponse> trips(RideStatus status, int page, int size) {
         return PageResponse.of(
                 rideRequestRepository.searchByStatus(status, pageable(page, size, "requestedAt")),
                 this::toTrip);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AdminPaymentResponse> payments(
+            com.ridex.payment.domain.PaymentStatus status, int page, int size) {
+        var pageable = PageRequest.of(Math.max(0, page), clampSize(size));
+
+        var payments = status == null
+                ? paymentRepository.findAllByOrderByCreatedAtDesc(pageable)
+                : paymentRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+
+        return PageResponse.of(payments, payment -> new AdminPaymentResponse(
+                payment.getId(),
+                payment.getTrip().getId(),
+                payment.getRider().getUser().getEmail(),
+                payment.getMethod(),
+                payment.getStatus(),
+                payment.getCurrency(),
+                payment.getGrossAmountMinor(),
+                payment.getDiscountAmountMinor(),
+                payment.getNetAmountMinor(),
+                payment.getCreatedAt(),
+                payment.getPaidAt()));
     }
 
     @Transactional(readOnly = true)

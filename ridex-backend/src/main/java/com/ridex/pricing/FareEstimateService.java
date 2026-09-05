@@ -9,7 +9,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ridex.maps.MapsProvider;
+import com.ridex.maps.MapsService;
 import com.ridex.maps.domain.RouteEstimate;
 import com.ridex.pricing.domain.*;
 import com.ridex.pricing.dto.EstimateOptionResponse;
@@ -32,7 +32,8 @@ public class FareEstimateService {
     private final PricingRuleRepository pricingRuleRepository;
     private final FareEstimateRepository fareEstimateRepository;
     private final RiderProfileRepository riderProfileRepository;
-    private final MapsProvider mapsProvider;
+    // Through the service, not a provider: which one answers depends on whether a key is set.
+    private final MapsService mapsService;
 
     /**
      * Prices every active ride type for one route, so the rider chooses between real options
@@ -45,7 +46,7 @@ public class FareEstimateService {
 
         // One route lookup for all options: the distance does not change with the car, and the
         // maps provider bills per call.
-        RouteEstimate route = mapsProvider.route(
+        RouteEstimate route = mapsService.route(
                 request.pickupLat(), request.pickupLng(),
                 request.destinationLat(), request.destinationLng());
 

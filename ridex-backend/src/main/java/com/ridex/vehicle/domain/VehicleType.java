@@ -21,5 +21,24 @@ public enum VehicleType {
     VAN,
     PICKUP,
     MINIBUS,
-    BUS
+    BUS;
+
+    /**
+     * Passenger seats the vehicle can plausibly carry, excluding the driver.
+     *
+     * <p>The SQL CHECK is a flat 1..64 because a per-type bound needs a CASE per type. This is
+     * that bound, kept here because it is a fact about the vehicle class - a hatchback sold as a
+     * seven-seater is a data entry error, and nothing downstream can tell once it is saved.
+     */
+    public int maxSeats() {
+        return switch (this) {
+            case BICYCLE, SCOOTER, MOTORCYCLE -> 1;
+            case E_RICKSHAW, AUTO_RICKSHAW -> 3;
+            case HATCHBACK, SEDAN, PICKUP -> 4;
+            case MPV, SUV -> 6;
+            case VAN -> 8;
+            case MINIBUS -> 24;
+            case BUS -> 64;
+        };
+    }
 }

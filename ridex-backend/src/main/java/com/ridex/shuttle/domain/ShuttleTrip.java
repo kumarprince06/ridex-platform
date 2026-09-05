@@ -42,6 +42,11 @@ public class ShuttleTrip {
     @Column(name = "seat_capacity", nullable = false)
     private short seatCapacity;
 
+    // Frozen with the departure. Changing the layout after a seat is sold would move somebody who
+    // already paid for 3C.
+    @Column(name = "seats_per_row", nullable = false)
+    private short seatsPerRow = 4;
+
     @Column(name = "status", nullable = false, length = 20)
     private String status = "SCHEDULED";
 

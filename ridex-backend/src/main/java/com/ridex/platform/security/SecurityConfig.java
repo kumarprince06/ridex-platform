@@ -41,7 +41,10 @@ public class SecurityConfig {
         "/api/v1/auth/refresh",
         "/api/v1/auth/verify",
         "/api/v1/auth/forgot-password",
-        "/api/v1/auth/reset-password"
+        "/api/v1/auth/reset-password",
+        // A gateway carries no bearer token. Its signature is the authentication, checked in the
+        // controller before the body is parsed.
+        "/api/v1/payments/webhook"
     };
 
     /**

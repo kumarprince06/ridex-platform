@@ -43,8 +43,7 @@ public class OutboxDispatcher {
         for (OutboxMessage message : batch) {
             try {
                 NotificationTemplates.Rendered rendered = templates.render(message);
-                channels.get(message.getChannel())
-                        .send(message.getRecipient(), rendered.subject(), rendered.body());
+                channels.get(message.getChannel()).send(message.getRecipient(), rendered);
 
                 message.setStatus(OutboxStatus.SENT);
                 message.setSentAt(Instant.now());

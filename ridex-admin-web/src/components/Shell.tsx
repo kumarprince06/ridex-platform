@@ -3,12 +3,15 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Permission } from '../auth/permissions';
 import { ROLE_LABELS } from '../auth/permissions';
 import { Logo } from './Logo';
+import { NavIcon } from './NavIcon';
 import { useSession } from '../auth/session';
 import './shell.css';
 
 type NavItem = {
   to: string;
   label: string;
+  /** Key into the glyph table. */
+  icon: string;
   /** Absent means everyone signed in may see it. */
   permission?: Permission;
 };
@@ -24,46 +27,48 @@ const NAV: NavGroup[] = [
   {
     title: 'Overview',
     items: [
-      { to: '/', label: 'Dashboard' },
-      { to: '/live', label: 'Live map', permission: 'OPERATIONS' },
+      { to: '/', label: 'Dashboard', icon: 'dashboard' },
+      { to: '/analytics', label: 'Analytics', icon: 'analytics', permission: 'OPERATIONS' },
+      { to: '/live', label: 'Live map', icon: 'live', permission: 'OPERATIONS' },
     ],
   },
   {
     title: 'People',
     items: [
-      { to: '/riders', label: 'Riders' },
-      { to: '/drivers', label: 'Drivers' },
-      { to: '/approvals', label: 'Driver approvals', permission: 'OPERATIONS' },
+      { to: '/riders', label: 'Riders', icon: 'riders' },
+      { to: '/drivers', label: 'Drivers', icon: 'drivers' },
+      { to: '/approvals', label: 'Driver approvals', icon: 'approvals', permission: 'OPERATIONS' },
     ],
   },
   {
     title: 'Operations',
     items: [
-      { to: '/trips', label: 'Trips' },
-      { to: '/cases', label: 'Support cases', permission: 'SUPPORT_CASE' },
+      { to: '/trips', label: 'Trips', icon: 'trips' },
+      { to: '/shuttle', label: 'Shuttle routes', icon: 'shuttle', permission: 'OPERATIONS' },
+      { to: '/cases', label: 'Support cases', icon: 'cases', permission: 'SUPPORT_CASE' },
     ],
   },
   {
     title: 'Money',
     items: [
-      { to: '/payments', label: 'Payments', permission: 'FINANCE' },
-      { to: '/payouts', label: 'Payouts', permission: 'FINANCE' },
+      { to: '/payments', label: 'Payments', icon: 'payments', permission: 'FINANCE' },
+      { to: '/payouts', label: 'Payouts', icon: 'payouts', permission: 'FINANCE' },
     ],
   },
   {
     title: 'Configuration',
     items: [
-      { to: '/pricing', label: 'Pricing and ride types', permission: 'OPERATIONS' },
-      { to: '/promotions', label: 'Promotions', permission: 'OPERATIONS' },
-      { to: '/templates', label: 'Notification templates', permission: 'SUPER_ADMIN' },
-      { to: '/flags', label: 'Feature flags', permission: 'SUPER_ADMIN' },
+      { to: '/pricing', label: 'Pricing and ride types', icon: 'pricing', permission: 'OPERATIONS' },
+      { to: '/promotions', label: 'Promotions', icon: 'promotions', permission: 'OPERATIONS' },
+      { to: '/templates', label: 'Notification templates', icon: 'templates', permission: 'SUPER_ADMIN' },
+      { to: '/flags', label: 'Feature flags', icon: 'flags', permission: 'SUPER_ADMIN' },
     ],
   },
   {
     title: 'Platform',
     items: [
-      { to: '/audit', label: 'Audit log', permission: 'OPERATIONS' },
-      { to: '/staff', label: 'Staff and roles', permission: 'SUPER_ADMIN' },
+      { to: '/audit', label: 'Audit log', icon: 'audit', permission: 'OPERATIONS' },
+      { to: '/staff', label: 'Staff and roles', icon: 'staff', permission: 'SUPER_ADMIN' },
     ],
   },
 ];
@@ -99,6 +104,7 @@ export function Shell() {
                   end={item.to === '/'}
                   className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                 >
+                  <NavIcon name={item.icon} />
                   {item.label}
                 </NavLink>
               ))}

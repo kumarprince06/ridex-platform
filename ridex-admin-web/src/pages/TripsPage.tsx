@@ -1,61 +1,92 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Card, FilterTabs, humanState, PageHeader, Pill, SearchInput, Table, stateTone } from '../components/ui';
-import { Trip, TRIPS } from '../data/mock';
+import { DEFAULT_PAGE_SIZE, formatMoney, listTrips, type AdminTrip } from '../api/admin';
+import { useQuery } from '../api/useQuery';
+import { Card, FilterTabs, humanState, PageHeader, Pagination, Pill, Table, stateTone } from '../components/ui';
 
-const FILTERS = ['ALL', 'SEARCHING', 'TRIP_STARTED', 'COMPLETED', 'CANCELLED_BY_DRIVER'] as const;
+// 'ALL' is the sentinel for "no filter": a tab strip needs every choice to be a value,
+// while the API takes an absent status rather than a magic one.
+const FILTERS = ['ALL', 'SEARCHING', 'TRIP_STARTED', 'COMPLETED', 'EXPIRED'] as const;
+type Filter = (typeof FILTERS)[number];
 
-/** FR-OPS-004. */
 export function TripsPage() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('ALL');
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
-  const needle = query.trim().toLowerCase();
-  const rows = TRIPS.filter((trip) => {
-    const matchesFilter = filter === 'ALL' || trip.state === filter;
-    const matchesQuery =
-      !needle ||
-      [trip.id, trip.rider, trip.driver, trip.pickup, trip.dropoff].some((field) =>
-        field.toLowerCase().includes(needle),
-      );
-    return matchesFilter && matchesQuery;
-  });
+  const status = filter === 'ALL' ? undefined : (filter as string);
+
+  const { data, loading, error } = useQuery(() => listTrips(status, page, size), [status, page, size]);
 
   return (
     <>
-      <PageHeader title="Trips" subtitle="Every ride request, whatever state it ended in" />
+      <PageHeader
+        title="Trips"
+        subtitle={data ? `${data.totalItems} rides` : loading ? 'Loading...' : ''}
+      />
 
-      <Card actions={<SearchInput value={query} onChange={setQuery} placeholder="Trip ID, rider, driver or place" />}>
-        <div style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid var(--border)' }}>
-          <FilterTabs options={FILTERS} value={filter} onChange={setFilter} />
-        </div>
-
-        <Table<Trip>
+      <Card
+        actions={
+          <FilterTabs
+            options={FILTERS}
+            value={filter}
+            onChange={(next) => {
+              setFilter(next);
+              // Narrowing the list invalidates the page number it was on.
+              setPage(0);
+            }}
+          />
+        }
+      >
+        <Table<AdminTrip>
           columns={[
-            { key: 'id', header: 'Trip', render: (row) => <span className="mono">{row.id}</span> },
-            { key: 'route', header: 'Route', render: (row) => (
+            { key: 'rideId', header: 'Ride', render: (row) => (
+              <span className="mono">{row.rideId.slice(-8)}</span>
+            ) },
+            { key: 'rider', header: 'Rider', render: (row) => row.riderEmail },
+            { key: 'driver', header: 'Driver', render: (row) => row.driverEmail ?? '—' },
+            { key: 'type', header: 'Type', render: (row) => row.rideTypeCode },
+            { key: 'state', header: 'State', render: (row) => (
+              <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>
+            ) },
+            { key: 'fare', header: 'Fare', align: 'right', render: (row) => (
               <>
-                <div>{row.pickup}</div>
-                <div className="cell-muted">→ {row.dropoff}</div>
+                <div>{formatMoney(row.finalFareMinor ?? row.quotedFareMinor, row.currency)}</div>
+                {/* Quoted and charged shown apart when they differ: that gap is the question
+                    every fare complaint is about. */}
+                {row.finalFareMinor != null && row.finalFareMinor !== row.quotedFareMinor ? (
+                  <div className="cell-muted">
+                    quoted {formatMoney(row.quotedFareMinor, row.currency)}
+                  </div>
+                ) : null}
               </>
             ) },
-            { key: 'people', header: 'Rider / driver', render: (row) => (
-              <>
-                <div>{row.rider}</div>
-                <div className="cell-muted">{row.driver || 'Unassigned'}</div>
-              </>
+            { key: 'requested', header: 'Requested', render: (row) => (
+              <span className="cell-muted">{new Date(row.requestedAt).toLocaleString()}</span>
             ) },
-            { key: 'state', header: 'State', render: (row) => <Pill tone={stateTone(row.state)}>{humanState(row.state)}</Pill> },
-            { key: 'payment', header: 'Payment', render: (row) => <Pill tone={stateTone(row.payment)}>{humanState(row.payment)}</Pill> },
-            { key: 'gross', header: 'Fare', align: 'right', render: (row) => row.gross },
-            { key: 'requested', header: 'Requested', render: (row) => <span className="cell-muted">{row.requested}</span> },
           ]}
-          rows={rows}
-          onRowClick={(row) => navigate(`/trips/${row.id}`)}
-          empty={`No trip matches “${query}”.`}
+          rows={data?.items ?? []}
+          onRowClick={(row) => navigate(`/trips/${row.rideId}`)}
+          empty={error ?? (loading ? 'Loading trips...' : 'No trips yet.')}
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="trips"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

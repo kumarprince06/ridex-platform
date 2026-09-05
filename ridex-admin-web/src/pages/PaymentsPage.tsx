@@ -1,30 +1,87 @@
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
-import { Card, humanState, PageHeader, Pill, Table, stateTone } from '../components/ui';
-import { Payment, PAYMENTS } from '../data/mock';
+import { DEFAULT_PAGE_SIZE, formatMoney, listPayments, type AdminPayment, type PaymentStatus } from '../api/admin';
+import { useQuery } from '../api/useQuery';
+import { Card, FilterTabs, humanState, PageHeader, Pagination, Pill, Table, stateTone } from '../components/ui';
 
-/** FR-OPS-006. Provider references are shown because they are what an engineer will ask for. */
+// 'ALL' is the sentinel for "no filter": a tab strip needs every choice to be a value,
+// while the API takes an absent status rather than a magic one.
+const FILTERS = ['ALL', 'SUCCEEDED', 'PROCESSING', 'FAILED', 'REFUNDED'] as const;
+type Filter = (typeof FILTERS)[number];
+
 export function PaymentsPage() {
-  const navigate = useNavigate();
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState<number>(DEFAULT_PAGE_SIZE);
+
+  const status = filter === 'ALL' ? undefined : (filter as PaymentStatus);
+  const { data, loading, error } = useQuery(() => listPayments(status, page, size), [status, page, size]);
 
   return (
     <>
-      <PageHeader title="Payments" subtitle="Trip-scoped payments and their provider references" />
+      <PageHeader
+        title="Payments"
+        subtitle={data ? `${data.totalItems} charges` : loading ? 'Loading...' : ''}
+      />
 
-      <Card>
-        <Table<Payment>
+      <Card
+        actions={
+          <FilterTabs
+            options={FILTERS}
+            value={filter}
+            onChange={(next) => {
+              setFilter(next);
+              // Narrowing the list invalidates the page number it was on.
+              setPage(0);
+            }}
+          />
+        }
+      >
+        <Table<AdminPayment>
           columns={[
-            { key: 'id', header: 'Payment', render: (row) => <span className="mono">{row.id}</span> },
-            { key: 'trip', header: 'Trip', render: (row) => <span className="mono">{row.tripId}</span> },
-            { key: 'rider', header: 'Rider', render: (row) => row.rider },
-            { key: 'method', header: 'Method', render: (row) => row.method },
-            { key: 'provider', header: 'Provider ref', render: (row) => <span className="mono cell-muted">{row.providerRef}</span> },
-            { key: 'state', header: 'State', render: (row) => <Pill tone={stateTone(row.state)}>{humanState(row.state)}</Pill> },
-            { key: 'amount', header: 'Amount', align: 'right', render: (row) => <span className="cell-strong">{row.amount}</span> },
+            { key: 'id', header: 'Payment', render: (row) => (
+              <span className="mono">{row.id.slice(-8)}</span>
+            ) },
+            { key: 'rider', header: 'Rider', render: (row) => row.riderEmail },
+            { key: 'method', header: 'Method', render: (row) => (
+              <Pill tone={row.method === 'CASH' ? 'warning' : 'info'}>{humanState(row.method)}</Pill>
+            ) },
+            { key: 'status', header: 'Status', render: (row) => (
+              <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>
+            ) },
+            { key: 'gross', header: 'Fare', align: 'right', render: (row) =>
+              formatMoney(row.grossAmountMinor, row.currency) },
+            { key: 'discount', header: 'Discount', align: 'right', render: (row) =>
+              // Funded by the platform, never by the driver: the driver is paid on the fare above.
+              row.discountAmountMinor > 0
+                ? `-${formatMoney(row.discountAmountMinor, row.currency)}`
+                : '—' },
+            { key: 'net', header: 'Charged', align: 'right', render: (row) => (
+              <span className="cell-strong">{formatMoney(row.netAmountMinor, row.currency)}</span>
+            ) },
+            { key: 'when', header: 'When', render: (row) => (
+              <span className="cell-muted">{new Date(row.createdAt).toLocaleString()}</span>
+            ) },
           ]}
-          rows={PAYMENTS}
-          onRowClick={(row) => navigate(`/payments/${row.id}`)}
+          rows={data?.items ?? []}
+          empty={error ?? (loading ? 'Loading payments...' : 'No payments yet.')}
         />
+
+        {data ? (
+          <Pagination
+            page={data.page}
+            size={size}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            noun="payments"
+            onPage={setPage}
+            onSize={(next) => {
+              // Row 30 at ten per page is not row 30 at fifty; the old page number means nothing.
+              setSize(next);
+              setPage(0);
+            }}
+          />
+        ) : null}
       </Card>
     </>
   );

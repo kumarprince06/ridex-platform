@@ -11,6 +11,8 @@ import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { HelpSupportScreen } from '../screens/HelpSupportScreen';
+import { ReportIssueScreen } from '../screens/ReportIssueScreen';
+import { SupportTicketScreen } from '../screens/SupportTicketScreen';
 import { NavigateToPickupScreen } from '../screens/NavigateToPickupScreen';
 import { NewPasswordScreen } from '../screens/NewPasswordScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
@@ -115,6 +117,8 @@ export function RootNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+        <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
+        <Stack.Screen name="SupportTicket" component={SupportTicketScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

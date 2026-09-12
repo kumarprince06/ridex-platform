@@ -51,6 +51,7 @@ export function SafetyScreen({ navigation, route }: Props) {
         icon="flag"
         title={`Report ${route.params?.riderName ?? 'your rider'}`}
         subtitle="Behaviour, safety concern or incident"
+        onPress={() => navigation.navigate('ReportIssue')}
       />
 
       <SectionLabel>GET HELP</SectionLabel>

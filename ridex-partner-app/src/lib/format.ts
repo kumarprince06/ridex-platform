@@ -21,6 +21,23 @@ export function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+/**
+ * Today and yesterday get named, because "Today, 2:30 PM" is what a person scanning a list is
+ * actually looking for. Anything older is just a date.
+ */
+export function when(at: string | Date): string {
+  const moment = at instanceof Date ? at : new Date(at);
+  const time = moment.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  const daysAgo = Math.floor((midnight.getTime() - moment.getTime()) / 86_400_000) + 1;
+
+  if (daysAgo <= 0) return `Today, ${time}`;
+  if (daysAgo === 1) return `Yesterday, ${time}`;
+  return `${moment.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
+}
+
 /** "19 min", never "0 min": a trip that rounds to nothing still took a minute. */
 export function minutes(seconds: number): string {
   return `${Math.max(1, Math.round(seconds / 60))} min`;

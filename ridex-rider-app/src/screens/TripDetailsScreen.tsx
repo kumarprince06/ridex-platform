@@ -128,7 +128,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
         <Button
           label="Report Issue"
           variant="secondary"
-          onPress={() => navigation.navigate('ReportIssue')}
+          onPress={() => navigation.navigate('ReportIssue', { rideId })}
           style={styles.flex}
         />
         {/* A receipt exists only once the trip was actually charged. */}

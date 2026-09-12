@@ -52,15 +52,6 @@ export const NOTIFICATIONS: {
   },
 ];
 
-export const ISSUE_CATEGORIES: { icon: IconName; tone: string; label: string }[] = [
-  { icon: 'car', tone: '#E0785A', label: 'Driver Behavior' },
-  { icon: 'location', tone: '#E05A6F', label: 'Wrong Route' },
-  { icon: 'card', tone: '#E0B252', label: 'Payment Issue' },
-  { icon: 'cube', tone: '#C89A6A', label: 'Lost Item' },
-  { icon: 'ban', tone: '#E05A6F', label: 'Safety Concern' },
-  { icon: 'bug', tone: '#B8D65F', label: 'App Bug' },
-];
-
 export const FAQS = [
   'How do I cancel a ride?',
   'What if my driver does not show up?',

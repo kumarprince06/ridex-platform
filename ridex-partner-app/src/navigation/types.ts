@@ -75,6 +75,9 @@ export type RootStackParamList = {
   Notifications: undefined;
   Settings: undefined;
   HelpSupport: undefined;
+  /** A ride id turns a report into that ride's report: support opens the trip beside the thread. */
+  ReportIssue: { rideId?: string } | undefined;
+  SupportTicket: { ticketId: string };
 };
 
 export type RootScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<

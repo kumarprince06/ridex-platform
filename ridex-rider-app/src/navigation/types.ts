@@ -94,7 +94,9 @@ export type RootStackParamList = {
 
   TripDetails: { rideId: string };
   TripReceipt: { rideId: string };
-  ReportIssue: undefined;
+  /** A ride id turns a report into a ride's report: support opens the trip beside the thread. */
+  ReportIssue: { rideId?: string } | undefined;
+  SupportTicket: { ticketId: string };
   EditProfile: undefined;
   SavedPlaces: undefined;
   Notifications: undefined;

@@ -1,4 +1,3 @@
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -7,10 +6,10 @@ import { listCategories, raiseTicket } from '../api/support';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { RootStackParamList } from '../navigation/types';
+import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'ReportIssue'>;
+type Props = RootScreenProps<'ReportIssue'>;
 
 /** The server refuses anything shorter; saying so here beats a red box after the tap. */
 const MIN_DESCRIPTION = 10;

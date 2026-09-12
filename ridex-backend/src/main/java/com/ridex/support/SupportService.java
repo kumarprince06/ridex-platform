@@ -1,6 +1,7 @@
 package com.ridex.support;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -212,6 +213,19 @@ public class SupportService {
                 ticket.getSubject(), ticket.getRideId(), ticket.getRaisedByRole(), raisedByEmail,
                 ticket.getFirstResponseAt(), ticket.getResolvedAt(), ticket.getResolution(),
                 ticket.getCreatedAt(), messages);
+    }
+
+    /**
+     * What this person may raise a ticket about.
+     *
+     * <p>Filtered by role rather than shown in full: offering a rider "Payout" produces a ticket
+     * nobody can action, and the queue it lands in is not theirs.
+     */
+    public List<CategoryResponse> categoriesFor(String role) {
+        return Arrays.stream(TicketCategory.values())
+                .filter(category -> category.isFor(role))
+                .map(CategoryResponse::of)
+                .toList();
     }
 
     public static String roleOf(java.util.Set<UserRole> roles) {

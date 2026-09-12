@@ -7,6 +7,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import com.ridex.platform.security.JwtPrincipal;
+import com.ridex.support.dto.CategoryResponse;
 import com.ridex.support.dto.CreateTicketRequest;
 import com.ridex.support.dto.PostMessageRequest;
 import com.ridex.support.dto.TicketResponse;
@@ -32,6 +33,13 @@ public class SupportController {
     public TicketResponse raise(@AuthenticationPrincipal JwtPrincipal principal,
             @Valid @RequestBody CreateTicketRequest request) {
         return supportService.raise(principal.userId(), SupportService.roleOf(principal.roles()), request);
+    }
+
+    /** What this person may raise a ticket about, in their own words, from one place. */
+    @GetMapping("/categories")
+    @ResponseStatus(HttpStatus.OK)
+    public List<CategoryResponse> categories(@AuthenticationPrincipal JwtPrincipal principal) {
+        return supportService.categoriesFor(SupportService.roleOf(principal.roles()));
     }
 
     @GetMapping

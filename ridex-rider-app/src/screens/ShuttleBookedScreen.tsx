@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { ApiError } from '../api/problem';
 import { formatMoney } from '../api/rides';
-import { cancelBooking } from '../api/shuttle';
+import { cancelBooking, getBooking } from '../api/shuttle';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { payForSeat } from '../api/shuttleCheckout';
 import { Button } from '../components/Button';
+import { MapCanvas } from '../components/MapCanvas';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -23,6 +24,14 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ShuttleBooked'>;
  * <p>Three identical grey cards read as a settings screen. A ticket has one thing on it that
  * matters at the door - the seat and the code - and everything else is smaller and below it.
  */
+/** A quarter of an hour before departure, which is when the server starts sharing the position. */
+const TRACKING_OPENS_MS = 15 * 60 * 1000;
+
+/** And two hours after, by which time every route on the platform has finished its run. */
+const TRACKING_CLOSES_MS = 2 * 60 * 60 * 1000;
+
+const TRACK_POLL_MS = 15000;
+
 export function ShuttleBookedScreen({ navigation, route }: Props) {
   const [booking, setBooking] = useState(route.params.booking);
   const [busy, setBusy] = useState(false);
@@ -36,6 +45,31 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   // Half an hour before departure the seat can no longer be sold to anybody else, so it stops
   // being cancellable. The server decides this too; this only keeps the button honest.
   const cancellable = !cancelled && Date.now() < new Date(booking.cancellableUntil).getTime();
+
+  // From a quarter of an hour before it leaves, the vehicle is worth watching - which is also when
+  // the server starts putting its position on the crew.
+  const tracking =
+    !cancelled && Date.now() > departs.getTime() - TRACKING_OPENS_MS
+    && Date.now() < departs.getTime() + TRACKING_CLOSES_MS;
+
+  useEffect(() => {
+    if (!tracking) {
+      return;
+    }
+    // Polled, not pushed: the ticket is open for minutes at a time and a socket for one marker is
+    // not worth its reconnect logic.
+    const refresh = () =>
+      void getBooking(booking.id).then((fresh) => fresh && setBooking(fresh)).catch(() => undefined);
+
+    refresh();
+    const timer = setInterval(refresh, TRACK_POLL_MS);
+    return () => clearInterval(timer);
+  }, [tracking, booking.id]);
+
+  const vehicleAt: [number, number] | undefined =
+    booking.crew?.latitude == null || booking.crew?.longitude == null
+      ? undefined
+      : [booking.crew.longitude, booking.crew.latitude];
 
   async function pay() {
     setBusy(true);
@@ -172,6 +206,17 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
       </View>
 
+      {tracking ? (
+        <MapCanvas
+          showRoute
+          pickupCoord={[booking.boardingLng, booking.boardingLat]}
+          destinationCoord={[booking.alightingLng, booking.alightingLat]}
+          driverCoord={vehicleAt}
+          driverLabel={vehicleAt ? booking.crew?.registrationNumber ?? 'Shuttle' : undefined}
+          style={styles.map}
+        />
+      ) : null}
+
       {booking.crew ? (
         <View style={styles.crew}>
           <View style={styles.plate}>
@@ -277,6 +322,12 @@ function Leg({ label, value, align }: { label: string; value: string; align?: 'r
 const NOTCH = 22;
 
 const styles = StyleSheet.create({
+  map: {
+    height: 200,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    marginBottom: spacing.lg,
+  },
   flex: { flex: 1 },
   right: { alignItems: 'flex-end' },
   rightText: { textAlign: 'right' },

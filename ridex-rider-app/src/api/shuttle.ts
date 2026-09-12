@@ -27,6 +27,9 @@ export type Crew = {
   vehicle: string;
   registrationNumber: string;
   seatCapacity: number;
+  /** Where the vehicle is, from fifteen minutes before departure. Null before that. */
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type Departure = {
@@ -62,6 +65,10 @@ export type ShuttleBooking = {
   seatLabel: string;
   boardingStopName: string;
   alightingStopName: string;
+  boardingLat: number;
+  boardingLng: number;
+  alightingLat: number;
+  alightingLng: number;
   departsAt: string;
   currency: string;
   /** The published fare, before points. */
@@ -159,6 +166,11 @@ export function bookSeat(booking: {
 }
 
 /** This rider's shuttle seats. Newest first, and without the boarding code - see the backend. */
+/** One booking, by asking for the rider's own and picking it out - there is no single-seat GET. */
+export function getBooking(bookingId: string) {
+  return listBookings().then((bookings) => bookings.find((b) => b.id === bookingId) ?? null);
+}
+
 export function listBookings() {
   return request<ShuttleBooking[]>('/api/v1/shuttle/bookings');
 }

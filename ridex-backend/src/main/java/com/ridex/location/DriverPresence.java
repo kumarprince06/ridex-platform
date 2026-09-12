@@ -1,7 +1,10 @@
 package com.ridex.location;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.data.geo.Circle;
 import org.springframework.data.geo.Distance;
@@ -67,6 +70,43 @@ public class DriverPresence {
                 .map(result -> result.getContent().getName())
                 .filter(driverId -> Boolean.TRUE.equals(redis.hasKey(seenKey(driverId))))
                 .toList();
+    }
+
+    /**
+     * Where one driver last reported, or empty if they are off duty or their pings have gone stale.
+     *
+     * <p>Empty rather than a last-known pin: a marker that stopped moving ten minutes ago is worse
+     * than no marker, because the rider keeps waiting at it.
+     */
+    public Optional<Position> positionOf(String driverId) {
+        return positionsOf(List.of(driverId)).values().stream().findFirst();
+    }
+
+    /** The same for a set of drivers, in one round trip - the admin map asks for all of them. */
+    public Map<String, Position> positionsOf(List<String> driverIds) {
+        if (driverIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Point> points = redis.opsForGeo().position(ONLINE_KEY, driverIds.toArray(String[]::new));
+        if (points == null) {
+            return Map.of();
+        }
+
+        Map<String, Position> found = new LinkedHashMap<>();
+        for (int i = 0; i < driverIds.size() && i < points.size(); i++) {
+            Point point = points.get(i);
+            String driverId = driverIds.get(i);
+            // A pin with no freshness key belongs to a phone that stopped reporting.
+            if (point != null && Boolean.TRUE.equals(redis.hasKey(seenKey(driverId)))) {
+                found.put(driverId, new Position(point.getY(), point.getX()));
+            }
+        }
+        return found;
+    }
+
+    /** Latitude first, the way every caller says it out loud. */
+    public record Position(double latitude, double longitude) {
     }
 
     private static String seenKey(String driverId) {

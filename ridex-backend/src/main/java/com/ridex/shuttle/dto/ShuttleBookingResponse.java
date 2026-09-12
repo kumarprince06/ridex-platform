@@ -8,6 +8,11 @@ public record ShuttleBookingResponse(
         String seatLabel,
         String boardingStopName,
         String alightingStopName,
+        /** The two stops as points, so the ticket can draw where to stand and where it ends. */
+        double boardingLat,
+        double boardingLng,
+        double alightingLat,
+        double alightingLng,
         Instant departsAt,
         String currency,
         /** The published fare, before points. */

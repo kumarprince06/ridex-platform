@@ -3,31 +3,42 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { getDashboard, getLiveDrivers, type LiveDriver } from '../api/admin';
+import { useQuery } from '../api/useQuery';
 import { Card, Grid, humanState, PageHeader, Pill, StatTile, stateTone, Table } from '../components/ui';
-import { LIVE_DRIVERS, METRICS, TRIPS_BY_STATE } from '../data/mock';
 
 /** Same map stack as the two apps: MapLibre against OpenFreeMap tiles. No key, no billing. */
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
 const CENTRE: [number, number] = [77.5946, 12.9716];
 
-const STATE_COLOUR: Record<string, string> = {
-  TRIP_STARTED: '#12805a',
-  DRIVER_ARRIVING: '#2563c9',
-  DRIVER_AT_PICKUP: '#b26a12',
-  DRIVER_ASSIGNED: '#5b6779',
-};
+/** Carrying somebody, or waiting for the next offer. Two states is all ops reads at a glance. */
+const ON_TRIP = '#12805a';
+const IDLE = '#5b6779';
 
-/** FR-OPS-004, the live half. Positions are static here; T8 and T11 make them real. */
+/** Positions are seconds old by design, so the map asks again on this cadence. */
+const POLL_MS = 10000;
+
+/** FR-OPS-004, the live half. Every pin is a driver whose phone reported in the last two minutes. */
 export function LiveMapPage() {
   const navigate = useNavigate();
   const container = useRef<HTMLDivElement>(null);
+  const map = useRef<maplibregl.Map | null>(null);
+  const markers = useRef<maplibregl.Marker[]>([]);
+
+  const { data: dashboard } = useQuery(getDashboard);
+  const { data: drivers, refetch } = useQuery(getLiveDrivers);
 
   useEffect(() => {
-    if (!container.current) {
+    const timer = setInterval(refetch, POLL_MS);
+    return () => clearInterval(timer);
+  }, [refetch]);
+
+  useEffect(() => {
+    if (!container.current || map.current) {
       return;
     }
 
-    const map = new maplibregl.Map({
+    map.current = new maplibregl.Map({
       container: container.current,
       style: STYLE_URL,
       center: CENTRE,
@@ -36,53 +47,92 @@ export function LiveMapPage() {
     });
 
     // North stays up: an ops map that rotates makes two people describing the same screen disagree.
-    map.dragRotate.disable();
-    map.touchZoomRotate.disableRotation();
+    map.current.dragRotate.disable();
+    map.current.touchZoomRotate.disableRotation();
 
-    LIVE_DRIVERS.forEach((driver) => {
-      const element = document.createElement('div');
-      element.className = 'driver-dot';
-      element.style.background = STATE_COLOUR[driver.state] ?? '#5b6779';
-      element.title = `${driver.name} · ${humanState(driver.state)}`;
-
-      new maplibregl.Marker({ element })
-        .setLngLat([CENTRE[0] + driver.offset[0], CENTRE[1] + driver.offset[1]])
-        .setPopup(
-          new maplibregl.Popup({ offset: 14 }).setHTML(
-            `<strong>${driver.name}</strong><br/>${humanState(driver.state)}<br/><span class="mono">${driver.id}</span>`,
-          ),
-        )
-        .addTo(map);
-    });
-
-    return () => map.remove();
+    return () => {
+      map.current?.remove();
+      map.current = null;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!map.current || !drivers) {
+      return;
+    }
+
+    // Cleared and redrawn each poll rather than diffed: a few dozen markers redraw in under a
+    // frame, and a diff is state that can disagree with the server.
+    markers.current.forEach((marker) => marker.remove());
+    markers.current = drivers.map((driver) => marker(driver).addTo(map.current!));
+  }, [drivers]);
+
+  const byState = Object.entries(dashboard?.ridesByStatus ?? {})
+    .map(([state, count]) => ({ state, count }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <>
-      <PageHeader title="Live map" subtitle="Trips in flight. Updated a few seconds ago." />
+      <PageHeader
+        title="Live map"
+        subtitle={
+          drivers
+            ? `${drivers.length} drivers reporting · refreshed every ${POLL_MS / 1000}s`
+            : 'Loading positions...'
+        }
+      />
 
       <Grid columns={4}>
-        <StatTile label="Live trips" value={METRICS.liveTrips} tone="primary" />
-        <StatTile label="Drivers online" value={METRICS.driversOnline} />
-        <StatTile label="Unmatched 15m" value={METRICS.unmatched15m} tone="warning" />
-        <StatTile label="Cancellation rate" value={METRICS.cancellationRate} />
+        <StatTile label="Rides in progress" value={dashboard?.ridesInProgress ?? '--'} tone="primary" />
+        <StatTile label="Drivers on duty" value={dashboard?.driversOnDuty ?? '--'} />
+        <StatTile label="Reporting a position" value={drivers?.length ?? '--'} />
+        <StatTile label="Carrying somebody" value={drivers?.filter((d) => d.onTrip).length ?? '--'} />
       </Grid>
 
       <Card>
         <div ref={container} className="live-map" />
       </Card>
 
-      <Card title="Trips by state">
+      <Card title="Rides by state">
         <Table
           columns={[
-            { key: 'state', header: 'State', render: (row: (typeof TRIPS_BY_STATE)[number]) => <Pill tone={stateTone(row.state)}>{humanState(row.state)}</Pill> },
-            { key: 'count', header: 'Trips', align: 'right', render: (row) => <span className="cell-strong">{row.count}</span> },
+            {
+              key: 'state',
+              header: 'State',
+              render: (row: { state: string; count: number }) => (
+                <Pill tone={stateTone(row.state)}>{humanState(row.state)}</Pill>
+              ),
+            },
+            {
+              key: 'count',
+              header: 'Rides',
+              align: 'right',
+              render: (row: { state: string; count: number }) => (
+                <span className="cell-strong">{row.count}</span>
+              ),
+            },
           ]}
-          rows={TRIPS_BY_STATE}
+          rows={byState}
+          empty="No rides today."
           onRowClick={() => navigate('/trips')}
         />
       </Card>
     </>
   );
+}
+
+function marker(driver: LiveDriver) {
+  const element = document.createElement('div');
+  element.className = 'driver-dot';
+  element.style.background = driver.onTrip ? ON_TRIP : IDLE;
+  element.title = `${driver.name} · ${driver.onTrip ? 'on a trip' : 'waiting'}`;
+
+  return new maplibregl.Marker({ element })
+    .setLngLat([driver.longitude, driver.latitude])
+    .setPopup(
+      new maplibregl.Popup({ offset: 14 }).setHTML(
+        `<strong>${driver.name}</strong><br/>${driver.vehicle ?? 'No vehicle on file'}<br/>` +
+          `<span class="mono">${driver.registrationNumber ?? driver.driverId}</span>`,
+      ),
+    );
 }

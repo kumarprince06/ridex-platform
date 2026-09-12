@@ -22,6 +22,8 @@ public interface DriverProfileRepository extends JpaRepository<DriverProfile, St
 
     long countByOnDutyTrue();
 
+    List<DriverProfile> findByOnDutyTrue();
+
     @Query("SELECT p FROM DriverProfile p WHERE (:status IS NULL OR p.onboardingStatus = :status) "
             + "AND (:term IS NULL OR :term = '' "
             + "OR LOWER(p.user.email) LIKE LOWER(CONCAT('%', :term, '%')) "

@@ -1,12 +1,13 @@
 package com.ridex.shuttle;
 
+import java.time.Duration;
+import java.time.Instant;
+
 import org.springframework.stereotype.Component;
 
-import com.ridex.driver.DriverProfileRepository;
-import com.ridex.driver.domain.DriverProfile;
+import com.ridex.driver.DriverCard;
+import com.ridex.location.DriverPresence;
 import com.ridex.shuttle.dto.CrewResponse;
-import com.ridex.vehicle.DriverVehicleRepository;
-import com.ridex.vehicle.domain.DriverVehicle;
 
 import lombok.RequiredArgsConstructor;
 
@@ -15,41 +16,41 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ShuttleCrew {
 
-    private final DriverProfileRepository driverProfileRepository;
-    private final DriverVehicleRepository driverVehicleRepository;
-
     /**
-     * Null when the departure has no crew yet - the app hides the card rather than showing blanks.
+     * How long before departure a rider may watch the vehicle.
      *
-     * <p>Transactional because the driver's name lives on a lazy User: the departures endpoint maps
-     * this in the controller, where there is no session left to load it with.
+     * <p>Earlier than this the shuttle is on another run or parked, and showing it only tells the
+     * rider something that is not about their journey.
      */
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    private static final Duration TRACKABLE_BEFORE_DEPARTURE = Duration.ofMinutes(15);
+
+    private final DriverCard driverCard;
+    private final DriverPresence driverPresence;
+
+    /** Null when the departure has no crew yet - the app hides the card rather than showing blanks. */
     public CrewResponse of(String driverId, String vehicleId) {
-        if (driverId == null || vehicleId == null) {
-            return null;
-        }
-
-        DriverProfile driver = driverProfileRepository.findById(driverId).orElse(null);
-        DriverVehicle vehicle = driverVehicleRepository.findById(vehicleId).orElse(null);
-        if (driver == null || vehicle == null) {
-            return null;
-        }
-
-        return new CrewResponse(
-                nameOf(driver),
-                driver.getUser().getPhone(),
-                driver.getRating() == null ? null : driver.getRating().toPlainString(),
-                vehicle.getMake() + " " + vehicle.getModel(),
-                vehicle.getRegistrationNumber(),
-                vehicle.getSeatCapacity());
+        return of(driverId, vehicleId, null);
     }
 
-    private String nameOf(DriverProfile driver) {
-        String first = driver.getUser().getFirstName();
-        String last = driver.getUser().getLastName();
-        String name = ((first == null ? "" : first) + " " + (last == null ? "" : last)).trim();
-        // An email is a worse name than none, but "your driver" tells a rider nothing to check.
-        return name.isEmpty() ? "Your driver" : name;
+    /** The same card, with the vehicle's position once the departure is close enough to watch. */
+    public CrewResponse of(String driverId, String vehicleId, Instant departsAt) {
+        DriverCard.Card card = driverCard.of(driverId, vehicleId);
+        if (card == null) {
+            return null;
+        }
+
+        var position = trackable(departsAt)
+                ? driverPresence.positionOf(driverId)
+                : java.util.Optional.<DriverPresence.Position>empty();
+
+        return new CrewResponse(card.name(), card.phone(), card.rating(), card.vehicle(),
+                card.registrationNumber(), card.seatCapacity(),
+                position.map(DriverPresence.Position::latitude).orElse(null),
+                position.map(DriverPresence.Position::longitude).orElse(null));
+    }
+
+    private boolean trackable(Instant departsAt) {
+        return departsAt != null
+                && !Instant.now().isBefore(departsAt.minus(TRACKABLE_BEFORE_DEPARTURE));
     }
 }

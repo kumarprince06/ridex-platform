@@ -26,6 +26,18 @@ export type RideStatus =
   | 'DRIVER_AT_PICKUP' | 'TRIP_STARTED' | 'COMPLETED'
   | 'CANCELLED_BY_RIDER' | 'CANCELLED_BY_DRIVER' | 'CANCELLED_BY_SYSTEM' | 'EXPIRED';
 
+/** Who is coming and in what. Null until dispatch has assigned somebody. */
+export type RideDriver = {
+  name: string;
+  phone: string | null;
+  rating: string | null;
+  vehicle: string;
+  registrationNumber: string;
+  /** Where the car is now. Null when the driver's phone has stopped reporting. */
+  latitude: number | null;
+  longitude: number | null;
+};
+
 export type Ride = {
   id: string;
   status: RideStatus;
@@ -48,6 +60,7 @@ export type Ride = {
    * the server withholds it once the trip has ended.
    */
   pickupCode: string | null;
+  driver: RideDriver | null;
   requestedAt: string;
 };
 

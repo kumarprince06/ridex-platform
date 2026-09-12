@@ -5,13 +5,6 @@ import { IconName } from '../theme';
  * backend is wired - kept in one file so it is obvious what is fake and easy to delete.
  */
 
-export const DRIVER = {
-  name: 'Marcus Rivera',
-  vehicle: 'Toyota Camry 2022 · RX · 4821',
-  rating: '4.92',
-  tier: 'RideX Comfort',
-};
-
 export const NOTIFICATIONS: {
   icon: IconName;
   tone: string;

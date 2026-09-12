@@ -12,7 +12,6 @@ import com.ridex.points.PointsService;
 import com.ridex.pricing.FareEstimateRepository;
 import com.ridex.pricing.domain.FareEstimate;
 import com.ridex.pricing.dto.FareLineResponse;
-import com.ridex.ride.domain.CancellationPolicy;
 import com.ridex.ride.domain.CancellationReason;
 import com.ridex.ride.domain.CancelledBy;
 import com.ridex.ride.domain.RideRequest;
@@ -21,6 +20,7 @@ import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CancellationQuote;
 import com.ridex.ride.dto.CancellationReasonResponse;
 import com.ridex.ride.dto.CreateRideRequest;
+import com.ridex.ride.dto.DriverResponse;
 import com.ridex.ride.dto.RideResponse;
 import com.ridex.rider.RiderProfileRepository;
 import com.ridex.rider.domain.RiderProfile;
@@ -44,6 +44,8 @@ public class RideRequestService {
     private final PointsService pointsService;
     private final com.ridex.payment.PaymentService paymentService;
     private final com.ridex.trip.TripRepository tripRepository;
+    private final com.ridex.driver.DriverCard driverCard;
+    private final com.ridex.location.DriverPresence driverPresence;
 
     /** The zone a cancellation date is written in, for the line the rider reads on their next fare. */
     @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
@@ -222,6 +224,23 @@ public class RideRequestService {
      * <p>Withheld once the ride has ended: a code on a finished trip is not a boarding pass, it is
      * a number in a history screen that somebody could read over a shoulder and try on a driver.
      */
+    /** The assigned driver, as the rider reads them. Null while dispatch is still searching. */
+    private DriverResponse driverFor(RideRequest ride) {
+        var card = driverCard.forDriver(ride.getAssignedDriverId());
+        if (card == null) {
+            return null;
+        }
+        // Only while the ride is live: where the driver is stops being the rider's business the
+        // moment they get out.
+        var position = ride.getStatus().isTerminal()
+                ? java.util.Optional.<com.ridex.location.DriverPresence.Position>empty()
+                : driverPresence.positionOf(ride.getAssignedDriverId());
+        return new DriverResponse(card.name(), card.phone(), card.rating(), card.vehicle(),
+                card.registrationNumber(),
+                position.map(com.ridex.location.DriverPresence.Position::latitude).orElse(null),
+                position.map(com.ridex.location.DriverPresence.Position::longitude).orElse(null));
+    }
+
     private String pickupCodeFor(RideRequest ride) {
         if (ride.getStatus().isTerminal()) {
             return null;
@@ -267,6 +286,7 @@ public class RideRequestService {
                 ride.getCancellationFeeMinor(),
                 ride.getCancellationReason(),
                 pickupCodeFor(ride),
+                driverFor(ride),
                 ride.getRequestedAt());
     }
 }

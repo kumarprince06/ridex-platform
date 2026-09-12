@@ -67,7 +67,7 @@ export type RootStackParamList = {
   // has to show it is the last one in this chain.
   DriverApproaching: { destination: string; rideId?: string };
   DriverArrived: { destination: string; rideId?: string };
-  TripInProgress: { destination: string };
+  TripInProgress: { destination: string; rideId?: string };
   RideCompleted: { destination: string; rideId?: string };
   RateDriver: { rideId?: string };
   CancelRide: { rideId?: string };

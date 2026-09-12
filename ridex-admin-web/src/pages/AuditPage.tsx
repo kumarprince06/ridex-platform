@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { dateTime } from '../lib/format';
 
 import { DEFAULT_PAGE_SIZE, listAuditLog, type AuditEntry } from '../api/admin';
 import { useQuery } from '../api/useQuery';
@@ -25,7 +26,7 @@ export function AuditPage() {
         <Table<AuditEntry>
           columns={[
             { key: 'when', header: 'When', render: (row) => (
-              <span className="cell-muted">{new Date(row.occurredAt).toLocaleString()}</span>
+              <span className="cell-muted">{dateTime(row.occurredAt)}</span>
             ) },
             { key: 'actor', header: 'Who', render: (row) => (
               <span className="cell-strong">{row.actorEmail ?? 'System'}</span>

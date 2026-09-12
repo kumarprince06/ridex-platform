@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { money } from '../lib/format';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { applyReferral, getPoints, reasonLabel } from '../api/points';
-import { formatMoney } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { ApiError } from '../api/problem';
 import { BrandLoader } from '../components/BrandLoader';
@@ -74,8 +74,8 @@ export function PaymentsScreen() {
                   <Text style={styles.walletBalance}>{points.balance}</Text>
                   {/* Points are not money. Showing the rate stops the balance reading as one. */}
                   <Text style={styles.walletWorth}>
-                    Worth {formatMoney(points.redeemableValueMinor, points.currency)} off a fare ·{' '}
-                    {points.pointsPerCurrencyUnit} points = {formatMoney(100, points.currency)}
+                    Worth {money(points.redeemableValueMinor, points.currency)} off a fare ·{' '}
+                    {points.pointsPerCurrencyUnit} points = {money(100, points.currency)}
                   </Text>
                 </View>
                 <View style={styles.walletIcon}>

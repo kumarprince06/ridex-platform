@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { distance } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -71,7 +72,7 @@ export function RoutePreviewScreen({ navigation, route }: Props) {
           <StatTiles
             stats={[
               {
-                value: leg ? `${(leg.distanceMeters / 1000).toFixed(1)} km` : '—',
+                value: leg ? `${distance(leg.distanceMeters)}` : '—',
                 label: 'Distance',
               },
               {

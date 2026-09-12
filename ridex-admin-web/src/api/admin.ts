@@ -200,11 +200,6 @@ export function suspendDriver(driverId: string, reason: string) {
   return request(`/api/v1/admin/drivers/${driverId}/suspend`, { method: 'POST', body: { reason } });
 }
 
-/** Minor units to a display string. The currency comes from the response, never assumed. */
-export function formatMoney(amountMinor: number, currency: string): string {
-  return `${currency} ${(amountMinor / 100).toFixed(2)}`;
-}
-
 export type PaymentStatus =
   | 'CREATED' | 'REQUIRES_ACTION' | 'PROCESSING' | 'SUCCEEDED'
   | 'FAILED' | 'CANCELLED' | 'REFUNDED' | 'PARTIALLY_REFUNDED';

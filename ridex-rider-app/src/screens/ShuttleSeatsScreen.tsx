@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { clockTime, money } from '../lib/format';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getPoints, spendableNow } from '../api/points';
 import { ApiError } from '../api/problem';
-import { formatMoney } from '../api/rides';
 import { payForSeat } from '../api/shuttleCheckout';
 import { bookSeat, seatMap, type Seat, type ShuttlePaymentMethod } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
@@ -111,7 +111,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
     >
       <ScreenTitle
         title={data.routeName}
-        subtitle={`${departsAt.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })} · departs ${departsAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+        subtitle={`${departsAt.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })} · departs ${clockTime(departsAt)}`}
       />
 
       <Text style={styles.available}>
@@ -176,7 +176,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
             </Text>
             {/* Capped per journey; the fare caps it again server-side. */}
             <Text style={styles.pointsNote}>
-              Up to {formatMoney(spendableNow(points).valueMinor, points.currency)} off
+              Up to {money(spendableNow(points).valueMinor, points.currency)} off
               {points.balance > points.maxRedeemPerJourney
                 ? ` · ${points.balance} in your balance`
                 : ''}

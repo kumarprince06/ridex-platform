@@ -7,6 +7,7 @@ import { completeTrip, useTrip } from '../api/driver';
 import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
 import { SwipeAction } from '../components/SwipeAction';
+import { money } from '../lib/format';
 import { trackTripDistance } from '../lib/tripDistance';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -101,7 +102,7 @@ export function TripInProgressScreen({ navigation, route }: Props) {
             <Text style={styles.fareLabel}>TRIP FARE</Text>
             {/* The quote, not a running meter: the server prices the trip when it ends. */}
             <Text style={styles.fare}>
-              {trip ? `${trip.currency} ${(trip.quotedFareMinor / 100).toFixed(2)}` : '--'}
+              {trip ? money(trip.quotedFareMinor, trip.currency) : '--'}
             </Text>
           </View>
           <View style={styles.paymentPill}>

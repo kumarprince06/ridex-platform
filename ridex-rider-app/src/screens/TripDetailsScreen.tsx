@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { money, when } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
-  formatMoney,
-  formatWhen,
   getRide,
   isCancelled,
   isLive,
@@ -72,7 +71,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
             {rideStatusLabel(ride.status)}
           </Text>
         </View>
-        <Text style={styles.when}>{formatWhen(ride.requestedAt)}</Text>
+        <Text style={styles.when}>{when(ride.requestedAt)}</Text>
       </View>
 
       {/* The boarding pass, while it is still worth something. A code on a finished trip is not
@@ -88,7 +87,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
             pickup={{ name: ride.pickupAddress ?? 'Pickup', detail: 'Pickup' }}
             dropoff={{ name: ride.destinationAddress ?? 'Destination', detail: 'Drop-off' }}
           />
-          <Text style={styles.fare}>{formatMoney(ride.quotedFareMinor, ride.currency)}</Text>
+          <Text style={styles.fare}>{money(ride.quotedFareMinor, ride.currency)}</Text>
         </View>
       </View>
 
@@ -99,7 +98,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
           {ride.fareLines.map((line) => (
             <View key={line.type + line.label} style={styles.lineRow}>
               <Text style={styles.lineLabel}>{line.label}</Text>
-              <Text style={styles.lineAmount}>{formatMoney(line.amountMinor, ride.currency)}</Text>
+              <Text style={styles.lineAmount}>{money(line.amountMinor, ride.currency)}</Text>
             </View>
           ))}
           {ride.redeemedPoints > 0 ? (
@@ -116,7 +115,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
           <View style={styles.lineRow}>
             <Text style={styles.lineLabel}>Cancellation fee</Text>
             <Text style={styles.lineAmount}>
-              {formatMoney(ride.cancellationFeeMinor, ride.currency)}
+              {money(ride.cancellationFeeMinor, ride.currency)}
             </Text>
           </View>
           {ride.cancellationReason ? (

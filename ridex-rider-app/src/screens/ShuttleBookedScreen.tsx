@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { clockTime, money, shortDate } from '../lib/format';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { ApiError } from '../api/problem';
-import { formatMoney } from '../api/rides';
 import { cancelBooking, getBooking } from '../api/shuttle';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { payForSeat } from '../api/shuttleCheckout';
@@ -130,7 +130,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         >
           <Ionicons name="time-outline" size={16} color={colors.amber} />
           <Text style={styles.pendingText}>
-            Seat held. Pay {formatMoney(booking.fareMinor, booking.currency)} to confirm it.
+            Seat held. Pay {money(booking.fareMinor, booking.currency)} to confirm it.
           </Text>
           <Text style={styles.payNow}>{busy ? '…' : 'Pay'}</Text>
         </Pressable>
@@ -140,7 +140,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         <View style={styles.pending}>
           <Ionicons name="cash-outline" size={16} color={colors.amber} />
           <Text style={styles.pendingText}>
-            Pay {formatMoney(booking.fareMinor, booking.currency)} to the driver when you get on.
+            Pay {money(booking.fareMinor, booking.currency)} to the driver when you get on.
           </Text>
         </View>
       ) : null}
@@ -156,10 +156,10 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
             <View style={styles.stubRight}>
               <Text style={styles.eyebrow}>DEPARTS</Text>
               <Text style={styles.departs}>
-                {departs.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                {clockTime(departs)}
               </Text>
               <Text style={styles.date}>
-                {departs.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}
+                {shortDate(departs)}
               </Text>
             </View>
           </View>
@@ -250,13 +250,13 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
           <View style={styles.fare}>
             <Text style={styles.fareLabel}>Fare</Text>
             <Text style={styles.fareValue}>
-              {formatMoney(booking.fareMinor, booking.currency)}
+              {money(booking.fareMinor, booking.currency)}
             </Text>
           </View>
           <View style={styles.fareTight}>
             <Text style={styles.fareLabel}>Points ({booking.redeemedPoints})</Text>
             <Text style={styles.credit}>
-              -{formatMoney(booking.discountMinor, booking.currency)}
+              -{money(booking.discountMinor, booking.currency)}
             </Text>
           </View>
         </>
@@ -270,7 +270,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
           {/* A pass covered it, so nothing was charged - "0.00" would read as an error. */}
           {booking.passId
             ? 'Covered by your pass'
-            : formatMoney(booking.fareMinor - booking.discountMinor, booking.currency)}
+            : money(booking.fareMinor - booking.discountMinor, booking.currency)}
         </Text>
       </View>
 
@@ -286,7 +286,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
           <Text style={styles.cancelText}>Cancel this seat</Text>
           <Text style={styles.cancelNote}>
             {booking.creditIfCancelledMinor > 0
-              ? `${formatMoney(booking.creditIfCancelledMinor, booking.currency)} back as points · closes 30 min before departure`
+              ? `${money(booking.creditIfCancelledMinor, booking.currency)} back as points · closes 30 min before departure`
               : 'Closes 30 minutes before departure'}
           </Text>
         </Pressable>
@@ -296,7 +296,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         title="Cancel this seat?"
         body={
           booking.creditIfCancelledMinor > 0
-            ? `${formatMoney(booking.creditIfCancelledMinor, booking.currency)} of ${formatMoney(booking.fareMinor, booking.currency)} comes back as points you can spend on your next ride. Seats cannot be cancelled within 30 minutes of departure.`
+            ? `${money(booking.creditIfCancelledMinor, booking.currency)} of ${money(booking.fareMinor, booking.currency)} comes back as points you can spend on your next ride. Seats cannot be cancelled within 30 minutes of departure.`
             : 'Nothing has been charged for this seat yet.'
         }
         confirmLabel="Cancel seat"

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Offer } from '../api/driver';
+import { distance, money } from '../lib/format';
 import { colors, radius, spacing, type } from '../theme';
 import { RouteStops } from './RouteStops';
 
@@ -17,11 +18,6 @@ type Props = {
  * The ten-second decision. Fare first and largest, because that is what the driver is deciding
  * on; pickup distance second, because that is what the fare has to cover.
  */
-/** "7.8 km", the only unit a driver reads mid-traffic. */
-function km(metres: number) {
-  return `${(metres / 1000).toFixed(1)} km`;
-}
-
 export function OfferCard({ offer, secondsLeft, totalSeconds }: Props) {
   const remaining = Math.max(0, Math.min(1, secondsLeft / totalSeconds));
 
@@ -42,15 +38,13 @@ export function OfferCard({ offer, secondsLeft, totalSeconds }: Props) {
         <View style={{ flex: 1 - remaining }} />
       </View>
 
-      <Text style={styles.fare}>
-        {offer.currency} {(offer.quotedFareMinor / 100).toFixed(2)}
-      </Text>
-      <Text style={styles.fareNote}>{km(offer.tripDistanceMeters)} trip</Text>
+      <Text style={styles.fare}>{money(offer.quotedFareMinor, offer.currency)}</Text>
+      <Text style={styles.fareNote}>{distance(offer.tripDistanceMeters)} trip</Text>
 
       {offer.distanceToPickupMeters == null ? null : (
         <View style={styles.pickupRow}>
           <Ionicons name="walk" size={15} color={colors.textMuted} />
-          <Text style={styles.pickupNote}>{km(offer.distanceToPickupMeters)} to pickup</Text>
+          <Text style={styles.pickupNote}>{distance(offer.distanceToPickupMeters)} to pickup</Text>
         </View>
       )}
 

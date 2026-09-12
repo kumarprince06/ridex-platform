@@ -8,6 +8,7 @@ import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import { TextField } from '../components/TextField';
+import { clockTime } from '../lib/format';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -60,11 +61,8 @@ export function ShuttleDepartureScreen({ navigation, route }: Props) {
           <View style={styles.head}>
             <Text style={styles.route}>{manifest.routeName}</Text>
             <Text style={styles.meta}>
-              {new Date(manifest.departsAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}{' '}
-              · {manifest.seatsSold} of {manifest.seatCapacity} seats sold
+              {clockTime(manifest.departsAt)} · {manifest.seatsSold} of {manifest.seatCapacity} seats
+              sold
             </Text>
           </View>
 

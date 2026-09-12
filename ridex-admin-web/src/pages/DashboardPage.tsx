@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { dateTime, money } from '../lib/format';
 
 import { useSession } from '../auth/session';
 import {
@@ -11,7 +12,7 @@ import {
   stateTone,
   Table,
 } from '../components/ui';
-import { formatMoney, getDashboard, listTrips, type AdminTrip } from '../api/admin';
+import { getDashboard, listTrips, type AdminTrip } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 
 /** FR-OPS-001. Answers "is the marketplace healthy right now", and every number links onward. */
@@ -54,7 +55,7 @@ export function DashboardPage() {
         <StatTile label="Completed today" value={value(metrics?.ridesCompletedToday)} note="Finished trips" tone="success" />
         <StatTile
           label="Gross fares today"
-          value={metrics ? formatMoney(metrics.grossFaresTodayMinor, metrics.currency) : '—'}
+          value={metrics ? money(metrics.grossFaresTodayMinor, metrics.currency) : '—'}
           note="Charged on completed trips"
           tone="success"
         />
@@ -112,9 +113,9 @@ export function DashboardPage() {
               <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>
             ) },
             { key: 'fare', header: 'Fare', align: 'right', render: (row) =>
-              formatMoney(row.finalFareMinor ?? row.quotedFareMinor, row.currency) },
+              money(row.finalFareMinor ?? row.quotedFareMinor, row.currency) },
             { key: 'requested', header: 'Requested', render: (row) => (
-              <span className="cell-muted">{new Date(row.requestedAt).toLocaleString()}</span>
+              <span className="cell-muted">{dateTime(row.requestedAt)}</span>
             ) },
           ]}
           rows={latest?.items.slice(0, 8) ?? []}

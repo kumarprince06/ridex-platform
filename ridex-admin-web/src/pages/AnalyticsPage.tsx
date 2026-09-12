@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { money } from '../lib/format';
 
-import { formatMoney, getAnalytics } from '../api/admin';
+import { getAnalytics } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 import { CHART_COLORS, RankedBars, TrendChart } from '../components/charts';
 import { Card, Grid, PageHeader, StatTile, humanState } from '../components/ui';
@@ -104,7 +105,7 @@ export function AnalyticsPage() {
         />
         <StatTile
           label="Gross fares"
-          value={data ? formatMoney(totalGross, data.currency) : '—'}
+          value={data ? money(totalGross, data.currency) : '—'}
           delta={changeIn((day) => day.grossMinor)}
           note="Charged on completed trips"
           tone="success"
@@ -127,7 +128,7 @@ export function AnalyticsPage() {
         <TrendChart
           points={revenue}
           color={CHART_COLORS.blue}
-          format={(value) => (data ? formatMoney(value, data.currency) : String(value))}
+          format={(value) => (data ? money(value, data.currency) : String(value))}
           formatTick={compactMoney}
         />
       </Card>

@@ -114,10 +114,6 @@ export function completeTrip(tripId: string, distanceMeters: number, durationSec
   });
 }
 
-export function formatMoney(amountMinor: number, currency: string): string {
-  return `${currency} ${(amountMinor / 100).toFixed(2)}`;
-}
-
 export type EarningLine = {
   tripId: string;
   grossAmountMinor: number;

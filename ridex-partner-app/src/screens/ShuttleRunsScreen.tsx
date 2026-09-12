@@ -4,15 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Manifest, myDepartures } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
+import { clockTime } from '../lib/format';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'ShuttleRuns'>;
-
-/** "08:15", in the phone's own zone - the driver is standing in it. */
-function departureTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 /**
  * Today's shuttle departures for this driver, in the order they leave.
@@ -66,7 +62,7 @@ function RunCard({ run, onPress }: { run: Manifest; onPress: () => void }) {
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={styles.timeTile}>
-        <Text style={styles.time}>{departureTime(run.departsAt)}</Text>
+        <Text style={styles.time}>{clockTime(run.departsAt)}</Text>
       </View>
 
       <View style={styles.cardBody}>

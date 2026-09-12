@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { money } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,7 +7,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   bookRide,
   estimate,
-  formatMoney,
   outstandingDues,
   type EstimateOption,
   type PaymentMethod,
@@ -93,7 +93,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
             busy
               ? 'Requesting...'
               : quote
-                ? `Request Ride · ${formatMoney(quote.totalMinor, quote.currency)}`
+                ? `Request Ride · ${money(quote.totalMinor, quote.currency)}`
                 : 'Pricing...'
           }
           disabled={busy || !quote}
@@ -131,7 +131,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
             {/* Negative lines are discounts, and are shown as credits rather than as a figure
                 the reader has to know to subtract. */}
             <Text style={[styles.fareAmount, line.amountMinor < 0 && styles.credit]}>
-              {formatMoney(line.amountMinor, quote!.currency)}
+              {money(line.amountMinor, quote!.currency)}
             </Text>
           </View>
         ))}
@@ -139,7 +139,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
         {dues && !dues.free ? (
           <View style={styles.fareRow}>
             <Text style={styles.fareLabel}>Cancellation fee from an earlier ride</Text>
-            <Text style={styles.fareAmount}>{formatMoney(dues.feeMinor, dues.currency)}</Text>
+            <Text style={styles.fareAmount}>{money(dues.feeMinor, dues.currency)}</Text>
           </View>
         ) : null}
 
@@ -150,7 +150,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
         <View style={styles.fareRow}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>
-            {quote ? formatMoney(quote.totalMinor, quote.currency) : '—'}
+            {quote ? money(quote.totalMinor, quote.currency) : '—'}
           </Text>
         </View>
       </View>
@@ -172,7 +172,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
               {/* Capped per journey, and the fare caps it again server-side - so this is the most
                   it can take off, not a promise. */}
               <Text style={styles.tierMeta}>
-                Up to {formatMoney(spendableNow(points).valueMinor, points.currency)} off
+                Up to {money(spendableNow(points).valueMinor, points.currency)} off
                 {points.balance > points.maxRedeemPerJourney
                   ? ` · ${points.balance} in your balance`
                   : ''}

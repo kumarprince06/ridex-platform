@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
+import { dateTime, money } from '../lib/format';
 
-import { formatMoney, getTrip, type FareLine } from '../api/admin';
+import { getTrip, type FareLine } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 import {
   Card,
@@ -36,15 +37,15 @@ export function TripDetailPage() {
     <>
       <PageHeader
         title={`Trip ${trip.rideId}`}
-        subtitle={`${trip.pickupAddress ?? 'Pickup'} → ${trip.destinationAddress ?? 'Drop-off'} · requested ${new Date(trip.requestedAt).toLocaleString()}`}
+        subtitle={`${trip.pickupAddress ?? 'Pickup'} → ${trip.destinationAddress ?? 'Drop-off'} · requested ${dateTime(trip.requestedAt)}`}
       />
 
       <Grid columns={4}>
         <StatTile label="State" value={humanState(trip.status)} tone={stateTone(trip.status)} />
-        <StatTile label="Quoted" value={formatMoney(trip.quotedFareMinor, trip.currency)} />
+        <StatTile label="Quoted" value={money(trip.quotedFareMinor, trip.currency)} />
         <StatTile
           label="Charged"
-          value={trip.finalFareMinor == null ? '--' : formatMoney(trip.finalFareMinor, trip.currency)}
+          value={trip.finalFareMinor == null ? '--' : money(trip.finalFareMinor, trip.currency)}
           tone="success"
         />
         <StatTile label="Distance driven" value={km(data.actualDistanceMeters)} />
@@ -57,7 +58,7 @@ export function TripDetailPage() {
             <Timeline
               items={data.timeline.map((event) => ({
                 title: humanState(event.toStatus),
-                at: new Date(event.occurredAt).toLocaleString(),
+                at: dateTime(event.occurredAt),
                 actor: event.reason ? `${event.actorType} · ${event.reason}` : event.actorType,
                 tone: stateTone(event.toStatus),
               }))}
@@ -97,13 +98,13 @@ export function TripDetailPage() {
                   key: 'quoted',
                   header: 'Quoted',
                   align: 'right',
-                  render: (row: Row) => money(row.quoted, trip.currency),
+                  render: (row: Row) => amount(row.quoted, trip.currency),
                 },
                 {
                   key: 'charged',
                   header: 'Charged',
                   align: 'right',
-                  render: (row: Row) => money(row.charged, trip.currency),
+                  render: (row: Row) => amount(row.charged, trip.currency),
                 },
               ]}
               rows={merge(data.quotedLines, data.chargedLines)}
@@ -118,24 +119,26 @@ export function TripDetailPage() {
 
 type Row = { label: string; quoted: number | null; charged: number | null };
 
-function money(amountMinor: number | null, currency: string) {
-  return amountMinor == null ? <span className="cell-muted">--</span> : formatMoney(amountMinor, currency);
+/** A line the other side does not have reads as absent, not as zero. */
+function amount(amountMinor: number | null, currency: string) {
+  return amountMinor == null ? <span className="cell-muted">--</span> : money(amountMinor, currency);
 }
 
-/** One row per line type, so the two columns line up instead of being read side by side by eye. */
+/**
+ * One row per line type, so the two columns line up instead of being compared by eye.
+ *
+ * A quote-only line (the ride was never driven) and a charge-only line (waiting time nobody
+ * quoted) both have to survive, which is why this is a union of the two key sets rather than a
+ * walk down either one.
+ */
 function merge(quoted: FareLine[], charged: FareLine[]): Row[] {
-  const rows = new Map<string, Row>();
+  const byType = (lines: FareLine[]) => new Map(lines.map((line) => [line.type, line]));
+  const quotedByType = byType(quoted);
+  const chargedByType = byType(charged);
 
-  for (const line of quoted) {
-    rows.set(line.type, { label: line.label, quoted: line.amountMinor, charged: null });
-  }
-  for (const line of charged) {
-    const row = rows.get(line.type);
-    if (row) {
-      row.charged = line.amountMinor;
-    } else {
-      rows.set(line.type, { label: line.label, quoted: null, charged: line.amountMinor });
-    }
-  }
-  return [...rows.values()];
+  return [...new Set([...quotedByType.keys(), ...chargedByType.keys()])].map((type) => ({
+    label: (quotedByType.get(type) ?? chargedByType.get(type))!.label,
+    quoted: quotedByType.get(type)?.amountMinor ?? null,
+    charged: chargedByType.get(type)?.amountMinor ?? null,
+  }));
 }

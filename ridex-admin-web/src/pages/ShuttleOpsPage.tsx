@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { clockTime, dateTime } from '../lib/format';
 
 import {
   assignDeparture,
@@ -59,10 +60,7 @@ export function ShuttleOpsPage() {
               header: 'Departs',
               render: (row) => (
                 <span className="cell-strong">
-                  {new Date(row.departsAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {clockTime(row.departsAt)}
                 </span>
               ),
             },
@@ -157,10 +155,7 @@ export function ShuttleOpsPage() {
                   align: 'right',
                   render: (row: Departure['seats'][number]) =>
                     row.boardedAt ? (
-                      new Date(row.boardedAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
+                      clockTime(row.boardedAt)
                     ) : (
                       <span className="cell-muted">--</span>
                     ),
@@ -232,7 +227,7 @@ function AssignCrew({
   }
 
   return (
-    <Card title={`Crew for ${new Date(departure.departsAt).toLocaleString()}`}>
+    <Card title={`Crew for ${dateTime(departure.departsAt)}`}>
       <div>
         <label className="field">
           <span className="field-label">Driver</span>

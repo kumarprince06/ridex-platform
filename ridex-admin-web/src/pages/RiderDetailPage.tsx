@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
+import { date, dateTime, money } from '../lib/format';
 
-import { formatMoney, getRider } from '../api/admin';
+import { getRider } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 import {
   Card,
@@ -39,7 +40,7 @@ export function RiderDetailPage() {
     <>
       <PageHeader
         title={name}
-        subtitle={`${rider.riderId} · joined ${new Date(rider.joinedAt).toLocaleDateString()}`}
+        subtitle={`${rider.riderId} · joined ${date(rider.joinedAt)}`}
       />
 
       <Grid columns={4}>
@@ -48,7 +49,7 @@ export function RiderDetailPage() {
         <StatTile label="Points" value={data.pointsBalance} />
         <StatTile
           label="Outstanding dues"
-          value={formatMoney(data.outstandingDuesMinor, data.currency)}
+          value={money(data.outstandingDuesMinor, data.currency)}
           tone={data.outstandingDuesMinor > 0 ? 'warning' : 'default'}
         />
       </Grid>
@@ -61,7 +62,7 @@ export function RiderDetailPage() {
               { label: 'Phone', value: rider.phone ?? '--' },
               {
                 label: 'Last signed in',
-                value: rider.lastLoginAt ? new Date(rider.lastLoginAt).toLocaleString() : 'Never',
+                value: rider.lastLoginAt ? dateTime(rider.lastLoginAt) : 'Never',
               },
               { label: 'Rider ID', value: <span className="mono">{rider.riderId}</span> },
               { label: 'User ID', value: <span className="mono">{rider.userId}</span> },
@@ -73,7 +74,7 @@ export function RiderDetailPage() {
           {data.outstandingDuesMinor > 0 ? (
             <p>
               This rider owes{' '}
-              <strong>{formatMoney(data.outstandingDuesMinor, data.currency)}</strong> in unpaid
+              <strong>{money(data.outstandingDuesMinor, data.currency)}</strong> in unpaid
               cancellation fees. Booking is blocked until it is settled on their next ride.
             </p>
           ) : (
@@ -105,13 +106,13 @@ export function RiderDetailPage() {
               header: 'Fare',
               align: 'right',
               render: (row) =>
-                formatMoney(row.finalFareMinor ?? row.quotedFareMinor, row.currency),
+                money(row.finalFareMinor ?? row.quotedFareMinor, row.currency),
             },
             {
               key: 'requestedAt',
               header: 'Requested',
               render: (row) => (
-                <span className="cell-muted">{new Date(row.requestedAt).toLocaleString()}</span>
+                <span className="cell-muted">{dateTime(row.requestedAt)}</span>
               ),
             },
           ]}

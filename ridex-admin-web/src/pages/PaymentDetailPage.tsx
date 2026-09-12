@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
+import { dateTime, money } from '../lib/format';
 
-import { formatMoney, getPayment } from '../api/admin';
+import { getPayment } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 import {
   Card,
@@ -29,20 +30,20 @@ export function PaymentDetailPage() {
   }
 
   const { payment } = data;
-  const amount = formatMoney(payment.netAmountMinor, payment.currency);
+  const amount = money(payment.netAmountMinor, payment.currency);
 
   return (
     <>
       <PageHeader
         title={`Payment ${payment.id}`}
-        subtitle={`${amount} · ${payment.method} · ${new Date(payment.createdAt).toLocaleString()}`}
+        subtitle={`${amount} · ${payment.method} · ${dateTime(payment.createdAt)}`}
       />
 
       <Grid columns={4}>
         <StatTile label="State" value={humanState(payment.status)} tone={stateTone(payment.status)} />
         <StatTile label="Net" value={amount} />
-        <StatTile label="Gross" value={formatMoney(payment.grossAmountMinor, payment.currency)} />
-        <StatTile label="Discount" value={formatMoney(payment.discountAmountMinor, payment.currency)} />
+        <StatTile label="Gross" value={money(payment.grossAmountMinor, payment.currency)} />
+        <StatTile label="Discount" value={money(payment.discountAmountMinor, payment.currency)} />
       </Grid>
 
       <Grid columns={2}>
@@ -52,7 +53,7 @@ export function PaymentDetailPage() {
             <Timeline
               items={data.events.map((event) => ({
                 title: event.eventType,
-                at: new Date(event.receivedAt).toLocaleString(),
+                at: dateTime(event.receivedAt),
                 actor: event.provider,
                 tone: /fail|cancel/i.test(event.eventType) ? 'danger' : 'success',
               }))}
@@ -85,7 +86,7 @@ export function PaymentDetailPage() {
               { label: 'Method', value: payment.method },
               {
                 label: 'Paid at',
-                value: payment.paidAt ? new Date(payment.paidAt).toLocaleString() : 'Not yet',
+                value: payment.paidAt ? dateTime(payment.paidAt) : 'Not yet',
               },
               ...(data.failureReason ? [{ label: 'Failure', value: data.failureReason }] : []),
             ]}

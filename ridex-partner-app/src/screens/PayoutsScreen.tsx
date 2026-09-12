@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { formatMoney, getEarnings, listPayouts, type PayoutStatus } from '../api/driver';
+import { getEarnings, listPayouts, type PayoutStatus } from '../api/driver';
+import { money } from '../lib/format';
 import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
@@ -28,7 +29,7 @@ export function PayoutsScreen({ navigation }: Props) {
         {/* The ledger balance, not lifetime earnings: this is what is still owed after every
             payout that has actually settled. */}
         <Text style={styles.balanceValue}>
-          {earnings ? formatMoney(earnings.ledgerBalanceMinor, earnings.currency) : '—'}
+          {earnings ? money(earnings.ledgerBalanceMinor, earnings.currency) : '—'}
         </Text>
         <Text style={styles.balanceNote}>Transfers are made once operations settles the batch.</Text>
       </View>
@@ -54,7 +55,7 @@ export function PayoutsScreen({ navigation }: Props) {
 
             <View style={styles.text}>
               <Text style={styles.amount}>
-                {formatMoney(payout.amountMinor, payout.currency)}
+                {money(payout.amountMinor, payout.currency)}
               </Text>
               <Text style={styles.meta}>
                 {new Date(payout.settledAt ?? payout.createdAt).toLocaleDateString()}

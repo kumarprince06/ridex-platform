@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { distance, money, when } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { RouteStops } from '../components/RouteStops';
 import { BrandLoader } from '../components/BrandLoader';
 import { Screen } from '../components/Screen';
-import { formatMoney, formatWhen, getReceipt, getRide } from '../api/rides';
+import { getReceipt, getRide } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -54,9 +55,9 @@ export function TripReceiptScreen({ navigation, route }: Props) {
         </View>
 
         <Text style={styles.total}>
-          {formatMoney(receipt.chargedTotalMinor, receipt.currency)}
+          {money(receipt.chargedTotalMinor, receipt.currency)}
         </Text>
-        <Text style={styles.date}>{formatWhen(ride.requestedAt)}</Text>
+        <Text style={styles.date}>{when(ride.requestedAt)}</Text>
 
         {/* Cash is the only method the platform settles today, so naming a card here would be
             inventing a payment that never happened. */}
@@ -70,7 +71,7 @@ export function TripReceiptScreen({ navigation, route }: Props) {
           pickup={{ name: ride.pickupAddress ?? 'Pickup' }}
           dropoff={{
             name: ride.destinationAddress ?? 'Destination',
-            detail: `${(receipt.actualDistanceMeters / 1000).toFixed(1)} km driven`,
+            detail: `${distance(receipt.actualDistanceMeters)} driven`,
           }}
         />
       </View>
@@ -80,7 +81,7 @@ export function TripReceiptScreen({ navigation, route }: Props) {
           <View key={`${line.type}-${index}`} style={styles.row}>
             <Text style={styles.label}>{line.label}</Text>
             <Text style={[styles.amount, line.amountMinor < 0 && styles.credit]}>
-              {formatMoney(line.amountMinor, receipt.currency)}
+              {money(line.amountMinor, receipt.currency)}
             </Text>
           </View>
         ))}
@@ -90,7 +91,7 @@ export function TripReceiptScreen({ navigation, route }: Props) {
         <View style={styles.row}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>
-            {formatMoney(receipt.chargedTotalMinor, receipt.currency)}
+            {money(receipt.chargedTotalMinor, receipt.currency)}
           </Text>
         </View>
 
@@ -100,15 +101,15 @@ export function TripReceiptScreen({ navigation, route }: Props) {
             <View style={styles.row}>
               <Text style={styles.label}>You were quoted</Text>
               <Text style={styles.amount}>
-                {formatMoney(receipt.quotedTotalMinor, receipt.currency)}
+                {money(receipt.quotedTotalMinor, receipt.currency)}
               </Text>
             </View>
             <Text style={styles.compareNote}>
               {overrun > 0 ? 'Charged ' : 'Reduced by '}
-              {formatMoney(Math.abs(overrun), receipt.currency)}
+              {money(Math.abs(overrun), receipt.currency)}
               {overrun > 0 ? ' more · ' : ' · '}
-              {(receipt.actualDistanceMeters / 1000).toFixed(1)} km driven against{' '}
-              {(receipt.quotedDistanceMeters / 1000).toFixed(1)} km quoted
+              {distance(receipt.actualDistanceMeters)} driven against{' '}
+              {distance(receipt.quotedDistanceMeters)} quoted
             </Text>
           </View>
         ) : null}
@@ -119,7 +120,7 @@ export function TripReceiptScreen({ navigation, route }: Props) {
       <View style={[styles.card, styles.driverCard]}>
         <View style={styles.flex}>
           <Text style={styles.driverName}>{ride.rideTypeCode}</Text>
-          <Text style={styles.driverMeta}>{formatWhen(ride.requestedAt)}</Text>
+          <Text style={styles.driverMeta}>{when(ride.requestedAt)}</Text>
         </View>
         <View style={styles.tripPill}>
           <Text style={styles.tripPillText}>Trip #{ride.id.slice(-8)}</Text>

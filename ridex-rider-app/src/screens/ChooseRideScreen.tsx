@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { distance, money } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useCurrentAddress } from '../api/maps';
-import { estimate, formatMoney, type EstimateOption } from '../api/rides';
+import { estimate, type EstimateOption } from '../api/rides';
 import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
@@ -81,7 +82,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
           />
           {selected ? (
             <Text style={styles.leg}>
-              {(selected.distanceMeters / 1000).toFixed(1)} km ·{' '}
+              {distance(selected.distanceMeters)} ·{' '}
               {Math.max(1, Math.round(selected.durationSeconds / 60))} min
             </Text>
           ) : null}
@@ -130,7 +131,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
                 <View style={styles.tierRight}>
                   <Text style={styles.tierPrice}>
-                    {formatMoney(option.totalMinor, option.currency)}
+                    {money(option.totalMinor, option.currency)}
                   </Text>
                   {isSelected ? (
                     <Ionicons name="checkmark-circle" size={22} color={colors.primary} />

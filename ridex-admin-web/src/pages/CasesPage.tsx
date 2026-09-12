@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { dateTime } from '../lib/format';
 import { useNavigate } from 'react-router-dom';
 
 import { DEFAULT_PAGE_SIZE, listTickets, type Ticket, type TicketStatus } from '../api/admin';
@@ -65,10 +66,10 @@ export function CasesPage() {
             { key: 'response', header: 'First reply', render: (row) =>
               // The number an SLA is actually measured on.
               row.firstResponseAt
-                ? <span className="cell-muted">{new Date(row.firstResponseAt).toLocaleString()}</span>
+                ? <span className="cell-muted">{dateTime(row.firstResponseAt)}</span>
                 : <Pill tone="warning">Waiting</Pill> },
             { key: 'created', header: 'Raised', render: (row) => (
-              <span className="cell-muted">{new Date(row.createdAt).toLocaleString()}</span>
+              <span className="cell-muted">{dateTime(row.createdAt)}</span>
             ) },
           ]}
           rows={data?.items ?? []}

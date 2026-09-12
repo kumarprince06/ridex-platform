@@ -5,36 +5,50 @@ import { Row } from '../components/Row';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
 import { StatTiles } from '../components/StatTiles';
-import { DRIVER, VEHICLE } from '../data/mock';
+import { getProfile } from '../api/profile';
+import { listVehicles } from '../api/vehicles';
+import { useQuery } from '../api/useQuery';
 import { TabScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = TabScreenProps<'Account'>;
 
 export function AccountScreen({ navigation }: Props) {
+  const { data: profile } = useQuery(getProfile);
+  const { data: vehicles } = useQuery(listVehicles);
+  // The car they are approved to drive today, not whichever was added first.
+  const vehicle = (vehicles ?? []).find((candidate) => candidate.status === 'ACTIVE')
+    ?? (vehicles ?? [])[0];
+  const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Your account';
+
   return (
     <Screen title="Account">
       <View style={styles.header}>
-        <Avatar name={DRIVER.name} size={64} brand />
+        <Avatar name={name} size={64} brand />
         <View style={styles.headerText}>
-          <Text style={styles.name}>{DRIVER.name}</Text>
-          <Text style={styles.since}>Partner since {DRIVER.since}</Text>
+          <Text style={styles.name}>{name}</Text>
+          <Text style={styles.since}>{profile?.email}</Text>
           <Text style={styles.vehicle}>
-            {VEHICLE.make} {VEHICLE.model} · {VEHICLE.plate}
+            {vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.registrationNumber}` : 'No vehicle yet'}
           </Text>
         </View>
       </View>
 
       <StatTiles
         stats={[
-          { value: String(DRIVER.rating), label: 'Rating', tone: colors.primary },
-          { value: String(DRIVER.trips), label: 'Trips' },
-          { value: DRIVER.acceptance, label: 'Acceptance' },
+          { value: profile?.rating == null ? '--' : String(profile.rating), label: 'Rating', tone: colors.primary },
+          { value: String(profile?.ratingCount ?? 0), label: 'Rated trips' },
+          { value: humanStatus(profile?.onboardingStatus), label: 'Status' },
         ]}
       />
 
       <SectionLabel>DRIVING</SectionLabel>
-      <Row icon="car-sport" title="Vehicle" subtitle={`${VEHICLE.model} · ${VEHICLE.status}`} onPress={() => navigation.navigate('Vehicle')} />
+      <Row
+        icon="car-sport"
+        title="Vehicle"
+        subtitle={vehicle ? `${vehicle.model} · ${vehicle.status}` : 'None added'}
+        onPress={() => navigation.navigate('Vehicle')}
+      />
       <Row icon="document-text" title="Documents" subtitle="1 expiring soon" badge="1" onPress={() => navigation.navigate('Documents')} />
       <Row icon="star" title="Ratings and stats" subtitle="Acceptance, cancellation, rating" onPress={() => navigation.navigate('Ratings')} />
 
@@ -57,6 +71,11 @@ export function AccountScreen({ navigation }: Props) {
       />
     </Screen>
   );
+}
+
+/** APPROVED reads as shouting on a profile card. */
+function humanStatus(status?: string) {
+  return status ? status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' ') : '--';
 }
 
 const styles = StyleSheet.create({

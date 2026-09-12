@@ -12,7 +12,9 @@ import { EarningsBar } from '../components/EarningsBar';
 import { MapCanvas } from '../components/MapCanvas';
 import { PulseRings } from '../components/PulseRings';
 import { StatusBanner } from '../components/StatusBanner';
-import { EARNINGS } from '../data/mock';
+import { getEarnings } from '../api/driver';
+import { useQuery } from '../api/useQuery';
+import { money } from '../lib/format';
 import { TabScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -24,7 +26,13 @@ const LOCATION_PING_MS = 15000;
 export function DriveScreen({ navigation }: Props) {
   const [online, setOnline] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const today = EARNINGS.Today;
+  // What the ledger says is owed right now, and what has been earned in all. Nothing here is a
+  // target the app invented.
+  const { data: earnings } = useQuery(getEarnings);
+  const currency = earnings?.currency ?? 'INR';
+  const owed = earnings ? money(earnings.ledgerBalanceMinor, currency) : '--';
+  const lifetime = earnings ? money(earnings.lifetimeNetMinor, currency) : '--';
+  const trips = earnings?.recent.length ?? 0;
 
   const { offer } = useOffers(online);
 
@@ -96,7 +104,7 @@ export function DriveScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <EarningsBar net={today.net} goal={today.goal} progress={today.goalProgress} />
+        <EarningsBar net={owed} goal={lifetime} progress={0} />
       </SafeAreaView>
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
@@ -116,9 +124,9 @@ export function DriveScreen({ navigation }: Props) {
             </View>
 
             <View style={styles.shiftRow}>
-              <Shift value={today.online} label="Online" />
-              <Shift value={String(today.trips)} label="Trips" />
-              <Shift value={today.perHour} label="Per hour" />
+              <Shift value={owed} label="Owed to you" />
+              <Shift value={String(trips)} label="Recent trips" />
+              <Shift value={lifetime} label="Lifetime" />
             </View>
 
             <DutyToggle online onToggle={() => void toggleDuty(false)} />
@@ -134,9 +142,9 @@ export function DriveScreen({ navigation }: Props) {
             />
 
             <View style={styles.shiftRow}>
-              <Shift value={today.net} label="Earned today" />
-              <Shift value={String(today.trips)} label="Trips" />
-              <Shift value={today.online} label="Online" />
+              <Shift value={owed} label="Owed to you" />
+              <Shift value={String(trips)} label="Recent trips" />
+              <Shift value={lifetime} label="Lifetime" />
             </View>
 
             <DutyToggle online={false} onToggle={() => void toggleDuty(true)} />

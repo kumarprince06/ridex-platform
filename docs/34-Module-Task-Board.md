@@ -41,7 +41,7 @@ Sources: [28-Rider-App-Gaps.md](28-Rider-App-Gaps.md),
 | M13 | Passes: actually charge for them | M | ☑ |
 | M14 | Account, settings and security | M | ☑ |
 | M15 | Saved places | M | ☑ |
-| M16 | Small cleanups | S | ☐ |
+| M16 | Small cleanups | S | ☑ |
 
 ---
 

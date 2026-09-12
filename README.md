@@ -147,6 +147,22 @@ the single most common reason a message is accepted and then silently dropped.
 
 ---
 
+## Deployment
+
+One host runs the backend, Postgres, Redis and Caddy; the console is a static build on a CDN and
+the apps are installed from EAS builds. The step-by-step is [deploy/README.md](deploy/README.md).
+
+```bash
+cd deploy
+cp .env.production.example .env.production    # fresh secrets, not the development ones
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+```
+
+Merging to `main` builds the image, pushes it to GHCR and - once the host secrets exist - pulls and
+restarts it there, waiting on the health check so a failed migration fails the deployment.
+
+---
+
 ## Database
 
 PostgreSQL, one schema. Flyway owns it; migrations live in

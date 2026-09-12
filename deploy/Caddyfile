@@ -1,0 +1,20 @@
+# HTTPS, and nothing else. Caddy obtains and renews the certificate itself.
+{$RIDEX_API_DOMAIN} {
+	encode gzip
+
+	# The health endpoint answers without waking anything else, so an uptime monitor can hit it
+	# every minute without touching the database.
+	handle /actuator/health {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		reverse_proxy backend:8080 {
+			# The app writes rate limits and audit rows against the caller's address; without these
+			# every request looks like it came from the proxy.
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+}

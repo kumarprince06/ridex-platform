@@ -3,8 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { useTrip } from '../api/driver';
-import { EARNINGS, TRIPS } from '../data/mock';
+import { getEarnings, useTrip } from '../api/driver';
+import { useQuery } from '../api/useQuery';
+import { distance, money } from '../lib/format';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -13,9 +14,11 @@ type Props = RootScreenProps<'TripCompleted'>;
 /** Ride request state COMPLETED. Shows the driver's net first - the fare is the rider's number. */
 export function TripCompletedScreen({ navigation, route }: Props) {
   const completed = useTrip(route.params?.tripId);
-  // ponytail: the earnings breakdown below is still mock - the driver's cut of one trip needs the
-  // earnings endpoint (M10), and this screen only owed M3 the route it just drove.
-  const trip = TRIPS[0];
+  const { data: earnings } = useQuery(getEarnings);
+  // The platform books gross, commission and net when the trip settles; this is that row, not an
+  // arithmetic the phone did on the fare.
+  const line = earnings?.recent.find((entry) => entry.tripId === route.params?.tripId);
+  const currency = completed?.currency ?? earnings?.currency ?? 'INR';
 
   return (
     <Screen
@@ -23,7 +26,12 @@ export function TripCompletedScreen({ navigation, route }: Props) {
         <View style={styles.actions}>
           <Button
             label="Rate the rider"
-            onPress={() => navigation.replace('RateRider', { riderName: completed?.riderName })}
+            onPress={() =>
+              navigation.replace('RateRider', {
+                rideId: completed?.rideId,
+                riderName: completed?.riderName,
+              })
+            }
           />
           <Button
             label="Back to driving"
@@ -39,15 +47,22 @@ export function TripCompletedScreen({ navigation, route }: Props) {
         </View>
 
         <Text style={styles.eyebrow}>TRIP COMPLETE</Text>
-        <Text style={styles.net}>{trip.net}</Text>
+        <Text style={styles.net}>{line ? money(line.netAmountMinor, currency) : '--'}</Text>
         <Text style={styles.note}>added to today's earnings</Text>
       </View>
 
       <View style={styles.card}>
-        <Line label="Trip fare" value={trip.gross} />
-        <Line label="Platform fee" value="-$3.68" muted />
+        <Line
+          label="Trip fare"
+          value={line ? money(line.grossAmountMinor, currency) : '--'}
+        />
+        <Line
+          label={line ? `Platform fee (${Math.round(line.commissionRate * 100)}%)` : 'Platform fee'}
+          value={line ? `-${money(line.commissionMinor, currency)}` : '--'}
+          muted
+        />
         <View style={styles.divider} />
-        <Line label="You earned" value={trip.net} strong />
+        <Line label="You earned" value={line ? money(line.netAmountMinor, currency) : '--'} strong />
       </View>
 
       <View style={styles.summary}>
@@ -57,14 +72,18 @@ export function TripCompletedScreen({ navigation, route }: Props) {
             : 'Trip complete'}
         </Text>
         <Text style={styles.summaryMeta}>
-          {trip.distance} · {trip.duration} · {trip.payment}
+          {completed?.actualDistanceMeters == null
+            ? ''
+            : `${distance(completed.actualDistanceMeters)} · `}
+          {completed?.paymentMethod === 'CASH' ? 'Cash at drop-off' : 'Paid online'}
         </Text>
       </View>
 
       <View style={styles.today}>
         <Ionicons name="trending-up" size={17} color={colors.success} />
         <Text style={styles.todayText}>
-          {EARNINGS.Today.net} earned today across {EARNINGS.Today.trips} trips
+          {earnings ? money(earnings.ledgerBalanceMinor, earnings.currency) : '--'} owed to you
+          right now
         </Text>
       </View>
     </Screen>

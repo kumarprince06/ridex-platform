@@ -26,13 +26,15 @@ public class OutboxDispatcher {
     private final OutboxRepository outboxRepository;
     private final Map<DeliveryChannel, NotificationChannel> channels;
     private final NotificationTemplates templates;
+    private final NotificationPreferenceRepository preferences;
 
     public OutboxDispatcher(OutboxRepository outboxRepository, List<NotificationChannel> channels,
-            NotificationTemplates templates) {
+            NotificationTemplates templates, NotificationPreferenceRepository preferences) {
         this.outboxRepository = outboxRepository;
         this.channels = channels.stream()
                 .collect(Collectors.toMap(NotificationChannel::channel, Function.identity()));
         this.templates = templates;
+        this.preferences = preferences;
     }
 
     @Scheduled(fixedDelayString = "${app.outbox.poll-ms:5000}")
@@ -42,6 +44,13 @@ public class OutboxDispatcher {
 
         for (OutboxMessage message : batch) {
             try {
+                if (muted(message)) {
+                    // Not a failure and not a retry: the person asked not to be told this way.
+                    message.setStatus(OutboxStatus.SENT);
+                    message.setSentAt(Instant.now());
+                    continue;
+                }
+
                 NotificationTemplates.Rendered rendered = templates.render(message);
                 channels.get(message.getChannel()).send(message.getRecipient(), rendered);
 
@@ -51,6 +60,21 @@ public class OutboxDispatcher {
                 recordFailure(message, ex);
             }
         }
+    }
+
+    /**
+     * Whether this person has asked not to be told this way.
+     *
+     * <p>Only push is checked against a user: an email recipient is an address, and an address is
+     * not always an account - a verification code goes to somebody who has none yet, and must.
+     */
+    private boolean muted(OutboxMessage message) {
+        if (message.getChannel() != DeliveryChannel.PUSH) {
+            return false;
+        }
+        return !preferences.findById(message.getRecipient())
+                .map(NotificationPreference::isPush)
+                .orElse(true);
     }
 
     private void recordFailure(OutboxMessage message, RuntimeException ex) {

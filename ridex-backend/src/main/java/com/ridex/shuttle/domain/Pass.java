@@ -62,8 +62,21 @@ public class Pass {
     @Column(name = "price_paid_minor", nullable = false)
     private long pricePaidMinor;
 
+    /** Points spent on it, and what they took off the price. Zero when none were used. */
+    @Column(name = "redeemed_points", nullable = false)
+    private int redeemedPoints;
+
+    @Column(name = "discount_minor", nullable = false)
+    private long discountMinor;
+
+    /**
+     * PENDING_PAYMENT until the money clears, then ACTIVE.
+     *
+     * <p>A pass is prepaid, so it covers nothing until it is paid for - and {@link #coversOn} is
+     * what enforces that rather than a check at the till.
+     */
     @Column(name = "status", nullable = false, length = 20)
-    private String status = "ACTIVE";
+    private String status = "PENDING_PAYMENT";
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

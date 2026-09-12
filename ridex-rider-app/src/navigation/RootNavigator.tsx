@@ -35,6 +35,7 @@ import { RideCancelledScreen } from '../screens/RideCancelledScreen';
 
 import { ShuttleBookedScreen } from '../screens/ShuttleBookedScreen';
 import { ShuttleDeparturesScreen } from '../screens/ShuttleDeparturesScreen';
+import { ShuttlePassesScreen } from '../screens/ShuttlePassesScreen';
 import { ShuttleRoutesScreen } from '../screens/ShuttleRoutesScreen';
 import { ShuttleSeatsScreen } from '../screens/ShuttleSeatsScreen';
 import { TripDetailsScreen } from '../screens/TripDetailsScreen';
@@ -105,6 +106,7 @@ export function RootNavigator() {
 
         <Stack.Screen name="ShuttleRoutes" component={ShuttleRoutesScreen} />
         <Stack.Screen name="ShuttleDepartures" component={ShuttleDeparturesScreen} />
+        <Stack.Screen name="ShuttlePasses" component={ShuttlePassesScreen} />
         <Stack.Screen name="ShuttleSeats" component={ShuttleSeatsScreen} />
         <Stack.Screen name="ShuttleBooked" component={ShuttleBookedScreen} />
 

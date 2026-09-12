@@ -124,6 +124,8 @@ public class ShuttleService {
 
         short fromSeq = 1;
         short toSeq = Short.MAX_VALUE;
+        Long fareMinor = null;
+        String currency = null;
         if (boardingStopId != null && alightingStopId != null) {
             RouteStop boarding = stopOn(trip, boardingStopId);
             RouteStop alighting = stopOn(trip, alightingStopId);
@@ -132,6 +134,10 @@ public class ShuttleService {
             }
             fromSeq = boarding.getSequence();
             toSeq = alighting.getSequence();
+
+            String routeId = trip.getSchedule().getRoute().getId();
+            fareMinor = fareBetween(routeId, boarding, alighting);
+            currency = currencyFor(routeId, boarding, alighting);
         }
 
         Set<String> taken = Set.copyOf(
@@ -153,7 +159,9 @@ public class ShuttleService {
                 // Counted off the seats being shown, not capacity minus bookings: a label that is
                 // no longer on the vehicle would otherwise subtract from a total it is not in, and
                 // the picker would show four free seats above a count of three.
-                (int) seats.stream().filter(SeatMapResponse.SeatResponse::available).count());
+                (int) seats.stream().filter(SeatMapResponse.SeatResponse::available).count(),
+                fareMinor,
+                currency);
     }
 
     /**

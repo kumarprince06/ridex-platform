@@ -1,77 +1,123 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { listRatings, type DriverRating } from '../api/driver';
+import { getProfile } from '../api/profile';
+import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
 import { Stars } from '../components/Stars';
-import { DRIVER } from '../data/mock';
+import { when } from '../lib/format';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'Ratings'>;
 
-/** Weighted so the driver can see which number is at risk, not just what it is today. */
-const RATES = [
-  { label: 'Acceptance rate', value: DRIVER.acceptance, note: 'Last 100 offers', good: true },
-  { label: 'Cancellation rate', value: DRIVER.cancellation, note: 'Last 100 accepted trips', good: true },
-  { label: 'Completion rate', value: '98%', note: 'Last 100 accepted trips', good: true },
-];
+const STARS = [5, 4, 3, 2, 1];
 
-const BREAKDOWN = [
-  { stars: 5, count: 1148 },
-  { stars: 4, count: 96 },
-  { stars: 3, count: 27 },
-  { stars: 2, count: 8 },
-  { stars: 1, count: 5 },
-];
-
+/**
+ * What riders have actually said.
+ *
+ * <p>ponytail: acceptance and cancellation rates are gone rather than invented. They are real
+ * numbers the platform does not count yet, and three made-up percentages next to a real average
+ * make the average look made up too.
+ */
 export function RatingsScreen({ navigation }: Props) {
-  const total = BREAKDOWN.reduce((sum, row) => sum + row.count, 0);
+  const { data: profile } = useQuery(getProfile);
+  const { data: ratings, loading, error } = useQuery(listRatings);
+
+  const rows = ratings ?? [];
+  const breakdown = STARS.map((stars) => ({
+    stars,
+    count: rows.filter((rating) => rating.stars === stars).length,
+  }));
+  const average = profile?.rating ?? null;
 
   return (
     <Screen onBack={() => navigation.goBack()} title="Ratings">
       <View style={styles.hero}>
-        <Text style={styles.rating}>{DRIVER.rating}</Text>
-        <Stars value={Math.round(DRIVER.rating)} size={20} />
-        <Text style={styles.count}>{total} rated trips</Text>
+        <Text style={styles.rating}>{average ?? '--'}</Text>
+        <Stars value={Math.round(Number(average ?? 0))} size={20} />
+        <Text style={styles.count}>{profile?.ratingCount ?? 0} rated trips</Text>
       </View>
 
-      <SectionLabel>YOUR RATES</SectionLabel>
+      {loading ? <Text style={styles.count}>Loading...</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {RATES.map((rate) => (
-        <View key={rate.label} style={styles.rateRow}>
-          <View style={styles.rateText}>
-            <Text style={styles.rateLabel}>{rate.label}</Text>
-            <Text style={styles.rateNote}>{rate.note}</Text>
-          </View>
-          <Text style={[styles.rateValue, { color: rate.good ? colors.success : colors.warning }]}>
-            {rate.value}
-          </Text>
-        </View>
-      ))}
+      {rows.length ? (
+        <>
+          <SectionLabel>RATING BREAKDOWN</SectionLabel>
 
-      <SectionLabel>RATING BREAKDOWN</SectionLabel>
+          {breakdown.map((row) => {
+            const share = rows.length === 0 ? 0 : row.count / rows.length;
 
-      {BREAKDOWN.map((row) => {
-        const share = row.count / total;
+            return (
+              <View key={row.stars} style={styles.barRow}>
+                <Text style={styles.barStar}>{row.stars}</Text>
+                <Ionicons name="star" size={12} color={colors.primary} />
+                <View style={styles.track}>
+                  <View style={[styles.fill, { flex: share }]} />
+                  <View style={{ flex: 1 - share }} />
+                </View>
+                <Text style={styles.barCount}>{row.count}</Text>
+              </View>
+            );
+          })}
 
-        return (
-          <View key={row.stars} style={styles.barRow}>
-            <Text style={styles.barStar}>{row.stars}</Text>
-            <Ionicons name="star" size={12} color={colors.primary} />
-            <View style={styles.track}>
-              <View style={[styles.fill, { flex: share }]} />
-              <View style={{ flex: 1 - share }} />
-            </View>
-            <Text style={styles.barCount}>{row.count}</Text>
-          </View>
-        );
-      })}
+          <SectionLabel>WHAT RIDERS SAID</SectionLabel>
+
+          {rows.filter((rating) => rating.comment).map((rating) => (
+            <Comment key={rating.rideId} rating={rating} />
+          ))}
+        </>
+      ) : (
+        <Text style={styles.count}>
+          No ratings yet. They appear here as riders rate their trips.
+        </Text>
+      )}
     </Screen>
   );
 }
 
+function Comment({ rating }: { rating: DriverRating }) {
+  return (
+    <View style={styles.comment}>
+      <View style={styles.commentHead}>
+        <Stars value={rating.stars} size={13} />
+        <Text style={styles.commentWhen}>{when(rating.createdAt)}</Text>
+      </View>
+      <Text style={styles.commentBody}>{rating.comment}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+  },
+  comment: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  commentHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  commentWhen: {
+    ...type.caption,
+    color: colors.textMuted,
+  },
+  commentBody: {
+    ...type.body,
+    color: colors.text,
+  },
   hero: {
     alignItems: 'center',
     gap: spacing.sm,

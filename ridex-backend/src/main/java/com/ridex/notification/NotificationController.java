@@ -7,12 +7,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ridex.notification.dto.NotificationPreferenceResponse;
 import com.ridex.notification.dto.NotificationResponse;
+import com.ridex.notification.dto.UpdatePreferencesRequest;
 import com.ridex.platform.security.JwtPrincipal;
+
+import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,6 +44,21 @@ public class NotificationController {
     @ResponseStatus(HttpStatus.OK)
     public Map<String, Long> unread(@AuthenticationPrincipal JwtPrincipal principal) {
         return Map.of("unread", feed.unreadCount(principal.userId()));
+    }
+
+    @GetMapping("/preferences")
+    @ResponseStatus(HttpStatus.OK)
+    public NotificationPreferenceResponse preferences(
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        return feed.preferences(principal.userId());
+    }
+
+    @PutMapping("/preferences")
+    @ResponseStatus(HttpStatus.OK)
+    public NotificationPreferenceResponse updatePreferences(
+            @AuthenticationPrincipal JwtPrincipal principal,
+            @Valid @RequestBody UpdatePreferencesRequest request) {
+        return feed.updatePreferences(principal.userId(), request);
     }
 
     @PostMapping("/read")

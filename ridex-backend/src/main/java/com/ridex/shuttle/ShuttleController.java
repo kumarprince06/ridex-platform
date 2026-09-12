@@ -99,7 +99,16 @@ public class ShuttleController {
     public PassResponse buyPass(@AuthenticationPrincipal JwtPrincipal principal,
             @Valid @RequestBody BuyPassRequest request) {
         return passService.buy(principal.userId(), request.productId(),
-                request.startsOn() == null ? null : LocalDate.parse(request.startsOn()));
+                request.startsOn() == null ? null : LocalDate.parse(request.startsOn()),
+                request.methodOrDefault(), request.redeemPoints());
+    }
+
+    /** Confirms the gateway payment, which is what makes the pass usable. */
+    @PostMapping("/passes/{passId}/payment/confirm")
+    @ResponseStatus(HttpStatus.OK)
+    public PassResponse confirmPassPayment(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String passId, @Valid @RequestBody ConfirmPaymentRequest request) {
+        return passService.confirmPayment(principal.userId(), passId, request.gatewayPaymentId());
     }
 
     @GetMapping("/passes")

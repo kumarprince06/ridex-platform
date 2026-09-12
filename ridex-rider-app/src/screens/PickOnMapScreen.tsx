@@ -58,13 +58,24 @@ export function PickOnMapScreen({ navigation, route }: Props) {
 
   useEffect(() => () => inFlight.current?.abort(), []);
 
-  const confirm = () =>
+  const confirm = () => {
+    const picked = { name: address ?? 'Pinned location', coord: centre };
+
+    // Whoever opened the picker takes the point: the search screen fills a field with it, saved
+    // places gives it a name.
+    if (route.params.onPicked) {
+      route.params.onPicked(picked);
+      navigation.goBack();
+      return;
+    }
+
     navigation.navigate(
       'SearchDestination',
-      { picked: { field: mode, name: address ?? 'Pinned location', coord: centre } },
+      { picked: { field: mode, ...picked } },
       // merge, so returning to the search screen keeps whatever the other field already held.
       { merge: true },
     );
+  };
 
   return (
     <View style={styles.root}>

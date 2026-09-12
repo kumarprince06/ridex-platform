@@ -11,7 +11,7 @@ import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { RouteStops } from '../components/RouteStops';
-import { RIDE_TIERS } from '../data/mock';
+import { lookFor } from '../lib/rideTypes';
 import { FALLBACK_CENTER, useCurrentLocation } from '../lib/location';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -47,7 +47,6 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
   const selected = options?.find((option) => option.estimateId === selectedId) ?? null;
   // The server priced every option; anything the local mock adds is presentation only.
-  const iconFor = (index: number) => RIDE_TIERS[index % RIDE_TIERS.length]!;
 
   return (
     <View style={styles.root}>
@@ -92,7 +91,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           {(options ?? []).map((option, index) => {
-            const tier = iconFor(index);
+            const tier = lookFor(option.rideTypeCode);
             const isSelected = option.estimateId === selectedId;
 
             return (
@@ -110,14 +109,9 @@ export function ChooseRideScreen({ navigation, route }: Props) {
                 <View style={styles.flex}>
                   <View style={styles.tierNameRow}>
                     <Text style={styles.tierName}>{option.displayName}</Text>
-                    {tier.popular ? (
-                      <View style={styles.popular}>
-                        <Text style={styles.popularText}>Popular</Text>
-                      </View>
-                    ) : null}
                   </View>
 
-                  <Text style={styles.tierBlurb}>{option.description ?? tier.blurb}</Text>
+                  <Text style={styles.tierBlurb}>{option.description ?? ''}</Text>
 
                   <View style={styles.tierMeta}>
                     <Ionicons name="time-outline" size={11} color={colors.textMuted} />

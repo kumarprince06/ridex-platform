@@ -13,6 +13,7 @@ import com.ridex.payment.dto.RidePaymentResponse;
 import com.ridex.platform.security.JwtPrincipal;
 import com.ridex.rating.RatingService;
 import com.ridex.rating.dto.RateRideRequest;
+import com.ridex.ride.domain.CancelledBy;
 import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CancellationQuote;
 import com.ridex.ride.dto.CancellationReasonResponse;
@@ -72,7 +73,7 @@ public class RideController {
     @GetMapping("/cancellation-reasons")
     @ResponseStatus(HttpStatus.OK)
     public java.util.List<CancellationReasonResponse> cancellationReasons() {
-        return rideRequestService.cancellationReasons();
+        return rideRequestService.cancellationReasons(CancelledBy.RIDER);
     }
 
     /** What an earlier cancellation left owing, added to the next fare. */

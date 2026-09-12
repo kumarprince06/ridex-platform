@@ -56,3 +56,40 @@ export async function resetPassword(email: string, code: string, password: strin
 export async function logout(refreshToken: string): Promise<void> {
   await request('/api/v1/auth/logout', { method: 'POST', body: { refreshToken } });
 }
+
+/** Changing a password from inside the app. Every other session ends with it, by design. */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await request('/api/v1/auth/change-password', {
+    method: 'POST',
+    body: { currentPassword, newPassword },
+  });
+}
+
+export type Session = {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+  /** The device reading this list. It cannot revoke itself - that is what signing out is for. */
+  current: boolean;
+};
+
+export function listSessions() {
+  return request<Session[]>('/api/v1/auth/sessions');
+}
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  await request(`/api/v1/auth/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
+export type AuthEvent = {
+  eventType: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  occurredAt: string;
+};
+
+export function loginHistory() {
+  return request<AuthEvent[]>('/api/v1/auth/login-history');
+}

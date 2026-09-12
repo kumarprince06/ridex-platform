@@ -126,6 +126,23 @@ class PointsServiceTest {
     }
 
     @Test
+    void pointsSpentOnARideThatNeverHappenedComeBack() {
+        String user = newUser();
+        pointsService.awardForCompletedRide(user, "ride-1");
+        pointsService.awardForCompletedRide(user, "ride-2");
+        pointsService.awardForCompletedRide(user, "ride-3");
+        pointsService.awardForCompletedRide(user, "ride-4");
+        pointsService.awardForCompletedRide(user, "ride-5");
+        int spent = pointsService.redeem(user, 100, 50_000, "ride-6");
+
+        pointsService.returnRidePoints(user, spent, "ride-6");
+
+        // A new entry, not an erased one: the ledger is what a rider reads back, and a spend that
+        // vanishes is a balance nobody can explain.
+        assertThat(pointEntryRepository.balanceOf(user)).isEqualTo(100);
+    }
+
+    @Test
     void redeemingMoreThanTheBalanceTakesOnlyWhatIsThere() {
         String user = newUser();
         pointsService.awardForCompletedRide(user, "ride-1");

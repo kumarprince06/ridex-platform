@@ -32,10 +32,21 @@ public class RideRating {
     private String driverId;
 
     @Column(name = "stars", nullable = false)
-    private short stars;
+    /** What the rider gave the driver. Null when only the driver has rated so far. */
+    private Short stars;
 
     @Column(name = "comment", length = 500)
     private String comment;
+
+    /** What the driver gave the rider. Null until they say - a trip can be rated one way only. */
+    @Column(name = "rider_stars")
+    private Short riderStars;
+
+    @Column(name = "rider_comment", length = 500)
+    private String riderComment;
+
+    @Column(name = "rider_rated_at")
+    private Instant riderRatedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();

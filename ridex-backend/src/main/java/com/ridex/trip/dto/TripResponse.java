@@ -27,5 +27,9 @@ public record TripResponse(
         long quotedFareMinor,
         /** CASH or ONLINE - whether the driver collects at the door. */
         String paymentMethod,
+        /** What was actually driven, once the trip has ended. */
+        Integer actualDistanceMeters,
+        /** What the rider gave, once they have. Null while the ride is still unrated. */
+        Short riderRating,
         Long finalFareMinor) {
 }

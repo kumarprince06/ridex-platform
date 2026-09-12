@@ -12,4 +12,7 @@ public interface TripRepository extends JpaRepository<Trip, String> {
 
     // Scoped by driver: an ownership check nobody can forget to write.
     Optional<Trip> findByIdAndDriverId(String id, String driverId);
+
+    /** This driver's history, newest first. Fifty is more than anybody scrolls in one sitting. */
+    java.util.List<Trip> findTop50ByDriverIdOrderByCreatedAtDesc(String driverId);
 }

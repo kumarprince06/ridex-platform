@@ -109,6 +109,21 @@ export function PayoutsPage() {
             },
             { key: 'driver', header: 'Driver', render: (row) => row.driverEmail },
             {
+              key: 'destination',
+              header: 'Sends to',
+              // Before the money moves, not after: a row with nowhere to go must not be marked
+              // paid on the strength of the amount looking right.
+              render: (row) =>
+                row.payoutAccountMasked ? (
+                  <>
+                    <span className="mono">{row.payoutIfsc} {row.payoutAccountMasked}</span>
+                    <span className="cell-muted"> · {row.payoutAccountHolder}</span>
+                  </>
+                ) : (
+                  <Pill tone="warning">No account on file</Pill>
+                ),
+            },
+            {
               key: 'period',
               header: 'Period',
               render: (row) => (

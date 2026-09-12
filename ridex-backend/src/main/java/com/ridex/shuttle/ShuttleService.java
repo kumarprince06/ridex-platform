@@ -400,8 +400,8 @@ public class ShuttleService {
         bookingRepository.save(booking);
 
         ShuttleTrip trip = booking.getShuttleTrip();
-        notifier.enqueue(DeliveryChannel.PUSH, booking.getRider().getUser().getId(),
-                "SHUTTLE_BOOKED", booking.getSeatLabel());
+        notifier.notifyUser(booking.getRider().getUser().getId(), "SHUTTLE_BOOKED",
+                booking.getSeatLabel(), "SHUTTLE_BOOKING", booking.getId());
         emailInvoice(booking, trip,
                 stopOn(trip, booking.getBoardingStopId()),
                 stopOn(trip, booking.getAlightingStopId()),

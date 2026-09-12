@@ -1,7 +1,7 @@
 # RideX B2C — Phase-by-Phase Delivery Plan
 
 ## Phase 0 — Fresh Foundation
-Goal: establish the new B2C architecture without tenant SaaS baggage.
+Goal: establish the consumer architecture.
 
 Deliver:
 - new database

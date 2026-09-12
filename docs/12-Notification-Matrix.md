@@ -1,24 +1,51 @@
-# RideX B2C — Notification Matrix
+# RideX — Notification Matrix
 
-| Event | Rider | Driver | Admin/Ops | Channels |
-|---|---|---|---|---|
-| Registration | Yes | Yes | No | Email/SMS |
-| Verification | Yes | Yes | No | Email/SMS |
-| Ride requested | Yes | Eligible drivers | Optional | Push |
-| Driver assigned | Yes | Yes | Optional | Push/SMS |
-| Driver arriving | Yes | Yes | No | Push |
-| Trip started | Yes | Yes | No | Push |
-| Trip completed | Yes | Yes | Optional | Push/Email |
-| Payment success | Yes | No | Optional | Push/Email |
-| Payment failed | Yes | No | Optional | Push/Email |
-| Driver approved | No | Yes | No | Push/Email |
-| Driver rejected | No | Yes | No | Push/Email |
-| Payout initiated | No | Yes | Yes | Push/Email |
-| Payout failed | No | Yes | Yes | Push/Email |
-| Support update | Yes/Driver | Yes/Driver | Yes | Push/Email |
+Every message the platform actually sends, from the templates and the code that enqueues them.
 
-## Architecture
+Generated from the code rather than maintained by hand:
 
-Domain event → transactional/outbox record → worker → notification dispatcher → channel provider.
+```bash
+java tools/DocGen.java notifications > docs/12-Notification-Matrix.md
+```
 
-Do not publish a critical notification only through an in-memory event if losing the process could lose the business communication.
+Generated on 2026-09-13 from `62d2678`.
+
+## How a message gets out
+
+Domain change → a row in `notification_outbox`, written inside the same transaction →
+`OutboxDispatcher` drains it every few seconds → channel. Nothing sends inside a
+business transaction: a completed signup must not roll back because a mail server was
+briefly unreachable, and a message that was never written is one nobody can chase.
+
+`Notifier.notifyUser` does two things at once: the push, and a row in
+`user_notifications` so the person can find it again after the push is swiped away.
+
+Push respects `notification_preferences`; email does not. An address is not always an
+account - a verification code goes to somebody who has none yet, and must.
+
+## Events
+
+| Event | Channels | In the app's feed | Raised by |
+|---|---|---|---|
+| `VERIFY_ACCOUNT` | Email | No | `auth/AuthService` |
+| `RESET_PASSWORD` | Email | No | `auth/AuthService` |
+| `ACCOUNT_EXISTS` | Email | No | `auth/AuthService` |
+| `SHUTTLE_BOOKED` | Email + Push | Yes | `shuttle/ShuttleService` |
+| `SHUTTLE_INVOICE` | Email + Push | Yes | `shuttle/ShuttleService` |
+| `SHUTTLE_BOARDED` | Push | Yes | `shuttle/DriverShuttleService` |
+| `WELCOME` | Email | No | `auth/AuthService` |
+| `DRIVER_UNDER_REVIEW` | Email + Push | Yes | `driver/DriverOnboardingService` |
+| `DRIVER_APPROVED` | Email + Push | Yes | `admin/AdminDriverController`, `driver/DriverOnboardingService` |
+| `DRIVER_REJECTED` | Email + Push | Yes | `admin/AdminDriverController`, `driver/DriverOnboardingService` |
+| `DRIVER_SUSPENDED` | Email + Push | Yes | `admin/AdminDriverController`, `driver/DriverOnboardingService` |
+| `DOCUMENT_APPROVED` | Email + Push | Yes | `driver/DriverDocumentService` |
+| `DOCUMENT_REJECTED` | Email + Push | Yes | `driver/DriverDocumentService` |
+| `RIDE_RECEIPT` | Email + Push | Yes | `trip/TripService` |
+| `RIDE_CANCELLED_BY_DRIVER` | Push | Yes | `ride/RideRequestService` |
+
+## Not built
+
+- **SMS.** `SmsChannel` logs and returns. A real provider needs an account, per-message
+  billing and - in India - DLT template registration, none of which should be decided by
+  whoever wires the interface. Swap the body of `send()`; nothing above it changes.
+- **Ops alerts.** Nothing notifies operations. They read the console.

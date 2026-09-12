@@ -4,7 +4,7 @@ System-level view: what the pieces are, how a request moves through them, and wh
 Class- and table-level detail is in [25-LLD-Low-Level-Design.md](25-LLD-Low-Level-Design.md).
 
 Sections marked **built** exist in the repository today. Everything else is design intent, ordered
-by [15-Phase-Plan.md](15-Phase-Plan.md) and tracked in [21-Gap-Tasks.md](21-Gap-Tasks.md). The
+by [15-Phase-Plan.md](15-Phase-Plan.md) and tracked in [the module board](34-Module-Task-Board.md). The
 distinction is kept explicit on purpose: a design document that reads as though it were already
 implemented is how a team ends up building the same thing twice.
 

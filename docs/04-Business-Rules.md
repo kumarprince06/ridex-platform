@@ -2,7 +2,7 @@
 
 ## Identity
 - One verified login identity maps to one user account.
-- Roles are platform roles and/or capabilities, not tenant roles.
+- Roles are platform roles and capabilities.
 - Driver eligibility is independent from rider eligibility.
 
 ## Dispatch

@@ -184,12 +184,12 @@ which is the argument that this is a platform, not a screen collection.
 Not deployment work, but it is what a visitor will hit:
 
 1. The rider app's live ride still advances on timers, and the driver shown is a mock
-   (`28-Rider-App-Gaps.md`, 1 and 2).
+   (`34-Module-Task-Board.md`, 1 and 2).
 2. The partner app reports a **hardcoded 8.2 km** on every completed trip, so every fare is wrong
-   (`29-Partner-App-Gaps.md`, 1).
+   (`34-Module-Task-Board.md`, 1).
 3. The partner app has no shuttle screens at all, so booked seats cannot be boarded
-   (`29-Partner-App-Gaps.md`, 3).
-4. Admin detail pages are mock behind real lists (`30-Admin-Panel-Gaps.md`, 1).
+   (`34-Module-Task-Board.md`, 3).
+4. Admin detail pages are mock behind real lists (`34-Module-Task-Board.md`, 1).
 
 Those four are what turns "it looks finished" into "it is finished" — and they are the ones a
 technical viewer finds in ten minutes.

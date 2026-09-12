@@ -109,7 +109,7 @@ repeatedly. The referral code has a qualifying-trips gate, which is the only con
 
 Minimum viable set: device fingerprinting on signup, a velocity check on referrals, a
 distance-versus-route sanity check at trip completion (this also catches gap 1 in
-[29-Partner-App-Gaps.md](29-Partner-App-Gaps.md)), and a cancellation-rate threshold that flags to
+[the module board](34-Module-Task-Board.md)), and a cancellation-rate threshold that flags to
 a human rather than auto-deactivating.
 
 **Effort:** M, and it never finishes.
@@ -200,7 +200,7 @@ needed anyway.
 ### 4.2 Subscriptions and passes — **half built already**
 
 `PassProduct`, `Pass`, ride limits and validity windows exist, and `PassService.buy` charges
-nobody (see [28-Rider-App-Gaps.md](28-Rider-App-Gaps.md), 10c). Finish the purchase, then extend
+nobody (see [the module board](34-Module-Task-Board.md), 10c). Finish the purchase, then extend
 beyond the shuttle: a monthly commuter pass, a "10 rides a month" pack, a delivery pack for a small
 business.
 

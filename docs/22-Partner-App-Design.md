@@ -5,7 +5,7 @@ centre of gravity.
 
 Scope here is the design: what the screens are, what each one is for, which state machine it
 serves, and what it borrows from `ridex-rider-app`. It is not an implementation plan — the
-backend it needs is T7..T13 in [21-Gap-Tasks.md](21-Gap-Tasks.md).
+backend it needs is T7..T13 in [the module board](34-Module-Task-Board.md).
 
 ---
 

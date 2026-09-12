@@ -9,30 +9,24 @@ trips, and platform operations manage the marketplace. Built with Java 21 and Sp
 
 ## Status
 
-**Phase:** 0 — Fresh Foundation
-**Architecture:** Modular monolith, single platform database
-**Backend:** Java 21 + Spring Boot
-**Database:** PostgreSQL + Flyway
-**Cache / transient state:** Redis
+**Architecture:** Modular monolith, one platform database
+**Backend:** Java 21 + Spring Boot · 137 endpoints · 188 tests
+**Database:** PostgreSQL + Flyway (38 migrations, 47 tables) · Redis for presence and rate limits
+**Clients:** two React Native apps and one React console, all on the same API
 
-Current work and known gaps are tracked in [docs/21-Gap-Tasks.md](docs/21-Gap-Tasks.md).
-The ordered next steps are [docs/26-Build-Task-List.md](docs/26-Build-Task-List.md).
+Fifteen of the sixteen modules on [the module board](docs/34-Module-Task-Board.md) are closed.
+What is left is the demo deployment (M8).
 
 ---
 
 ## Product decision
 
-RideX is **B2C, not multi-tenant SaaS.**
+RideX is a consumer platform: riders and drivers sign up themselves, and operations manage the
+marketplace from one console. Riders, drivers, fleets and operators are platform entities, not
+isolated organisations.
 
-One platform, one database, one consumer identity system, one driver identity system, one
-operations system. Fleets and business operators are modelled as platform entities, not as
-isolated tenants.
-
-This reverses an earlier multi-tenant design. The reason is recorded in
-[ADR-001](docs/20-ADRs.md) — in short, a public rider/driver signup has no tenant context at
-registration time, so the tenant boundary and the identity boundary could not coexist.
-
-Do not reintroduce `tenant_id` into the schema.
+An earlier design was organisation-scoped; [ADR-001](docs/20-ADRs.md) records why it was dropped
+and why the schema carries no organisation column.
 
 ---
 
@@ -40,10 +34,10 @@ Do not reintroduce `tenant_id` into the schema.
 
 | Surface | Location | State |
 |---|---|---|
-| Backend API | [ridex-backend/](ridex-backend/) | Auth and profiles complete; rides onwards not started |
-| Rider mobile app | [ridex-rider-app/](ridex-rider-app/) | Auth wired to the API; the booking flow is still static |
-| Driver mobile app | [ridex-partner-app/](ridex-partner-app/) | Auth wired to the API; onboarding and trips still static |
-| Admin / operations web | [ridex-admin-web/](ridex-admin-web/) | Sign-in wired; every page still reads mock data (T15) |
+| Backend API | [ridex-backend/](ridex-backend/) | Rides, shuttle, payments, payouts, support, notifications |
+| Rider mobile app | [ridex-rider-app/](ridex-rider-app/) | Book, follow and pay for a ride; shuttle seats and passes |
+| Driver mobile app | [ridex-partner-app/](ridex-partner-app/) | Onboarding, duty, offers, trips, shuttle boarding, earnings |
+| Admin / operations web | [ridex-admin-web/](ridex-admin-web/) | Live map, approvals, trips, payments, payouts, shuttle ops, support |
 
 One repository on purpose. The API contract is shared, so a backend change and its client update
 belong in the same commit; splitting them into separate repos only lets them drift.
@@ -103,16 +97,22 @@ Full stack: [docs/19-Technology-Stack.md](docs/19-Technology-Stack.md).
 git clone <repo-url>
 cd ridex-platform
 
-# Postgres + Redis + Mailpit
-export RIDEX_APP_PASSWORD=ridex_local
-docker compose up -d
+cp .env.example .env          # fill in the secrets; the app refuses to boot without a JWT key
+docker compose up -d          # Postgres, Redis, Mailpit
+./run.sh                      # exports .env, picks the project's JDK, starts the backend
+```
 
-cd ridex-backend
-# No default: the app refuses to boot without a signing key. Any 32+ byte string locally.
-export RIDEX_JWT_SECRET=local-development-only-signing-key-32b+
-export RIDEX_BOOTSTRAP_ADMIN_EMAIL=admin@yopmail.com
-export RIDEX_BOOTSTRAP_ADMIN_PASSWORD='Admin@123'
-./mvnw spring-boot:run
+`run.sh` exists because two things bite everybody once: Spring does not read `.env`, and a machine
+with an older `JAVA_HOME` pinned for another project compiles this fine and then fails at startup
+with `UnsupportedClassVersionError`. Running `./mvnw spring-boot:run` directly works too - the app
+imports `../.env` itself and the build selects a Java 21 toolchain.
+
+The clients:
+
+```bash
+cd ridex-admin-web  && npm install && npm run dev     # http://localhost:5174
+cd ridex-rider-app  && npm install && npm run device  # Android over USB
+cd ridex-partner-app && npm install && npm run device
 ```
 
 Health check: `http://localhost:8080/actuator/health`
@@ -149,7 +149,7 @@ the single most common reason a message is accepted and then silently dropped.
 
 ## Database
 
-PostgreSQL, shared schema, no tenant partitioning. Flyway owns the schema; migrations live in
+PostgreSQL, one schema. Flyway owns it; migrations live in
 `ridex-backend/src/main/resources/db/migration` and are never edited after being applied to a
 shared environment.
 
@@ -183,7 +183,15 @@ routes reject unauthenticated calls.
 
 ```bash
 cd ridex-backend
-./mvnw test
+./mvnw test          # 188 tests against a real Postgres and Redis
+```
+
+The three documents that describe the code are generated from it, so they cannot quietly drift:
+
+```bash
+java tools/DocGen.java api           > docs/10-API-Contract.md
+java tools/DocGen.java erd           > docs/09-Project-ERD.md
+java tools/DocGen.java notifications > docs/12-Notification-Matrix.md
 ```
 
 ---
@@ -213,13 +221,15 @@ cd ridex-backend
 | 18 | [Future ideas](docs/18-Future-Project-Ideas.md) |
 | 19 | [Technology stack](docs/19-Technology-Stack.md) |
 | 20 | [ADRs](docs/20-ADRs.md) |
-| 21 | [Gap analysis and tasks](docs/21-Gap-Tasks.md) |
 | 22 | [Partner app design](docs/22-Partner-App-Design.md) |
 | 23 | [Admin panel design](docs/23-Admin-Panel-Design.md) |
 | 24 | [High-level design](docs/24-HLD-High-Level-Design.md) |
 | 25 | [Low-level design](docs/25-LLD-Low-Level-Design.md) |
 | 26 | [Build task list](docs/26-Build-Task-List.md) |
 | 27 | [Unique feature set](docs/27-Unique-Feature-Set.md) |
+| 31 | [Deployment and CI/CD](docs/31-Deployment-and-CI-CD.md) |
+| 32 | [Business readiness and new lines](docs/32-Business-Readiness-and-New-Lines.md) |
+| 34 | [Module task board](docs/34-Module-Task-Board.md) — the plan of record |
 
 ---
 

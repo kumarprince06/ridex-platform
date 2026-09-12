@@ -13,7 +13,7 @@ Also avoids unnecessary tenant isolation complexity and matches the intended Ube
 style product.
 
 Consequence: the tenant/subscription/settlement layer built before this decision is removed
-rather than adapted. See `docs/21-Gap-Tasks.md`.
+rather than adapted. See `34-Module-Task-Board.md`.
 
 ## ADR-002: Modular monolith first
 Decision: One Spring Boot deployable with strict domain modules.

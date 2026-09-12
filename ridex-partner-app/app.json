@@ -46,7 +46,8 @@
           "cameraPermission": "RideX Partner uses the camera to photograph your documents."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store"
     ]
   }
 }

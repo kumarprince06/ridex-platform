@@ -43,7 +43,6 @@ REGISTER → VERIFY → KYC/PROFILE → VEHICLE APPROVAL → GO ONLINE → RECEI
 
 ## 5. Out of scope for MVP
 
-- Multi-tenant SaaS
 - White-label apps
 - Complex corporate accounts
 - International tax engines

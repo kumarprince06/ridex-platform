@@ -1,6 +1,8 @@
 # RideX B2C — Build Task List
 
-The execution order. [21-Gap-Tasks.md](21-Gap-Tasks.md) records what was already done and why;
+> **Superseded** by [34-Module-Task-Board.md](34-Module-Task-Board.md), which tracks what is
+> left rather than what was planned. Everything here was built.
+The execution order. [the module board](34-Module-Task-Board.md) records what was already done and why;
 this document is what to do next, step by step, with the business rules each step must enforce.
 
 **Rules of engagement**

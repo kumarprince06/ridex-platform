@@ -4,11 +4,11 @@ RideX is a consumer-first ride-hailing and mobility platform inspired by the cor
 
 ## Product decision
 
-RideX is **B2C, not SaaS multi-tenant**.
+RideX is a consumer mobility platform.
 
 There is one RideX platform, one platform database, one consumer identity system, one driver identity system, and one operations/admin system.
 
-Business operators, fleets and drivers are managed as platform entities rather than isolated tenants.
+Business operators, fleets and drivers are platform entities.
 
 ## Core surfaces
 
@@ -38,7 +38,7 @@ Business operators, fleets and drivers are managed as platform entities rather t
 
 ## Important architectural principle
 
-Do not carry forward the old tenant_id architecture into the fresh B2C design. Keep only reusable concepts such as users, authentication, subscriptions if applicable to platform products, payments, notifications and audit logging.
+Keep the reusable concepts: users, authentication, payments, notifications and audit logging.
 
 ## Documentation index
 

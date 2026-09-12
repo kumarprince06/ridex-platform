@@ -3,7 +3,7 @@
 The operations console, called **RideX Console**. Web, not mobile: `ridex-admin-web`.
 
 Scope here is the design — what the screens are, who may see each one, and what every destructive
-action must record. The backend it needs is T15 in [21-Gap-Tasks.md](21-Gap-Tasks.md), and the
+action must record. The backend it needs is T15 in [the module board](34-Module-Task-Board.md), and the
 stack is fixed by [19-Technology-Stack.md](19-Technology-Stack.md): React + TypeScript + Vite,
 React Router, TanStack Query, React Hook Form, Zod.
 

@@ -12,9 +12,9 @@ Every module names the same five things, so there is never a question about whet
 - **Done when** — the check that closes it
 - **Effort** — `S` under a day · `M` a few days · `L` a week or more
 
-Sources: [28-Rider-App-Gaps.md](28-Rider-App-Gaps.md),
-[29-Partner-App-Gaps.md](29-Partner-App-Gaps.md),
-[30-Admin-Panel-Gaps.md](30-Admin-Panel-Gaps.md),
+Found by reading the three apps against the backend rather than against the plan. The per-app gap
+lists this came from are gone - every gap on them is closed, and a document that describes a
+product that no longer exists is worse than no document. What is left of them is this board and
 [31-Deployment-and-CI-CD.md](31-Deployment-and-CI-CD.md).
 
 **Rules:** one module at a time, top to bottom. Do not start the next before the previous one's

@@ -15,5 +15,8 @@ public enum PointReason {
     // A cancelled shuttle seat comes back as points rather than money: the fare has already
     // cleared the gateway, and points keep the rider on the platform instead of off it.
     SHUTTLE_CANCELLED,
+    // Points spent on a ride that never happened. Its own reason, so the ledger a rider reads
+    // back says "returned" rather than looking like a gift nobody explained.
+    RIDE_CANCELLED,
     ADMIN_ADJUSTMENT
 }

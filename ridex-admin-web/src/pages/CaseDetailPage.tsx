@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { dateTime } from '../lib/format';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { getTicket, replyToTicket, resolveTicket } from '../api/admin';
@@ -78,7 +79,7 @@ export function CaseDetailPage() {
                 {humanState(message.authorRole)}
                 {message.internal ? ' · internal note' : ''}
                 {' · '}
-                {new Date(message.createdAt).toLocaleString()}
+                {dateTime(message.createdAt)}
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.45 }}>{message.body}</div>
             </div>

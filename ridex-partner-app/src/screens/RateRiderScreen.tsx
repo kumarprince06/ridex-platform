@@ -6,13 +6,14 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Screen } from '../components/Screen';
 import { Stars } from '../components/Stars';
-import { OFFER, RIDER_RATING_TAGS } from '../data/mock';
+import { RIDER_RATING_TAGS } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'RateRider'>;
 
-export function RateRiderScreen({ navigation }: Props) {
+export function RateRiderScreen({ navigation, route }: Props) {
+  const riderName = route.params?.riderName ?? 'Your rider';
   const [rating, setRating] = useState(5);
   const [tags, setTags] = useState<string[]>([]);
 
@@ -29,8 +30,8 @@ export function RateRiderScreen({ navigation }: Props) {
       }
     >
       <View style={styles.hero}>
-        <Avatar name={OFFER.rider} size={80} />
-        <Text style={styles.name}>{OFFER.rider}</Text>
+        <Avatar name={riderName} size={80} />
+        <Text style={styles.name}>{riderName}</Text>
         <Text style={styles.subtitle}>How was the trip?</Text>
 
         <Stars value={rating} onChange={setRating} size={34} />

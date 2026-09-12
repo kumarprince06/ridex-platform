@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { clockTime, money } from '../lib/format';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { getPoints, spendableNow } from '../api/points';
 import { ApiError } from '../api/problem';
 import { payForSeat } from '../api/shuttleCheckout';
 import { bookSeat, seatMap, type Seat, type ShuttlePaymentMethod } from '../api/shuttle';
@@ -26,6 +28,8 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
 
   const [chosen, setChosen] = useState<string | null>(null);
   const [method, setMethod] = useState<ShuttlePaymentMethod>('UPI');
+  const [usePoints, setUsePoints] = useState(false);
+  const { data: points } = useQuery(getPoints, []);
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
 
@@ -43,6 +47,8 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         alightingStopId,
         seatLabel: chosen,
         paymentMethod: method,
+        // The whole balance is offered; the server takes only what this fare can absorb.
+        redeemPoints: usePoints && points ? spendableNow(points).points : undefined,
       });
 
       // Checkout runs here rather than on the ticket: the seat is only held for ten minutes, and
@@ -105,7 +111,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
     >
       <ScreenTitle
         title={data.routeName}
-        subtitle={`${departsAt.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })} · departs ${departsAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+        subtitle={`${departsAt.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })} · departs ${clockTime(departsAt)}`}
       />
 
       <Text style={styles.available}>
@@ -145,6 +151,39 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         <Legend style={styles.seatChosen} label="Yours" />
         <Legend style={styles.seatTaken} label="Taken" />
       </View>
+
+      {/* Only when there is something to spend: a toggle that can take nothing off is worse
+          than no toggle. A balance below one rupee's worth counts as nothing. */}
+      {points && spendableNow(points).points > 0 ? (
+        <Pressable
+          onPress={() => setUsePoints((on) => !on)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: usePoints }}
+          style={({ pressed }) => [
+            styles.pointsRow,
+            usePoints && styles.pointsRowOn,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons
+            name={usePoints ? 'checkmark-circle' : 'ellipse-outline'}
+            size={22}
+            color={usePoints ? colors.primary : colors.textMuted}
+          />
+          <View style={styles.flex}>
+            <Text style={styles.pointsTitle}>
+              Use {spendableNow(points).points} points
+            </Text>
+            {/* Capped per journey; the fare caps it again server-side. */}
+            <Text style={styles.pointsNote}>
+              Up to {money(spendableNow(points).valueMinor, points.currency)} off
+              {points.balance > points.maxRedeemPerJourney
+                ? ` · ${points.balance} in your balance`
+                : ''}
+            </Text>
+          </View>
+        </Pressable>
+      ) : null}
 
       <Text style={styles.payLabel}>PAY WITH</Text>
       <View style={styles.methods}>
@@ -243,6 +282,31 @@ function Legend({ style, label }: { style: object; label: string }) {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  pointsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pointsRowOn: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt,
+  },
+  pointsTitle: {
+    ...type.button,
+    fontSize: 15,
+    color: colors.text,
+  },
+  pointsNote: {
+    ...type.caption,
+    color: colors.textMuted,
+  },
   payLabel: {
     ...type.eyebrow,
     color: colors.textMuted,

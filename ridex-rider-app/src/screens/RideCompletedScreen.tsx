@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { distance, money } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { formatMoney, getReceipt } from '../api/rides';
+import { getReceipt } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { StatTiles } from '../components/StatTiles';
@@ -38,7 +39,7 @@ export function RideCompletedScreen({ navigation, route }: Props) {
 
         <View style={styles.fareRow}>
           <Text style={styles.fare}>
-            {receipt ? formatMoney(receipt.chargedTotalMinor, receipt.currency) : '—'}
+            {receipt ? money(receipt.chargedTotalMinor, receipt.currency) : '—'}
           </Text>
           <View>
             <Text style={styles.chargedTo}>paid by</Text>
@@ -51,17 +52,17 @@ export function RideCompletedScreen({ navigation, route }: Props) {
         <StatTiles
           stats={[
             {
-              value: receipt ? `${(receipt.actualDistanceMeters / 1000).toFixed(1)} km` : '—',
+              value: receipt ? `${distance(receipt.actualDistanceMeters)}` : '—',
               label: 'Distance',
             },
             {
-              value: receipt ? formatMoney(receipt.quotedTotalMinor, receipt.currency) : '—',
+              value: receipt ? money(receipt.quotedTotalMinor, receipt.currency) : '—',
               label: 'Quoted',
             },
             {
               value:
                 receipt && receipt.differenceMinor !== 0
-                  ? formatMoney(receipt.differenceMinor, receipt.currency)
+                  ? money(receipt.differenceMinor, receipt.currency)
                   : 'As quoted',
               label: 'Difference',
             },

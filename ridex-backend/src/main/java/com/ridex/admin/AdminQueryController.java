@@ -1,11 +1,15 @@
 package com.ridex.admin;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import com.ridex.admin.dto.*;
 import com.ridex.driver.domain.DriverOnboardingStatus;
+import com.ridex.payment.domain.PaymentStatus;
 import com.ridex.ride.domain.RideStatus;
 
 import lombok.RequiredArgsConstructor;
@@ -23,18 +27,21 @@ import lombok.RequiredArgsConstructor;
 @PreAuthorize("hasAnyRole('SUPPORT', 'OPS_ADMIN', 'SUPER_ADMIN')")
 public class AdminQueryController {
 
-    private final AdminQueryService adminQueryService;
+    private final AdminOverviewQueries overview;
+    private final AdminPeopleQueries people;
+    private final AdminRideQueries rides;
+    private final AdminMoneyQueries money;
 
     @GetMapping("/dashboard")
     @ResponseStatus(HttpStatus.OK)
     public DashboardResponse dashboard() {
-        return adminQueryService.dashboard();
+        return overview.dashboard();
     }
 
     @GetMapping("/analytics")
     @ResponseStatus(HttpStatus.OK)
     public AnalyticsResponse analytics(@RequestParam(defaultValue = "14") int days) {
-        return adminQueryService.analytics(days);
+        return overview.analytics(days);
     }
 
     @GetMapping("/riders")
@@ -43,7 +50,7 @@ public class AdminQueryController {
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return adminQueryService.riders(q, page, size);
+        return people.riders(q, page, size);
     }
 
     @GetMapping("/drivers")
@@ -53,13 +60,41 @@ public class AdminQueryController {
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return adminQueryService.drivers(status, q, page, size);
+        return people.drivers(status, q, page, size);
+    }
+
+    /** The live map: who is on duty, where, and whether they are carrying somebody. */
+    @GetMapping("/drivers/live")
+    @ResponseStatus(HttpStatus.OK)
+    public List<LiveDriverResponse> liveDrivers() {
+        return people.liveDrivers();
     }
 
     @GetMapping("/drivers/{driverId}")
     @ResponseStatus(HttpStatus.OK)
-    public AdminDriverResponse driver(@org.springframework.web.bind.annotation.PathVariable String driverId) {
-        return adminQueryService.driver(driverId);
+    public AdminDriverResponse driver(@PathVariable String driverId) {
+        return people.driver(driverId);
+    }
+
+    @GetMapping("/payments/{paymentId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminPaymentDetailResponse payment(
+            @PathVariable String paymentId) {
+        return money.payment(paymentId);
+    }
+
+    @GetMapping("/trips/{rideId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminTripDetailResponse trip(
+            @PathVariable String rideId) {
+        return rides.trip(rideId);
+    }
+
+    @GetMapping("/riders/{riderId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminRiderDetailResponse rider(
+            @PathVariable String riderId) {
+        return people.rider(riderId);
     }
 
     @GetMapping("/trips")
@@ -68,7 +103,7 @@ public class AdminQueryController {
             @RequestParam(required = false) RideStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return adminQueryService.trips(status, page, size);
+        return rides.trips(status, page, size);
     }
 
     // Finance and operations see money; support does not. One person holding both case handling
@@ -77,10 +112,10 @@ public class AdminQueryController {
     @PreAuthorize("hasAnyRole('OPS_ADMIN', 'SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<AdminPaymentResponse> payments(
-            @RequestParam(required = false) com.ridex.payment.domain.PaymentStatus status,
+            @RequestParam(required = false) PaymentStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return adminQueryService.payments(status, page, size);
+        return money.payments(status, page, size);
     }
 
     // Super admin only: the audit log records what everyone else did, so it is not something an
@@ -91,6 +126,6 @@ public class AdminQueryController {
     public PageResponse<AuditLogResponse> auditLog(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return adminQueryService.auditLog(page, size);
+        return overview.auditLog(page, size);
     }
 }

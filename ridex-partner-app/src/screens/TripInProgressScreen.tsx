@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { completeTrip } from '../api/driver';
+import { completeTrip, useTrip } from '../api/driver';
 import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
 import { SwipeAction } from '../components/SwipeAction';
-import { OFFER } from '../data/mock';
+import { money } from '../lib/format';
+import { trackTripDistance } from '../lib/tripDistance';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -17,13 +18,25 @@ type Props = RootScreenProps<'TripInProgress'>;
  * Ride request state TRIP_STARTED. Deliberately the sparsest screen in the app: the driver is
  * driving, so it carries an ETA, a destination, one safety button and one swipe.
  *
- * The fare shown here ticks on a timer as a stand-in. The device displays fare, it never decides
- * it - the server is authoritative on money.
+ * The fare shown is the rider's quote. The device displays fare, it never decides it - the server
+ * prices the trip from the distance actually driven when it ends.
  */
 export function TripInProgressScreen({ navigation, route }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startedAt = useRef(Date.now());
+  const trip = useTrip(route.params?.tripId);
+  const destination = trip?.destinationAddress ?? 'the destination';
+
+  // Started on mount, not on the swipe: the distance is everything between the two.
+  const distance = useRef<ReturnType<typeof trackTripDistance> | null>(null);
+  useEffect(() => {
+    distance.current = trackTripDistance();
+    return () => {
+      distance.current?.stop();
+      distance.current = null;
+    };
+  }, []);
 
   async function onComplete() {
     const tripId = route.params?.tripId;
@@ -35,15 +48,15 @@ export function TripInProgressScreen({ navigation, route }: Props) {
     setBusy(true);
     setError(null);
     try {
-      // Distance from the trip's own tracking. ponytail: the odometer is not read yet, so this
-      // sends the quoted route length - the server bounds whatever arrives at 2x the quote, so a
-      // wrong figure cannot invent a fare. Replace with the driven distance once the trip tracks it.
+      // What the phone actually measured between pickup and here. Zero means the device never
+      // gave a usable fix; the server falls back to the quoted route rather than pricing at zero.
       const durationSeconds = Math.round((Date.now() - startedAt.current) / 1000);
-      const trip = await completeTrip(tripId, 8200, Math.max(60, durationSeconds));
+      const metres = distance.current?.metres() ?? 0;
+      const completed = await completeTrip(tripId, metres, Math.max(60, durationSeconds));
       navigation.replace('TripCompleted', {
         tripId,
-        fareMinor: trip.finalFareMinor ?? undefined,
-        currency: trip.currency,
+        fareMinor: completed.finalFareMinor ?? undefined,
+        currency: completed.currency,
       });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.userMessage : 'Could not complete the trip.');
@@ -63,18 +76,18 @@ export function TripInProgressScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute driverAt={progress} driverLabel="You" destinationLabel={OFFER.dropoff} />
+      <MapCanvas showRoute driverAt={progress} driverLabel="You" destinationLabel={destination} />
 
       <SafeAreaView style={styles.top} edges={['top']} pointerEvents="box-none">
         <View style={styles.etaCard}>
           <Text style={styles.etaValue}>{minutesLeft} min</Text>
-          <Text style={styles.etaLabel}>to {OFFER.dropoff}</Text>
+          <Text style={styles.etaLabel}>to {destination}</Text>
         </View>
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Safety options"
-          onPress={() => navigation.navigate('Safety')}
+          onPress={() => navigation.navigate('Safety', { riderName: trip?.riderName })}
           style={styles.safety}
         >
           <Ionicons name="shield-checkmark" size={20} color={colors.danger} />
@@ -87,11 +100,16 @@ export function TripInProgressScreen({ navigation, route }: Props) {
         <View style={styles.fareRow}>
           <View>
             <Text style={styles.fareLabel}>TRIP FARE</Text>
-            <Text style={styles.fare}>{OFFER.fare}</Text>
+            {/* The quote, not a running meter: the server prices the trip when it ends. */}
+            <Text style={styles.fare}>
+              {trip ? money(trip.quotedFareMinor, trip.currency) : '--'}
+            </Text>
           </View>
           <View style={styles.paymentPill}>
             <Ionicons name="card" size={14} color={colors.textMuted} />
-            <Text style={styles.payment}>{OFFER.payment}</Text>
+            <Text style={styles.payment}>
+              {trip?.paymentMethod === 'CASH' ? 'Cash at drop-off' : 'Paid online'}
+            </Text>
           </View>
         </View>
 

@@ -1,5 +1,7 @@
 package com.ridex.ride.dto;
 
+import com.ridex.payment.domain.PaymentMethod;
+
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -24,5 +26,5 @@ public record CreateRideRequest(
          * <p>CARD and UPI both open the same checkout - the instrument is chosen inside it - so
          * the app only ever sends one of two values.
          */
-        com.ridex.payment.domain.PaymentMethod paymentMethod) {
+        PaymentMethod paymentMethod) {
 }

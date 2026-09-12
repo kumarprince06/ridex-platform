@@ -1,15 +1,18 @@
 package com.ridex.admin;
 
+import java.util.List;
+import java.util.function.Function;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.ridex.admin.dto.PageResponse;
+import com.ridex.driver.dto.ReviewDecisionRequest;
 import com.ridex.payment.PayoutService;
 import com.ridex.payment.domain.PayoutStatus;
 import com.ridex.payment.dto.PayoutResponse;
 import com.ridex.payment.dto.SettlePayoutRequest;
-import com.ridex.admin.dto.PageResponse;
-import com.ridex.driver.dto.ReviewDecisionRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,13 +38,13 @@ public class AdminPayoutController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
         var result = payoutService.list(status, page, size);
-        return PageResponse.of(result, java.util.function.Function.identity());
+        return PageResponse.of(result, Function.identity());
     }
 
     /** One payout per driver with money owed. Safe to run twice - the second run finds nothing. */
     @PostMapping("/run")
     @ResponseStatus(HttpStatus.CREATED)
-    public java.util.List<PayoutResponse> run() {
+    public List<PayoutResponse> run() {
         return payoutService.runBatch();
     }
 

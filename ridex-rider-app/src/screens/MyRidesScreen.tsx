@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { money, when } from '../lib/format';
 import { useState } from 'react';
 import {
   Pressable,
@@ -11,8 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
-  formatMoney,
-  formatWhen,
   isCancelled,
   isLive,
   listRides,
@@ -148,7 +147,7 @@ function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: (
         </View>
         <Text style={styles.tier}>{booking.routeName}</Text>
         <Text style={styles.fare}>
-          {booking.passId ? 'Pass' : formatMoney(booking.fareMinor, booking.currency)}
+          {booking.passId ? 'Pass' : money(booking.fareMinor, booking.currency)}
         </Text>
       </View>
 
@@ -158,7 +157,7 @@ function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: (
         dropoff={{ name: booking.alightingStopName }}
       />
 
-      <Text style={styles.when}>{formatWhen(booking.departsAt)}</Text>
+      <Text style={styles.when}>{when(booking.departsAt)}</Text>
     </Pressable>
   );
 }
@@ -185,7 +184,7 @@ function RideCard({ ride, onPress }: { ride: Ride; onPress: () => void }) {
           </Text>
         </View>
         <Text style={styles.tier}>{ride.rideTypeCode}</Text>
-        <Text style={styles.fare}>{formatMoney(ride.quotedFareMinor, ride.currency)}</Text>
+        <Text style={styles.fare}>{money(ride.quotedFareMinor, ride.currency)}</Text>
       </View>
 
       <RouteStops
@@ -196,7 +195,7 @@ function RideCard({ ride, onPress }: { ride: Ride; onPress: () => void }) {
       />
 
       <View style={styles.cardFooter}>
-        <Text style={styles.when}>{formatWhen(ride.requestedAt)}</Text>
+        <Text style={styles.when}>{when(ride.requestedAt)}</Text>
         {/* No duration or rating here: the list endpoint carries neither, and inventing them is
             how a screen starts lying about a completed trip. */}
         <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />

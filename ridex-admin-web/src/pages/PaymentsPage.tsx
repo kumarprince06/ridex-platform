@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { dateTime, money } from '../lib/format';
 
-import { DEFAULT_PAGE_SIZE, formatMoney, listPayments, type AdminPayment, type PaymentStatus } from '../api/admin';
+import { DEFAULT_PAGE_SIZE, listPayments, type AdminPayment, type PaymentStatus } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 import { Card, FilterTabs, humanState, PageHeader, Pagination, Pill, Table, stateTone } from '../components/ui';
 
@@ -57,17 +58,17 @@ export function PaymentsPage() {
               <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>
             ) },
             { key: 'gross', header: 'Fare', align: 'right', render: (row) =>
-              formatMoney(row.grossAmountMinor, row.currency) },
+              money(row.grossAmountMinor, row.currency) },
             { key: 'discount', header: 'Discount', align: 'right', render: (row) =>
               // Funded by the platform, never by the driver: the driver is paid on the fare above.
               row.discountAmountMinor > 0
-                ? `-${formatMoney(row.discountAmountMinor, row.currency)}`
+                ? `-${money(row.discountAmountMinor, row.currency)}`
                 : '—' },
             { key: 'net', header: 'Charged', align: 'right', render: (row) => (
-              <span className="cell-strong">{formatMoney(row.netAmountMinor, row.currency)}</span>
+              <span className="cell-strong">{money(row.netAmountMinor, row.currency)}</span>
             ) },
             { key: 'when', header: 'When', render: (row) => (
-              <span className="cell-muted">{new Date(row.createdAt).toLocaleString()}</span>
+              <span className="cell-muted">{dateTime(row.createdAt)}</span>
             ) },
           ]}
           rows={data?.items ?? []}

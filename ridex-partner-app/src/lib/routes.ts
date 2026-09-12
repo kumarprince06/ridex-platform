@@ -1,3 +1,4 @@
+import { distance, minutes } from './format';
 import { LngLat } from './location';
 
 export type Route = {
@@ -48,7 +49,5 @@ export async function fetchRoute(from: LngLat, to: LngLat, signal?: AbortSignal)
 
 /** "7.8 km · 19 min", the way both apps show a trip. */
 export function describeRoute(route: Route) {
-  const km = (route.distance / 1000).toFixed(1);
-  const minutes = Math.max(1, Math.round(route.duration / 60));
-  return `${km} km · ${minutes} min`;
+  return `${distance(route.distance)} · ${minutes(route.duration)}`;
 }

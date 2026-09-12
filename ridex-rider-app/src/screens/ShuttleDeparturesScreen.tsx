@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { clockTime } from '../lib/format';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -182,7 +183,7 @@ function DepartureRow({
     >
       <View style={styles.time}>
         <Text style={styles.timeValue}>
-          {atStop.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          {clockTime(atStop)}
         </Text>
         <Text style={styles.timeNote}>at your stop</Text>
       </View>

@@ -6,7 +6,8 @@ import { Avatar } from './Avatar';
 
 type Props = {
   name: string;
-  rating: number;
+  /** Null until the rider has been rated. Better blank than a number nobody earned. */
+  rating?: number | null;
   note: string;
 };
 
@@ -22,10 +23,10 @@ export function RiderBar({ name, rating, note }: Props) {
       <View style={styles.text}>
         <Text style={styles.name}>{name}</Text>
         <View style={styles.metaRow}>
-          <Ionicons name="star" size={12} color={colors.primary} />
-          <Text style={styles.meta}>
-            {rating} · {note}
-          </Text>
+          {rating == null ? null : (
+            <Ionicons name="star" size={12} color={colors.primary} />
+          )}
+          <Text style={styles.meta}>{rating == null ? note : `${rating} · ${note}`}</Text>
         </View>
       </View>
 

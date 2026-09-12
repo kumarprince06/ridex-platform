@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { date } from '../lib/format';
 import { useNavigate } from 'react-router-dom';
 
 import { DEFAULT_PAGE_SIZE, listRiders, type AdminRider } from '../api/admin';
@@ -51,9 +52,9 @@ export function RidersPage() {
                 <div className="cell-muted">{row.phone ?? 'No phone'}</div>
               </>
             ) },
-            { key: 'joined', header: 'Joined', render: (row) => new Date(row.joinedAt).toLocaleDateString() },
+            { key: 'joined', header: 'Joined', render: (row) => date(row.joinedAt) },
             { key: 'lastSeen', header: 'Last sign-in', render: (row) =>
-              row.lastLoginAt ? new Date(row.lastLoginAt).toLocaleDateString() : 'Never' },
+              row.lastLoginAt ? date(row.lastLoginAt) : 'Never' },
             { key: 'status', header: 'Status', render: (row) => (
               <Pill tone={stateTone(row.status)}>{humanState(row.status)}</Pill>
             ) },

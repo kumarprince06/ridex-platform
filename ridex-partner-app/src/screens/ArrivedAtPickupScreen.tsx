@@ -4,13 +4,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
-import { startTrip } from '../api/driver';
+import { startTrip, useTrip } from '../api/driver';
 import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
 import { RiderBar } from '../components/RiderBar';
 import { SwipeAction } from '../components/SwipeAction';
 import { TextField } from '../components/TextField';
-import { OFFER } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -24,6 +23,7 @@ const CODE_LENGTH = 6;
  * depends on it - the server owns the authoritative clock, this only mirrors it.
  */
 export function ArrivedAtPickupScreen({ navigation, route }: Props) {
+  const trip = useTrip(route.params?.tripId);
   const [waited, setWaited] = useState(0);
   const [code, setCode] = useState('');
   const [scannedCode, setScannedCode] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export function ArrivedAtPickupScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas driverAt={1} driverLabel="You" pickupLabel={OFFER.pickup} />
+      <MapCanvas driverAt={1} driverLabel="You" pickupLabel={trip?.pickupAddress ?? 'Pickup point'} />
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
         <View style={styles.grabber} />
@@ -87,7 +87,7 @@ export function ArrivedAtPickupScreen({ navigation, route }: Props) {
           <Text style={styles.waitNote}>Waiting at pickup</Text>
         </View>
 
-        <RiderBar name={OFFER.rider} rating={OFFER.riderRating} note="Meeting you outside" />
+        <RiderBar name={trip?.riderName ?? 'Your rider'} note="Meeting you outside" />
 
         {scannedCode ? (
           <View style={styles.verified}>

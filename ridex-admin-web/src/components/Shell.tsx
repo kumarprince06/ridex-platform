@@ -45,6 +45,7 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/trips', label: 'Trips', icon: 'trips' },
       { to: '/shuttle', label: 'Shuttle routes', icon: 'shuttle', permission: 'OPERATIONS' },
+      { to: '/shuttle/departures', label: 'Shuttle departures', icon: 'shuttle', permission: 'OPERATIONS' },
       { to: '/cases', label: 'Support cases', icon: 'cases', permission: 'SUPPORT_CASE' },
     ],
   },

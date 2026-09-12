@@ -16,5 +16,7 @@ public record PointsBalanceResponse(
         String currency,
         long redeemableValueMinor,
         int pointsPerCurrencyUnit,
+        /** The most that may be spent on one ride or one seat, whatever the balance. */
+        int maxRedeemPerJourney,
         List<PointEntryResponse> recent) {
 }

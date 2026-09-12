@@ -43,6 +43,11 @@ public enum RideStatus {
             // rider-cancels path here on purpose.
             TRIP_STARTED, EnumSet.of(COMPLETED, CANCELLED_BY_SYSTEM));
 
+    /** A driver is assigned and the ride has not ended: the states worth a marker on a map. */
+    public static Set<RideStatus> liveWithDriver() {
+        return EnumSet.of(DRIVER_ASSIGNED, DRIVER_ARRIVING, DRIVER_AT_PICKUP, TRIP_STARTED);
+    }
+
     public boolean isTerminal() {
         return TERMINAL.contains(this);
     }

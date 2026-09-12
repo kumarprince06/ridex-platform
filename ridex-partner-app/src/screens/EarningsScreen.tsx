@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatMoney, getEarnings, type EarningLine } from '../api/driver';
+import { getEarnings, type EarningLine } from '../api/driver';
+import { money } from '../lib/format';
 import { useQuery } from '../api/useQuery';
 import { Chip } from '../components/Chip';
 import { Screen } from '../components/Screen';
@@ -56,10 +57,10 @@ export function EarningsScreen({ navigation }: Props) {
       {/* Net, not gross. Gross is not spendable, and a single blended number fails an audit. */}
       <View style={styles.hero}>
         <Text style={styles.heroLabel}>NET EARNINGS</Text>
-        <Text style={styles.heroValue}>{formatMoney(net, currency)}</Text>
+        <Text style={styles.heroValue}>{money(net, currency)}</Text>
         <Text style={styles.heroNote}>
           {lines.length} {lines.length === 1 ? 'trip' : 'trips'} · owed{' '}
-          {formatMoney(data?.ledgerBalanceMinor ?? 0, currency)}
+          {money(data?.ledgerBalanceMinor ?? 0, currency)}
         </Text>
       </View>
 
@@ -68,10 +69,10 @@ export function EarningsScreen({ navigation }: Props) {
       {/* Three lines, not seven. Tips, taxes and adjustments are not on the earnings response and
           showing them as zero would read as "you got no tips" rather than "not recorded yet". */}
       <View style={styles.card}>
-        <Line label="Gross fares" value={formatMoney(gross, currency)} />
-        <Line label="Platform fee" value={`-${formatMoney(commission, currency)}`} muted />
+        <Line label="Gross fares" value={money(gross, currency)} />
+        <Line label="Platform fee" value={`-${money(commission, currency)}`} muted />
         <View style={styles.divider} />
-        <Line label="Net" value={formatMoney(net, currency)} strong />
+        <Line label="Net" value={money(net, currency)} strong />
       </View>
 
       <SectionLabel>PER TRIP</SectionLabel>
@@ -105,11 +106,11 @@ function TripLine({ line, currency }: { line: EarningLine; currency: string }) {
         <Text style={styles.tripId}>Trip #{line.tripId.slice(-8)}</Text>
         <Text style={styles.tripMeta}>
           {new Date(line.createdAt).toLocaleDateString()} ·{' '}
-          {formatMoney(line.grossAmountMinor, currency)} gross ·{' '}
+          {money(line.grossAmountMinor, currency)} gross ·{' '}
           {(line.commissionRate * 100).toFixed(1)}% fee
         </Text>
       </View>
-      <Text style={styles.tripNet}>{formatMoney(line.netAmountMinor, currency)}</Text>
+      <Text style={styles.tripNet}>{money(line.netAmountMinor, currency)}</Text>
     </View>
   );
 }

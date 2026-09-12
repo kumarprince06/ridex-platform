@@ -50,9 +50,14 @@ export type RootStackParamList = {
   ArrivedAtPickup: { tripId?: string };
   TripInProgress: { tripId?: string };
   TripCompleted: { tripId?: string; fareMinor?: number; currency?: string };
-  RateRider: undefined;
+
+  // Shuttle duty, which is a separate day's work from ride offers: a driver is rostered onto
+  // departures rather than dispatched to them.
+  ShuttleRuns: undefined;
+  ShuttleDeparture: { shuttleTripId: string };
+  RateRider: { riderName?: string } | undefined;
   CancelTrip: undefined;
-  Safety: undefined;
+  Safety: { riderName?: string } | undefined;
   /**
    * The callback is a param because the scanner is a pushed screen, not a modal the caller
    * renders - the result has to come back to whoever opened it.
@@ -70,6 +75,9 @@ export type RootStackParamList = {
   Notifications: undefined;
   Settings: undefined;
   HelpSupport: undefined;
+  /** A ride id turns a report into that ride's report: support opens the trip beside the thread. */
+  ReportIssue: { rideId?: string } | undefined;
+  SupportTicket: { ticketId: string };
 };
 
 export type RootScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<

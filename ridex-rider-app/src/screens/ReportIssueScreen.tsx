@@ -1,19 +1,59 @@
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { ApiError } from '../api/problem';
+import { listCategories, raiseTicket } from '../api/support';
+import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { ISSUE_CATEGORIES } from '../data/mock';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReportIssue'>;
 
-export function ReportIssueScreen({ navigation }: Props) {
+/** The server refuses anything shorter; saying so here beats a red box after the tap. */
+const MIN_DESCRIPTION = 10;
+
+/**
+ * Raises a real support ticket.
+ *
+ * <p>The categories come from the server, filtered to what a rider can actually raise - a list
+ * written into the app drifts from the queues the people answering them work.
+ */
+export function ReportIssueScreen({ navigation, route }: Props) {
+  const { data: categories } = useQuery(listCategories);
   const [category, setCategory] = useState<string | null>(null);
   const [description, setDescription] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const ready = category !== null && description.trim().length >= MIN_DESCRIPTION;
+
+  async function submit() {
+    if (!category) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const label = categories?.find((item) => item.code === category)?.label ?? 'Issue';
+      const ticket = await raiseTicket({
+        category,
+        // The subject is what the queue is scanned by; the description is the ticket itself.
+        subject: `${label}: ${description.trim().slice(0, 60)}`,
+        message: description.trim(),
+        rideId: route.params?.rideId,
+      });
+      // Replaced, not pushed: going "back" to a form that has already been submitted is how the
+      // same problem gets raised twice.
+      navigation.replace('SupportTicket', { ticketId: ticket.id });
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not send that report.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Screen
@@ -21,10 +61,9 @@ export function ReportIssueScreen({ navigation }: Props) {
       title="Report Issue"
       footer={
         <Button
-          label="Submit Report"
-          // Nothing to act on without a category, so the button stays muted until one is picked.
-          disabled={!category}
-          onPress={() => navigation.goBack()}
+          label={busy ? 'Sending...' : 'Submit report'}
+          disabled={!ready || busy}
+          onPress={() => void submit()}
         />
       }
     >
@@ -32,18 +71,17 @@ export function ReportIssueScreen({ navigation }: Props) {
 
       <Text style={styles.sectionLabel}>CATEGORY</Text>
       <View style={styles.grid}>
-        {ISSUE_CATEGORIES.map((item) => {
-          const selected = category === item.label;
+        {categories?.map((item) => {
+          const selected = category === item.code;
 
           return (
             <Pressable
-              key={item.label}
-              onPress={() => setCategory(item.label)}
+              key={item.code}
+              onPress={() => setCategory(item.code)}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
               style={[styles.category, selected && styles.categorySelected]}
             >
-              <Ionicons name={item.icon} size={22} color={item.tone} />
               <Text style={styles.categoryLabel}>{item.label}</Text>
             </Pressable>
           );
@@ -60,15 +98,7 @@ export function ReportIssueScreen({ navigation }: Props) {
         style={styles.description}
       />
 
-      <View style={styles.attach}>
-        <View style={styles.attachIcon}>
-          <Ionicons name="image-outline" size={19} color={colors.textMuted} />
-        </View>
-        <View>
-          <Text style={styles.attachTitle}>Add screenshot</Text>
-          <Text style={styles.attachHint}>Optional · helps us resolve faster</Text>
-        </View>
-      </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </Screen>
   );
 }
@@ -80,75 +110,45 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     ...type.eyebrow,
-    color: colors.textMuted,
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
+    color: colors.textFaint,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   category: {
-    // Three per row: a third of the width minus the two 12pt gutters shared between them.
-    width: '31%',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    borderRadius: radius.md,
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
+    borderRadius: radius.md,
+    borderWidth: 1,
     borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   categorySelected: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(46, 231, 199, 0.07)',
+    backgroundColor: colors.primarySurface,
   },
   categoryLabel: {
-    ...type.caption,
-    fontSize: 11,
+    ...type.body,
     color: colors.text,
-    textAlign: 'center',
   },
   description: {
     ...type.body,
-    minHeight: 118,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
+    color: colors.text,
     backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    color: colors.text,
+    minHeight: 130,
+    padding: spacing.md,
     textAlignVertical: 'top',
   },
-  attach: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginTop: spacing.lg,
-  },
-  attachIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  attachTitle: {
-    ...type.button,
-    fontSize: 14,
-    color: colors.text,
-  },
-  attachHint: {
-    ...type.caption,
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 1,
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.md,
   },
 });

@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Offer } from '../data/mock';
+import { Offer } from '../api/driver';
+import { distance, money } from '../lib/format';
 import { colors, radius, spacing, type } from '../theme';
 import { RouteStops } from './RouteStops';
 
 type Props = {
+  /** The server's offer. Nothing on this card is computed on the phone except its formatting. */
   offer: Offer;
   /** Seconds left on the offer. Dispatch owns the real clock; this only draws it. */
   secondsLeft: number;
@@ -24,12 +26,7 @@ export function OfferCard({ offer, secondsLeft, totalSeconds }: Props) {
       <View style={styles.header}>
         <View style={styles.tier}>
           <Ionicons name="car-sport" size={15} color={colors.primary} />
-          <Text style={styles.tierLabel}>{offer.tier}</Text>
-          {offer.surge ? (
-            <View style={styles.surge}>
-              <Text style={styles.surgeLabel}>{offer.surge}</Text>
-            </View>
-          ) : null}
+          <Text style={styles.tierLabel}>New ride</Text>
         </View>
 
         <Text style={styles.countdown}>{secondsLeft}s</Text>
@@ -41,19 +38,19 @@ export function OfferCard({ offer, secondsLeft, totalSeconds }: Props) {
         <View style={{ flex: 1 - remaining }} />
       </View>
 
-      <Text style={styles.fare}>{offer.fare}</Text>
-      <Text style={styles.fareNote}>
-        {offer.tripDistance} · {offer.tripDuration} trip · {offer.payment}
-      </Text>
+      <Text style={styles.fare}>{money(offer.quotedFareMinor, offer.currency)}</Text>
+      <Text style={styles.fareNote}>{distance(offer.tripDistanceMeters)} trip</Text>
 
-      <View style={styles.pickupRow}>
-        <Ionicons name="walk" size={15} color={colors.textMuted} />
-        <Text style={styles.pickupNote}>{offer.pickupDetail} to pickup</Text>
-      </View>
+      {offer.distanceToPickupMeters == null ? null : (
+        <View style={styles.pickupRow}>
+          <Ionicons name="walk" size={15} color={colors.textMuted} />
+          <Text style={styles.pickupNote}>{distance(offer.distanceToPickupMeters)} to pickup</Text>
+        </View>
+      )}
 
       <RouteStops
-        pickup={{ name: offer.pickup, detail: offer.pickupEta + ' away' }}
-        dropoff={{ name: offer.dropoff, detail: offer.dropoffDetail }}
+        pickup={{ name: offer.pickupAddress ?? 'Pickup point' }}
+        dropoff={{ name: offer.destinationAddress ?? 'Drop-off point' }}
         style={styles.stops}
       />
     </View>

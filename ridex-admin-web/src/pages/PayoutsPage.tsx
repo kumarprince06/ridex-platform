@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import { date, money } from '../lib/format';
 
 import {
   DEFAULT_PAGE_SIZE,
   failPayout,
-  formatMoney,
   listPayouts,
   runPayoutBatch,
   sendPayout,
@@ -113,8 +113,8 @@ export function PayoutsPage() {
               header: 'Period',
               render: (row) => (
                 <span className="cell-muted">
-                  {new Date(row.periodStart).toLocaleDateString()} –{' '}
-                  {new Date(row.periodEnd).toLocaleDateString()}
+                  {date(row.periodStart)} –{' '}
+                  {date(row.periodEnd)}
                 </span>
               ),
             },
@@ -142,7 +142,7 @@ export function PayoutsPage() {
               header: 'Amount',
               align: 'right',
               render: (row) => (
-                <span className="cell-strong">{formatMoney(row.amountMinor, row.currency)}</span>
+                <span className="cell-strong">{money(row.amountMinor, row.currency)}</span>
               ),
             },
             {
@@ -206,7 +206,7 @@ export function PayoutsPage() {
       {failing ? (
         <ConfirmWithReason
           title={`Mark payout ${failing.id.slice(-8)} as failed?`}
-          body={`${formatMoney(failing.amountMinor, failing.currency)} to ${failing.driverEmail}. The earnings in this batch go back to unsettled, so the next run picks them up again.`}
+          body={`${money(failing.amountMinor, failing.currency)} to ${failing.driverEmail}. The earnings in this batch go back to unsettled, so the next run picks them up again.`}
           confirmLabel="Mark failed"
           presets={[
             'Bank returned the transfer, details since corrected',

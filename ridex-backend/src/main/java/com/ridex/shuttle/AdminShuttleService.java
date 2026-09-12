@@ -6,9 +6,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ridex.admin.dto.AdminDepartureResponse;
 import com.ridex.driver.DriverEligibility;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
@@ -18,8 +20,6 @@ import com.ridex.shuttle.domain.RouteFare;
 import com.ridex.shuttle.domain.RouteStop;
 import com.ridex.shuttle.domain.ShuttleSchedule;
 import com.ridex.shuttle.domain.ShuttleTrip;
-import org.springframework.data.domain.PageRequest;
-
 import com.ridex.shuttle.dto.AdminRouteResponse;
 import com.ridex.shuttle.dto.AdminRouteSummary;
 import com.ridex.shuttle.dto.AssignDepartureRequest;
@@ -51,6 +51,8 @@ public class AdminShuttleService {
     private final ShuttleTripRepository shuttleTripRepository;
     private final DriverVehicleRepository driverVehicleRepository;
     private final DriverEligibility driverEligibility;
+    private final ShuttleBookingRepository shuttleBookingRepository;
+    private final ShuttleCrew shuttleCrew;
 
     /** The list. Counts only - the full route comes back when somebody opens one. */
     @Transactional(readOnly = true)
@@ -298,6 +300,65 @@ public class AdminShuttleService {
      * <p>The columns have existed since V17 and nothing has ever written them, so every shuttle
      * seat sold so far has been on a bus with nobody driving it.
      */
+    /**
+     * Every departure running on one date, with who is on each.
+     *
+     * <p>A departure exists only once its first seat sells, so an empty day here means nobody has
+     * booked - not that the schedule is wrong.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<AdminDepartureResponse> departures(LocalDate serviceDate) {
+        return shuttleTripRepository.findByServiceDateOrderByDepartsAtAsc(serviceDate).stream()
+                .map(this::toDeparture)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public AdminDepartureResponse departure(String shuttleTripId) {
+        return toDeparture(shuttleTripRepository.findById(shuttleTripId)
+                .orElseThrow(() -> new NotFoundException("No such departure.")));
+    }
+
+    private AdminDepartureResponse toDeparture(ShuttleTrip trip) {
+        var stops = routeStopRepository
+                .findByRouteIdOrderBySequenceAsc(trip.getSchedule().getRoute().getId()).stream()
+                .collect(java.util.stream.Collectors.toMap(RouteStop::getId, RouteStop::getName));
+
+        var bookings = shuttleBookingRepository.everySeatOn(trip.getId());
+        var crew = shuttleCrew.of(trip.getDriverId(), trip.getVehicleId());
+
+        var seats = bookings.stream()
+                .map(booking -> new AdminDepartureResponse.Seat(
+                        booking.getId(),
+                        booking.getSeatLabel(),
+                        // Ops falls back to the email: they are looking somebody up, not greeting them.
+                        booking.getRider().getUser().displayName()
+                                .orElseGet(() -> booking.getRider().getUser().getEmail()),
+                        booking.getRider().getUser().getEmail(),
+                        stops.get(booking.getBoardingStopId()),
+                        stops.get(booking.getAlightingStopId()),
+                        booking.getStatus(),
+                        booking.getPaymentStatus(),
+                        booking.getBoardedAt()))
+                .toList();
+
+        return new AdminDepartureResponse(
+                trip.getId(),
+                trip.getSchedule().getId(),
+                trip.getSchedule().getRoute().getName(),
+                trip.getDepartsAt(),
+                trip.getSeatCapacity(),
+                (int) bookings.stream().filter(b -> !"CANCELLED".equals(b.getStatus())).count(),
+                (int) bookings.stream().filter(b -> "CANCELLED".equals(b.getStatus())).count(),
+                (int) bookings.stream().filter(b -> b.getBoardedAt() != null).count(),
+                trip.getDriverId(),
+                crew == null ? null : crew.driverName(),
+                crew == null ? null : crew.vehicle(),
+                crew == null ? null : crew.registrationNumber(),
+                seats);
+    }
+
+
     @Transactional
     public void assignDeparture(String scheduleId, LocalDate serviceDate,
             AssignDepartureRequest request) {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { date } from '../lib/format';
 import { useParams } from 'react-router-dom';
 
 import {
@@ -78,7 +79,7 @@ export function DriverDetailPage() {
     <>
       <PageHeader
         title={name}
-        subtitle={`${driver.driverId} · joined ${new Date(driver.joinedAt).toLocaleDateString()}`}
+        subtitle={`${driver.driverId} · joined ${date(driver.joinedAt)}`}
         actions={
           can('OPERATIONS') ? (
             <span className="row-actions">
@@ -221,7 +222,7 @@ export function DriverDetailPage() {
               // touching it, so it gets its own column rather than hiding in a detail line.
               render: (row) =>
                 row.expiresAt ? (
-                  new Date(row.expiresAt).toLocaleDateString()
+                  date(row.expiresAt)
                 ) : (
                   <span className="cell-muted">No expiry</span>
                 ),
@@ -230,7 +231,7 @@ export function DriverDetailPage() {
               key: 'submitted',
               header: 'Submitted',
               render: (row) => (
-                <span className="cell-muted">{new Date(row.createdAt).toLocaleDateString()}</span>
+                <span className="cell-muted">{date(row.createdAt)}</span>
               ),
             },
             {

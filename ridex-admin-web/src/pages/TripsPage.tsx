@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { dateTime, money } from '../lib/format';
 import { useNavigate } from 'react-router-dom';
 
-import { DEFAULT_PAGE_SIZE, formatMoney, listTrips, type AdminTrip } from '../api/admin';
+import { DEFAULT_PAGE_SIZE, listTrips, type AdminTrip } from '../api/admin';
 import { useQuery } from '../api/useQuery';
 import { Card, FilterTabs, humanState, PageHeader, Pagination, Pill, Table, stateTone } from '../components/ui';
 
@@ -53,18 +54,18 @@ export function TripsPage() {
             ) },
             { key: 'fare', header: 'Fare', align: 'right', render: (row) => (
               <>
-                <div>{formatMoney(row.finalFareMinor ?? row.quotedFareMinor, row.currency)}</div>
+                <div>{money(row.finalFareMinor ?? row.quotedFareMinor, row.currency)}</div>
                 {/* Quoted and charged shown apart when they differ: that gap is the question
                     every fare complaint is about. */}
                 {row.finalFareMinor != null && row.finalFareMinor !== row.quotedFareMinor ? (
                   <div className="cell-muted">
-                    quoted {formatMoney(row.quotedFareMinor, row.currency)}
+                    quoted {money(row.quotedFareMinor, row.currency)}
                   </div>
                 ) : null}
               </>
             ) },
             { key: 'requested', header: 'Requested', render: (row) => (
-              <span className="cell-muted">{new Date(row.requestedAt).toLocaleString()}</span>
+              <span className="cell-muted">{dateTime(row.requestedAt)}</span>
             ) },
           ]}
           rows={data?.items ?? []}

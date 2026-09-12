@@ -30,6 +30,44 @@ class SupportServiceTest {
     @Autowired private UserRepository userRepository;
 
     @Test
+    void eachRoleIsOfferedOnlyTheCategoriesItCanActuallyRaise() {
+        var rider = supportService.categoriesFor("RIDER");
+        var driver = supportService.categoriesFor("DRIVER");
+
+        // A rider raising "Payout" produces a ticket that lands in a queue nobody can action.
+        assertThat(rider).extracting(category -> category.code())
+                .contains(TicketCategory.FARE_DISPUTE)
+                .doesNotContain(TicketCategory.PAYOUT);
+        assertThat(driver).extracting(category -> category.code())
+                .contains(TicketCategory.PAYOUT)
+                .doesNotContain(TicketCategory.FARE_DISPUTE);
+
+        // And every one of them carries words a person can pick from, not an enum name.
+        assertThat(rider).allSatisfy(category -> assertThat(category.label()).isNotBlank());
+    }
+
+    @Test
+    void anAgentsAnswerComesBackToThePersonWhoAskedTheQuestion() {
+        String riderUserId = newUser(UserRole.RIDER);
+        var raised = supportService.raise(riderUserId, "RIDER",
+                new CreateTicketRequest(TicketCategory.LOST_ITEM, "Left my bag",
+                        "I left a blue rucksack on the back seat of my last ride.", null));
+
+        // The queue ops works from, and the reply they send.
+        assertThat(supportService.queue(null, 0, 25).getContent())
+                .extracting(ticket -> ticket.getId()).contains(raised.id());
+        supportService.agentReply(newUser(UserRole.OPS_ADMIN), raised.id(),
+                new PostMessageRequest("The driver handed it in. Collect it from the depot.", false));
+
+        // And what the rider's app shows when it reopens the ticket.
+        var seen = supportService.get(riderUserId, raised.id());
+        assertThat(seen.messages()).last().satisfies(message -> {
+            assertThat(message.fromSupport()).isTrue();
+            assertThat(message.body()).contains("depot");
+        });
+    }
+
+    @Test
     void bothRidersAndDriversCanRaiseTickets() {
         var riderTicket = supportService.raise(newUser(UserRole.RIDER), "RIDER",
                 new CreateTicketRequest(TicketCategory.BILLING, "Charged twice",

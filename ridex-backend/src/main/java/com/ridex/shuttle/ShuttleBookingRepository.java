@@ -45,6 +45,10 @@ public interface ShuttleBookingRepository extends JpaRepository<ShuttleBooking, 
     @Query("SELECT b FROM ShuttleBooking b WHERE b.id = :id AND b.rider.id = :riderId")
     java.util.Optional<ShuttleBooking> findOwn(@Param("id") String id, @Param("riderId") String riderId);
 
+    /** Everything ever sold on a departure, cancelled seats included - the ops view of a run. */
+    @Query("SELECT b FROM ShuttleBooking b WHERE b.shuttleTrip.id = :tripId ORDER BY b.seatLabel ASC")
+    List<ShuttleBooking> everySeatOn(@Param("tripId") String tripId);
+
     /** The manifest. Cancelled seats are excluded - nobody is waiting at that stop for them. */
     @Query("SELECT b FROM ShuttleBooking b WHERE b.shuttleTrip.id = :tripId "
             + "AND b.status <> 'CANCELLED' ORDER BY b.seatLabel ASC")

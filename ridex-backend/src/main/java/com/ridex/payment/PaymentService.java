@@ -9,9 +9,10 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ridex.driver.DriverProfileRepository;
 import com.ridex.payment.domain.*;
-import com.ridex.payment.dto.EarningsResponse;
 import com.ridex.payment.dto.EarningLineResponse;
+import com.ridex.payment.dto.EarningsResponse;
 import com.ridex.payment.dto.PaymentResponse;
 import com.ridex.payment.dto.RidePaymentResponse;
 import com.ridex.platform.settings.SettingsService;
@@ -44,16 +45,12 @@ public class PaymentService {
     private final LedgerService ledger;
     private final RiderDueRepository riderDueRepository;
 
-    /** Which gateway clears cards and UPI. One property, so a swap needs no code change. */
-    @org.springframework.beans.factory.annotation.Value("${app.payments.gateway:RAZORPAY}")
-    private String gateway;
-
     /** Handed to the client to open checkout. Publishable - it identifies, it does not authorise. */
     @org.springframework.beans.factory.annotation.Value("${app.razorpay.key-id:}")
     private String razorpayKeyId;
     private final SettingsService settings;
-    private final List<PaymentProvider> providers;
-    private final com.ridex.driver.DriverProfileRepository driverProfileRepository;
+    private final PaymentProviders providers;
+    private final DriverProfileRepository driverProfileRepository;
 
     /**
      * Settles a completed trip: one payment, one earnings record, and the ledger entries for both.
@@ -87,7 +84,7 @@ public class PaymentService {
         Money owed = Money.of(dues.stream().mapToLong(RiderDue::getAmountMinor).sum(), currency);
         Money collect = net.plus(owed);
 
-        PaymentProvider provider = providerFor(method);
+        PaymentProvider provider = providers.forMethod(method);
         String idempotencyKey = "trip-payment:" + tripId;
 
         var intent = collect.amountMinor() > 0
@@ -297,7 +294,7 @@ public class PaymentService {
             return forRider(riderUserId, rideId);
         }
 
-        var confirmed = providerFor(payment.getMethod()).confirmPayment(gatewayPaymentId);
+        var confirmed = providers.forMethod(payment.getMethod()).confirmPayment(gatewayPaymentId);
 
         switch (confirmed.status()) {
             case "SUCCEEDED" -> {
@@ -319,153 +316,6 @@ public class PaymentService {
         return forRider(riderUserId, rideId);
     }
 
-    /**
-     * Opens checkout for a shuttle seat.
-     *
-     * <p>Unlike a trip, this runs <em>before</em> the service: the fare is published in advance and
-     * the seat is inventory somebody else wants, so the order is created the moment the seat is
-     * held. Idempotent on the booking, because a retried booking call must not open a second order
-     * for the same seat.
-     */
-    @Transactional
-    public ShuttleCheckout startShuttlePayment(String bookingId, RiderProfile rider, Money amount,
-            PaymentMethod method) {
-        Payment existing = paymentRepository.findByShuttleBookingId(bookingId).orElse(null);
-        if (existing != null) {
-            return new ShuttleCheckout(existing.getProviderPaymentId(), razorpayKeyId,
-                    existing.getNetAmountMinor(), existing.getCurrency(), existing.getStatus());
-        }
-
-        PaymentProvider provider = providerFor(method);
-        String idempotencyKey = "shuttle-payment:" + bookingId;
-        var intent = provider.createPaymentIntent(amount, bookingId, idempotencyKey);
-
-        Payment payment = new Payment();
-        payment.setShuttleBookingId(bookingId);
-        payment.setRider(rider);
-        payment.setMethod(method);
-        payment.setProvider(provider.name());
-        payment.setCurrency(amount.currency().getCurrencyCode());
-        payment.setGrossAmountMinor(amount.amountMinor());
-        payment.setDiscountAmountMinor(0);
-        payment.setNetAmountMinor(amount.amountMinor());
-        payment.setProviderPaymentId(intent.providerPaymentId());
-        payment.setIdempotencyKey(idempotencyKey);
-        // Cash is owed, not authorised: the row exists so the fare is on the books, and it only
-        // becomes SUCCEEDED when the driver has actually been handed the money at the door.
-        payment.setStatus(PaymentStatus.CREATED);
-        paymentRepository.save(payment);
-
-        return new ShuttleCheckout(
-                method == PaymentMethod.CASH ? null : intent.providerPaymentId(),
-                method == PaymentMethod.CASH ? null : razorpayKeyId,
-                amount.amountMinor(), amount.currency().getCurrencyCode(), payment.getStatus());
-    }
-
-    /**
-     * Confirms a seat's payment against the gateway.
-     *
-     * <p>The gateway is asked, the app is not believed - the same rule as a trip. Returns the
-     * status the payment actually landed on, which is what decides whether the seat is confirmed.
-     */
-    @Transactional
-    public PaymentStatus confirmShuttlePayment(String bookingId, String gatewayPaymentId) {
-        Payment payment = paymentRepository.findByShuttleBookingId(bookingId)
-                .orElseThrow(() -> new NotFoundException("That seat has no payment."));
-
-        if (payment.getStatus() == PaymentStatus.SUCCEEDED) {
-            return PaymentStatus.SUCCEEDED;
-        }
-
-        var confirmed = providerFor(payment.getMethod()).confirmPayment(gatewayPaymentId);
-
-        switch (confirmed.status()) {
-            case "SUCCEEDED" -> {
-                payment.setStatus(PaymentStatus.SUCCEEDED);
-                payment.setPaidAt(Instant.now());
-                // The order id was a placeholder until somebody paid; the payment id is what every
-                // webhook and any refund will name.
-                payment.setProviderPaymentId(gatewayPaymentId);
-            }
-            case "FAILED" -> {
-                payment.setStatus(PaymentStatus.FAILED);
-                payment.setFailureReason(confirmed.failureReason());
-            }
-            default -> payment.setStatus(PaymentStatus.PROCESSING);
-        }
-
-        paymentRepository.save(payment);
-        return payment.getStatus();
-    }
-
-    /**
-     * Closes an unpaid seat payment, so it stops counting as a fare the rider owes.
-     *
-     * <p>Without this an abandoned checkout blocks every later booking: the outstanding check sees
-     * a payment that was created and never captured and, correctly, refuses to let somebody who
-     * walked away from a fare start another journey. The seat is gone; the debt should be too.
-     */
-    @Transactional
-    public void voidShuttlePayment(String bookingId, String reason) {
-        paymentRepository.findByShuttleBookingId(bookingId).ifPresent(payment -> {
-            if (payment.getStatus() == PaymentStatus.SUCCEEDED) {
-                return;
-            }
-            payment.setStatus(PaymentStatus.CANCELLED);
-            payment.setFailureReason(reason);
-            paymentRepository.save(payment);
-        });
-    }
-
-    /** Records the fare a driver collected in cash for a seat, once the passenger is on board. */
-    @Transactional
-    public void settleShuttleCash(String bookingId) {
-        paymentRepository.findByShuttleBookingId(bookingId).ifPresent(payment -> {
-            if (payment.getMethod() != PaymentMethod.CASH
-                    || payment.getStatus() == PaymentStatus.SUCCEEDED) {
-                return;
-            }
-            payment.setStatus(PaymentStatus.SUCCEEDED);
-            payment.setPaidAt(Instant.now());
-            paymentRepository.save(payment);
-        });
-    }
-
-    /**
-     * The open checkout for a seat that has not been paid for.
-     *
-     * <p>Returned with every unpaid booking, not just the one that has just been made: a rider who
-     * backed out of checkout reopens the ticket from their rides, and without the order id there
-     * is nothing on that screen they can pay with.
-     */
-    @Transactional(readOnly = true)
-    public ShuttleCheckout checkoutFor(String bookingId) {
-        return paymentRepository.findByShuttleBookingId(bookingId)
-                .filter(payment -> payment.getMethod() != PaymentMethod.CASH)
-                .filter(payment -> payment.getStatus() != PaymentStatus.SUCCEEDED)
-                .map(payment -> new ShuttleCheckout(payment.getProviderPaymentId(), razorpayKeyId,
-                        payment.getNetAmountMinor(), payment.getCurrency(), payment.getStatus()))
-                .orElse(null);
-    }
-
-    /** Enough of a seat's payment to put on its invoice: how it was paid, and the reference. */
-    @Transactional(readOnly = true)
-    public ShuttlePaymentSummary shuttlePaymentSummary(String bookingId) {
-        return paymentRepository.findByShuttleBookingId(bookingId)
-                .map(payment -> new ShuttlePaymentSummary(payment.getMethod(), payment.getStatus(),
-                        payment.getProviderPaymentId(), payment.getProvider()))
-                .orElse(null);
-    }
-
-    /** @param reference the gateway's own id, which is what a disputed charge is looked up by. */
-    public record ShuttlePaymentSummary(PaymentMethod method, PaymentStatus status,
-            String reference, String provider) {
-    }
-
-    /** What the app needs to open checkout for a seat, and nothing it should not have. */
-    public record ShuttleCheckout(String gatewayOrderId, String gatewayKeyId,
-            long amountMinor, String currency, PaymentStatus status) {
-    }
 
     /** Resolves the rider's own ride to its trip, refusing anybody else's. */
     private String tripIdFor(String riderUserId, String rideId) {
@@ -479,27 +329,6 @@ public class PaymentService {
     public PaymentResponse forTrip(String tripId) {
         return toResponse(paymentRepository.findByTripId(tripId)
                 .orElseThrow(() -> new NotFoundException("No payment for that trip.")));
-    }
-
-    /**
-     * Which gateway settles this method.
-     *
-     * <p>Cash has no gateway - the driver is handed the money - so it routes to its own provider.
-     * Everything else goes to the configured one, because the rider is choosing an instrument
-     * (UPI, card, netbanking) inside a checkout, not choosing a gateway: every gateway offers all
-     * of them, and which company clears the money is the platform's decision, not theirs.
-     *
-     * <p>Named in configuration rather than in code so adding a second gateway is a new class and
-     * one property, with nothing above this line to change.
-     */
-    private PaymentProvider providerFor(PaymentMethod method) {
-        String wanted = method == PaymentMethod.CASH ? "CASH" : gateway;
-
-        return providers.stream()
-                .filter(provider -> provider.name().equals(wanted))
-                .findFirst()
-                .orElseThrow(() -> new ConflictException(
-                        "No payment provider is configured for " + method + "."));
     }
 
     private PaymentResponse toResponse(Payment payment) {

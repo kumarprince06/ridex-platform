@@ -7,4 +7,6 @@ import com.ridex.payment.domain.PaymentEvent;
 public interface PaymentEventRepository extends JpaRepository<PaymentEvent, String> {
 
     boolean existsByProviderAndProviderEventId(String provider, String providerEventId);
+
+    java.util.List<PaymentEvent> findByPaymentIdOrderByReceivedAtAsc(String paymentId);
 }

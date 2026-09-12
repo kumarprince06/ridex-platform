@@ -43,6 +43,15 @@ export function FareEstimateScreen({ navigation, route }: Props) {
 
   const tier = RIDE_TIERS.find((item) => item.id === tierId) ?? RIDE_TIERS[0]!;
 
+  // What the toggle actually takes off, computed the way the server will: capped by the balance,
+  // by what one journey may spend, and by the fare itself. A discount the rider only discovers
+  // after the trip is not a discount, it is a surprise.
+  const discountMinor =
+    usePoints && points && quote
+      ? Math.min(spendableNow(points).valueMinor, quote.totalMinor)
+      : 0;
+  const payableMinor = quote ? quote.totalMinor - discountMinor : 0;
+
   useEffect(() => {
     if (!estimateId || !pickupCoord || !destinationCoord) {
       return;
@@ -93,7 +102,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
             busy
               ? 'Requesting...'
               : quote
-                ? `Request Ride · ${money(quote.totalMinor, quote.currency)}`
+                ? `Request Ride · ${money(payableMinor, quote.currency)}`
                 : 'Pricing...'
           }
           disabled={busy || !quote}
@@ -147,10 +156,17 @@ export function FareEstimateScreen({ navigation, route }: Props) {
 
         <View style={styles.divider} />
 
+        {discountMinor > 0 && quote ? (
+          <View style={styles.fareRow}>
+            <Text style={styles.lineLabel}>Points discount</Text>
+            <Text style={styles.discount}>-{money(discountMinor, quote.currency)}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.fareRow}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>
-            {quote ? money(quote.totalMinor, quote.currency) : '—'}
+            {quote ? money(payableMinor, quote.currency) : '—'}
           </Text>
         </View>
       </View>
@@ -271,6 +287,14 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   credit: {
+    color: colors.primary,
+  },
+  lineLabel: {
+    ...type.body,
+    color: colors.textMuted,
+  },
+  discount: {
+    ...type.body,
     color: colors.primary,
   },
   totalLabel: {

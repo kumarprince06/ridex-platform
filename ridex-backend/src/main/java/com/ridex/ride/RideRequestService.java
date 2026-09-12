@@ -186,6 +186,13 @@ public class RideRequestService {
         ride.cancel(CancelledBy.RIDER, request.text(), fee.amountMinor(), now);
         ride.setCancellationReasonCode(request.reasonCode());
 
+        // The ride is not happening, so the points it spent come back - as a new entry, which is
+        // what the booking path promised when it took them.
+        if (ride.getRedeemedPoints() > 0) {
+            pointsService.returnRidePoints(ride.getRider().getUser().getId(),
+                    ride.getRedeemedPoints(), ride.getId());
+        }
+
         rideRequestRepository.save(ride);
 
         // A driver was already on their way, so the fee is real. Nothing can be collected now -
@@ -243,6 +250,12 @@ public class RideRequestService {
 
         ride.cancel(CancelledBy.DRIVER, request.text(), 0, Instant.now());
         ride.setCancellationReasonCode(request.reasonCode());
+
+        if (ride.getRedeemedPoints() > 0) {
+            pointsService.returnRidePoints(ride.getRider().getUser().getId(),
+                    ride.getRedeemedPoints(), ride.getId());
+        }
+
         rideRequestRepository.save(ride);
 
         // The rider is watching a map, not their inbox: this is what moves them off it.

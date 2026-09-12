@@ -282,6 +282,21 @@ public class PointsService {
     }
 
     /**
+     * Returns the points a cancelled ride had already spent.
+     *
+     * <p>A new entry rather than deleting the old one: the ledger is what a rider reads back, and
+     * a spend that vanishes is a balance nobody can explain.
+     */
+    @Transactional
+    public void returnRidePoints(String userId, int points, String rideId) {
+        if (points <= 0) {
+            return;
+        }
+        award(userId, points, PointReason.RIDE_CANCELLED, "RIDE", rideId,
+                "ride-cancel:" + rideId, "Points returned from a cancelled ride");
+    }
+
+    /**
      * Credits a cancelled shuttle seat back as points.
      *
      * <p>Not a gateway refund: the money has already settled, and a card refund costs a fee and

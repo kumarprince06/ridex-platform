@@ -33,6 +33,14 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
 
+  // What the toggle takes off, the way the server will work it out: capped by the balance, by what
+  // one journey may spend, and by the fare. Shown before the tap, not on the ticket afterwards.
+  const discountMinor =
+    usePoints && points && data?.fareMinor != null
+      ? Math.min(spendableNow(points).valueMinor, data.fareMinor)
+      : 0;
+  const payableMinor = data?.fareMinor == null ? null : data.fareMinor - discountMinor;
+
   async function confirm() {
     if (!chosen) {
       return;
@@ -93,15 +101,23 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
       footer={
         <>
           {bookError ? <Text style={styles.error}>{bookError}</Text> : null}
+          {discountMinor > 0 && data?.fareMinor != null ? (
+            <Text style={styles.discountNote}>
+              {money(data.fareMinor, data.currency ?? 'INR')} fare ·{' '}
+              {money(discountMinor, data.currency ?? 'INR')} off with points
+            </Text>
+          ) : null}
           <Button
             label={
               booking
                 ? 'Booking…'
                 : !chosen
                   ? 'Choose a seat'
-                  : method === 'CASH'
-                    ? `Book seat ${chosen}`
-                    : `Pay & book seat ${chosen}`
+                  : payableMinor == null
+                    ? method === 'CASH'
+                      ? `Book seat ${chosen}`
+                      : `Pay & book seat ${chosen}`
+                    : `${method === 'CASH' ? 'Book' : 'Pay'} ${money(payableMinor, data?.currency ?? 'INR')} · seat ${chosen}`
             }
             disabled={!chosen || booking}
             onPress={confirm}
@@ -282,6 +298,12 @@ function Legend({ style, label }: { style: object; label: string }) {
 }
 
 const styles = StyleSheet.create({
+  discountNote: {
+    ...type.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
   flex: { flex: 1 },
   pointsRow: {
     flexDirection: 'row',

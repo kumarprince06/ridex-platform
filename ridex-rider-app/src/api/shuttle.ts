@@ -57,6 +57,9 @@ export type SeatMap = {
   aisleAfter: number;
   seats: Seat[];
   seatsAvailable: number;
+  /** What this leg costs, when both stops were named. Null on a whole-route seat map. */
+  fareMinor: number | null;
+  currency: string | null;
 };
 
 export type ShuttleBooking = {

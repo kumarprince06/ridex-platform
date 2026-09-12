@@ -85,6 +85,22 @@ public class DriverProfile {
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
 
+    /**
+     * Where this driver's earnings are sent. All three or none - the database enforces it, because
+     * half a destination reads on the payout screen as somewhere the money can go.
+     */
+    @Column(name = "payout_account_holder", length = 120)
+    private String payoutAccountHolder;
+
+    @Column(name = "payout_account_number", length = 34)
+    private String payoutAccountNumber;
+
+    @Column(name = "payout_ifsc", length = 15)
+    private String payoutIfsc;
+
+    @Column(name = "payout_updated_at")
+    private Instant payoutUpdatedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

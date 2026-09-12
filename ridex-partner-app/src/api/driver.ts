@@ -84,6 +84,30 @@ export function rejectOffer(offerId: string) {
   return request<void>(`/api/v1/driver/offers/${offerId}/reject`, { method: 'POST' });
 }
 
+/** Where a driver's earnings are sent. Masked on the way back - it is shown in a mounted phone. */
+export type PayoutAccount = {
+  set: boolean;
+  accountHolder: string | null;
+  accountNumberMasked: string | null;
+  ifsc: string | null;
+  updatedAt: string | null;
+};
+
+export function getPayoutAccount() {
+  return request<PayoutAccount>('/api/v1/driver/payout-account');
+}
+
+export function setPayoutAccount(account: {
+  accountHolder: string;
+  accountNumber: string;
+  ifsc: string;
+}) {
+  return request<PayoutAccount>('/api/v1/driver/payout-account', {
+    method: 'PUT',
+    body: account,
+  });
+}
+
 export function getTrip(tripId: string) {
   return request<Trip>(`/api/v1/trips/${tripId}`);
 }

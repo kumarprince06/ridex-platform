@@ -2,41 +2,50 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Button } from '../components/Button';
+import { getPayoutAccount, type PayoutAccount } from '../api/driver';
+import { useQuery } from '../api/useQuery';
+import { PayoutAccountForm } from '../components/PayoutAccountForm';
 import { Screen, ScreenTitle } from '../components/Screen';
-import { TextField } from '../components/TextField';
+import { when } from '../lib/format';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'PayoutMethod'>;
 
 export function PayoutMethodScreen({ navigation }: Props) {
-  const [holder, setHolder] = useState('Marcus Reid');
-  const [account, setAccount] = useState('');
-  const [ifsc, setIfsc] = useState('HDFC0001234');
+  const { data } = useQuery(getPayoutAccount);
+  // The save returns the stored account, so the card above updates without a second fetch.
+  const [saved, setSaved] = useState<PayoutAccount | null>(null);
+  const account = saved ?? data;
 
   return (
-    <Screen
-      onBack={() => navigation.goBack()}
-      title="Payout method"
-      footer={<Button label="Save changes" onPress={() => navigation.goBack()} />}
-    >
-      <View style={styles.current}>
-        <View style={styles.bank}>
-          <Ionicons name="business" size={19} color={colors.primary} />
+    <Screen onBack={() => navigation.goBack()} title="Payout method">
+      {account?.set ? (
+        <View style={styles.current}>
+          <View style={styles.bank}>
+            <Ionicons name="business" size={19} color={colors.primary} />
+          </View>
+          <View style={styles.currentText}>
+            <Text style={styles.currentTitle}>
+              {account.ifsc} {account.accountNumberMasked}
+            </Text>
+            <Text style={styles.currentNote}>
+              {account.accountHolder}
+              {account.updatedAt ? ` · updated ${when(account.updatedAt)}` : ''}
+            </Text>
+          </View>
+          <Ionicons name="checkmark-circle" size={19} color={colors.success} />
         </View>
-        <View style={styles.currentText}>
-          <Text style={styles.currentTitle}>HDFC Bank ••4412</Text>
-          <Text style={styles.currentNote}>Active since March 2024</Text>
-        </View>
-        <Ionicons name="checkmark-circle" size={19} color={colors.success} />
-      </View>
+      ) : (
+        <Text style={styles.empty}>
+          No account on file yet. Earnings stay in your balance until there is somewhere to send
+          them.
+        </Text>
+      )}
 
       <ScreenTitle title="Update your account" subtitle="Changes apply from the next payout run." />
 
-      <TextField label="Account holder" value={holder} onChangeText={setHolder} autoCapitalize="words" />
-      <TextField label="Account number" value={account} onChangeText={setAccount} placeholder="0000 0000 0000" keyboardType="number-pad" />
-      <TextField label="IFSC / routing code" value={ifsc} onChangeText={setIfsc} autoCapitalize="none" />
+      <PayoutAccountForm current={account} submitLabel="Save changes" onSaved={setSaved} />
 
       <View style={styles.warning}>
         <Ionicons name="shield-checkmark" size={17} color={colors.warning} />
@@ -49,6 +58,11 @@ export function PayoutMethodScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  empty: {
+    ...type.body,
+    color: colors.textMuted,
+    marginBottom: spacing.lg,
+  },
   current: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ridex.platform.security.JwtPrincipal;
 import com.ridex.driver.dto.DriverProfileResponse;
+import com.ridex.driver.dto.PayoutAccountRequest;
+import com.ridex.driver.dto.PayoutAccountResponse;
 import com.ridex.driver.dto.UpdateDriverProfileRequest;
 
 import jakarta.validation.Valid;
@@ -47,6 +49,19 @@ public class DriverController {
     public com.ridex.driver.dto.OnboardingResponse submitForReview(
             @AuthenticationPrincipal JwtPrincipal principal) {
         return driverOnboardingService.submitForReview(principal.userId());
+    }
+
+    @GetMapping("/payout-account")
+    @ResponseStatus(HttpStatus.OK)
+    public PayoutAccountResponse payoutAccount(@AuthenticationPrincipal JwtPrincipal principal) {
+        return driverProfileService.payoutAccount(principal.userId());
+    }
+
+    @PutMapping("/payout-account")
+    @ResponseStatus(HttpStatus.OK)
+    public PayoutAccountResponse setPayoutAccount(@AuthenticationPrincipal JwtPrincipal principal,
+            @Valid @RequestBody PayoutAccountRequest request) {
+        return driverProfileService.setPayoutAccount(principal.userId(), request);
     }
 
     @PutMapping("/profile")

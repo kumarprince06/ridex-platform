@@ -107,18 +107,35 @@ export type PassProduct = {
   id: string;
   name: string;
   description: string | null;
+  durationDays: number;
+  /** Zero means unlimited rides for the period. */
+  rideLimit: number;
   currency: string;
   priceMinor: number;
-  rides: number | null;
-  validDays: number;
 };
 
 export type Pass = {
   id: string;
   productName: string;
-  ridesRemaining: number | null;
-  expiresAt: string;
+  routeName: string;
+  startsOn: string;
+  endsOn: string;
+  /** Zero means unlimited rides for the period. */
+  rideLimit: number;
+  ridesUsed: number;
+  currency: string;
+  pricePaidMinor: number;
+  redeemedPoints: number;
+  discountMinor: number;
+  /** PENDING_PAYMENT until the money clears, then ACTIVE. A pass covers nothing until then. */
   status: string;
+  /** Present while it is still unpaid, so an abandoned checkout can be reopened. */
+  checkout: {
+    gatewayOrderId: string;
+    gatewayKeyId: string;
+    amountMinor: number;
+    currency: string;
+  } | null;
 };
 
 export function listRoutes() {
@@ -190,8 +207,26 @@ export function cancelBooking(bookingId: string) {
   return request<void>(`/api/v1/shuttle/bookings/${bookingId}/cancel`, { method: 'POST' });
 }
 
-export function listPassProducts() {
-  return request<PassProduct[]>('/api/v1/shuttle/passes/products');
+/** What is on sale for one route. Passes are per route: a commuter buys the corridor they use. */
+export function listPassProducts(routeId: string) {
+  return request<PassProduct[]>(`/api/v1/shuttle/passes/products?routeId=${routeId}`);
+}
+
+export function buyPass(purchase: {
+  productId: string;
+  startsOn?: string;
+  paymentMethod?: 'UPI' | 'CARD';
+  redeemPoints?: number;
+}) {
+  return request<Pass>('/api/v1/shuttle/passes', { method: 'POST', body: purchase });
+}
+
+/** The gateway is asked, not the app believed - the same rule as a seat. */
+export function confirmPassPayment(passId: string, gatewayPaymentId: string) {
+  return request<Pass>(`/api/v1/shuttle/passes/${passId}/payment/confirm`, {
+    method: 'POST',
+    body: { gatewayPaymentId },
+  });
 }
 
 export function listPasses() {

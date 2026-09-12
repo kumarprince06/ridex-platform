@@ -17,6 +17,8 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
 
     Optional<Payment> findByShuttleBookingId(String shuttleBookingId);
 
+    Optional<Payment> findByPassId(String passId);
+
     Page<Payment> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<Payment> findByStatusOrderByCreatedAtDesc(PaymentStatus status, Pageable pageable);
@@ -31,12 +33,15 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
      * <p>Shuttle seats never appear here either, and that is the difference between the two: a
      * trip is charged after it has been taken, so an unpaid one is a debt. A seat is charged
      * before it is used - abandon checkout and the hold simply expires, nothing was consumed.
-     * Counting one blocked every later booking over a seat the rider never got.
+     * Counting one blocked every later booking over a seat the rider never got. A pass is the
+     * same: an abandoned purchase reserves nothing and carried nobody, so locking somebody out of
+     * the platform over it is a punishment for browsing.
      */
     @org.springframework.data.jpa.repository.Query("""
             SELECT p FROM Payment p
             WHERE p.rider.id = :riderId
               AND p.shuttleBookingId IS NULL
+              AND p.passId IS NULL
               AND p.netAmountMinor > 0
               AND p.status IN (
                   com.ridex.payment.domain.PaymentStatus.CREATED,

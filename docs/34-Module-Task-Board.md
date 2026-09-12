@@ -38,7 +38,7 @@ Sources: [28-Rider-App-Gaps.md](28-Rider-App-Gaps.md),
 | M10 | Driver money: bank details and payouts | M | ☑ |
 | M11 | Driver-side trip actions | M | ☑ |
 | M12 | Points polish | S | ☑ |
-| M13 | Passes: actually charge for them | M | ☐ |
+| M13 | Passes: actually charge for them | M | ☑ |
 | M14 | Account, settings and security | M | ☐ |
 | M15 | Saved places | M | ☐ |
 | M16 | Small cleanups | S | ☐ |

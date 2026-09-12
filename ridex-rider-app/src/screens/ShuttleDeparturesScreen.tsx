@@ -63,7 +63,27 @@ export function ShuttleDeparturesScreen({ navigation, route }: Props) {
   }
 
   return (
-    <Screen onBack={() => navigation.goBack()} title={shuttleRoute?.code ?? 'Shuttle'}>
+    <Screen
+      onBack={() => navigation.goBack()}
+      title={shuttleRoute?.code ?? 'Shuttle'}
+      // A commuter on this corridor is exactly who a pass is for, so it is offered here rather
+      // than buried in a menu.
+      headerRight={
+        shuttleRoute ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              navigation.navigate('ShuttlePasses', {
+                routeId: shuttleRoute.id,
+                routeName: shuttleRoute.name,
+              })
+            }
+          >
+            <Text style={styles.passesLink}>Passes</Text>
+          </Pressable>
+        ) : undefined
+      }
+    >
       <ScreenTitle
         small
         title={shuttleRoute?.name ?? 'Departures'}
@@ -208,6 +228,11 @@ function DepartureRow({
 }
 
 const styles = StyleSheet.create({
+  passesLink: {
+    ...type.button,
+    fontSize: 13,
+    color: colors.primary,
+  },
   flex: { flex: 1 },
   spinner: {
     flexGrow: 1,

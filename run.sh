@@ -16,4 +16,16 @@ else
   exit 1
 fi
 
+# The project is built for Java 21. A machine with an older JAVA_HOME pinned in its shell profile
+# compiles fine and then fails at startup with UnsupportedClassVersionError, which reads like a
+# code problem and is not one - so the runtime is chosen here rather than left to the shell.
+if [ -z "${JAVA_HOME:-}" ] || ! "${JAVA_HOME}/bin/java" -version 2>&1 | grep -q '"21'; then
+  for candidate in /usr/lib/jvm/java-21-openjdk-amd64 /usr/lib/jvm/java-1.21.0-openjdk-amd64; do
+    if [ -x "$candidate/bin/java" ]; then
+      export JAVA_HOME="$candidate"
+      break
+    fi
+  done
+fi
+
 exec ./ridex-backend/mvnw -f ridex-backend/pom.xml spring-boot:run

@@ -1,3 +1,8 @@
+server:
+  # 8080 unless something else on the machine already has it - a dev box often runs another
+  # project's service there, and the failure ("port already in use") reads like this app's fault.
+  port: ${RIDEX_PORT:8080}
+
 spring:
   application:
     name: ridex-backend

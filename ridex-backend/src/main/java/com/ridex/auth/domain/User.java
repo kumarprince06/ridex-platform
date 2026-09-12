@@ -2,7 +2,10 @@ package com.ridex.auth.domain;
 
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.ridex.shared.util.UlidGenerator;
 
@@ -92,6 +95,22 @@ public class User {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /**
+     * The name to put in front of a person, when we hold one.
+     *
+     * <p>Optional rather than a default string: the right fallback differs by screen - a driver
+     * reading a manifest at the door wants the seat, a rider looking for a car wants "Your driver",
+     * an operator wants the email - and a default chosen here would be wrong on two of the three.
+     */
+    public Optional<String> displayName() {
+        String name = Stream.of(firstName, lastName)
+                .filter(part -> part != null && !part.isBlank())
+                .map(String::trim)
+                .collect(Collectors.joining(" "));
+
+        return name.isEmpty() ? Optional.empty() : Optional.of(name);
+    }
 
     // One place, so rider and driver profile updates cannot disagree about normalisation.
     public void updateIdentity(String firstName, String lastName, String phone) {

@@ -72,7 +72,8 @@ public class DriverCard {
             return null;
         }
         return new Card(
-                nameOf(driver),
+                // "Your driver" tells a rider nothing to check, but an email address is worse.
+                driver.getUser().displayName().orElse("Your driver"),
                 driver.getUser().getPhone(),
                 driver.getRating() == null ? null : driver.getRating().toPlainString(),
                 vehicle.getMake() + " " + vehicle.getModel(),
@@ -80,11 +81,4 @@ public class DriverCard {
                 vehicle.getSeatCapacity());
     }
 
-    private String nameOf(DriverProfile driver) {
-        String first = driver.getUser().getFirstName();
-        String last = driver.getUser().getLastName();
-        String name = ((first == null ? "" : first) + " " + (last == null ? "" : last)).trim();
-        // An email is a worse name than none, but "your driver" tells a rider nothing to check.
-        return name.isEmpty() ? "Your driver" : name;
-    }
 }

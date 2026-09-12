@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,8 +20,6 @@ import com.ridex.shuttle.domain.RouteFare;
 import com.ridex.shuttle.domain.RouteStop;
 import com.ridex.shuttle.domain.ShuttleSchedule;
 import com.ridex.shuttle.domain.ShuttleTrip;
-import org.springframework.data.domain.PageRequest;
-
 import com.ridex.shuttle.dto.AdminRouteResponse;
 import com.ridex.shuttle.dto.AdminRouteSummary;
 import com.ridex.shuttle.dto.AssignDepartureRequest;
@@ -332,7 +331,9 @@ public class AdminShuttleService {
                 .map(booking -> new AdminDepartureResponse.Seat(
                         booking.getId(),
                         booking.getSeatLabel(),
-                        riderNameOf(booking),
+                        // Ops falls back to the email: they are looking somebody up, not greeting them.
+                        booking.getRider().getUser().displayName()
+                                .orElseGet(() -> booking.getRider().getUser().getEmail()),
                         booking.getRider().getUser().getEmail(),
                         stops.get(booking.getBoardingStopId()),
                         stops.get(booking.getAlightingStopId()),
@@ -357,12 +358,6 @@ public class AdminShuttleService {
                 seats);
     }
 
-    private String riderNameOf(com.ridex.shuttle.domain.ShuttleBooking booking) {
-        var user = booking.getRider().getUser();
-        String name = ((user.getFirstName() == null ? "" : user.getFirstName()) + " "
-                + (user.getLastName() == null ? "" : user.getLastName())).trim();
-        return name.isEmpty() ? user.getEmail() : name;
-    }
 
     @Transactional
     public void assignDeparture(String scheduleId, LocalDate serviceDate,

@@ -10,11 +10,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.driver.DriverProfileRepository;
 import com.ridex.driver.domain.DriverProfile;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
+import com.ridex.payment.PaymentService;
+import com.ridex.points.PointsService;
 import com.ridex.pricing.PricingRuleRepository;
 import com.ridex.pricing.domain.Fare;
 import com.ridex.pricing.domain.FareCalculator;
-import com.ridex.notification.DeliveryChannel;
-import com.ridex.notification.Notifier;
 import com.ridex.pricing.domain.FareLine;
 import com.ridex.pricing.dto.FareLineResponse;
 import com.ridex.ride.RideRequestRepository;
@@ -22,8 +24,6 @@ import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
-import com.ridex.payment.PaymentService;
-import com.ridex.points.PointsService;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.trip.domain.ActorType;
 import com.ridex.trip.domain.Trip;
@@ -338,7 +338,8 @@ public class TripService {
                 trip.getId(),
                 ride.getId(),
                 ride.getStatus(),
-                riderNameOf(ride),
+                // An email address is a worse greeting than none at all.
+                ride.getRider().getUser().displayName().orElse("Your rider"),
                 ride.getPickupAddress(),
                 ride.getDestinationAddress(),
                 trip.getArrivedAt(),
@@ -351,13 +352,6 @@ public class TripService {
                 trip.getFinalFareMinor());
     }
 
-    private String riderNameOf(RideRequest ride) {
-        var user = ride.getRider().getUser();
-        String name = ((user.getFirstName() == null ? "" : user.getFirstName()) + " "
-                + (user.getLastName() == null ? "" : user.getLastName())).trim();
-        // An email address is a worse greeting than none at all.
-        return name.isEmpty() ? "Your rider" : name;
-    }
 
     Currency currencyOf(Trip trip) {
         return Currency.getInstance(trip.getCurrency());

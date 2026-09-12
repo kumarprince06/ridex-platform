@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ridex.driver.DriverProfileRepository;
 import com.ridex.notification.DeliveryChannel;
 import com.ridex.notification.Notifier;
+import com.ridex.payment.PaymentService;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.ForbiddenException;
 import com.ridex.shared.exception.NotFoundException;
@@ -38,7 +39,7 @@ import lombok.RequiredArgsConstructor;
 public class DriverShuttleService {
 
     private final ShuttleTripRepository shuttleTripRepository;
-    private final com.ridex.payment.PaymentService paymentService;
+    private final PaymentService paymentService;
     private final ShuttleBookingRepository bookingRepository;
     private final DriverProfileRepository driverProfileRepository;
     private final RouteStopRepository routeStopRepository;
@@ -152,17 +153,13 @@ public class DriverShuttleService {
     }
 
     private ManifestResponse.Passenger passenger(ShuttleBooking booking, Map<String, RouteStop> stops) {
-        var user = booking.getRider().getUser();
-        String name = java.util.stream.Stream.of(user.getFirstName(), user.getLastName())
-                .filter(part -> part != null && !part.isBlank())
-                .collect(Collectors.joining(" "));
-
         return new ManifestResponse.Passenger(
                 booking.getId(),
                 booking.getSeatLabel(),
                 // Falls back to the seat rather than the email: a driver reading a list aloud at
                 // the door does not need a passenger's address, and docs/14 keeps it off this list.
-                name.isBlank() ? "Seat " + booking.getSeatLabel() : name,
+                booking.getRider().getUser().displayName()
+                        .orElseGet(() -> "Seat " + booking.getSeatLabel()),
                 stops.containsKey(booking.getAlightingStopId())
                         ? stops.get(booking.getAlightingStopId()).getName()
                         : "Unknown stop",

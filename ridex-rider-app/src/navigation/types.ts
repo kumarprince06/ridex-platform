@@ -40,7 +40,17 @@ export type RootStackParamList = {
   SearchDestination: {
     picked?: { field: 'pickup' | 'destination'; name: string; coord: [number, number] };
   } | undefined;
-  PickOnMap: { mode: 'pickup' | 'destination'; initial?: [number, number] };
+  PickOnMap: {
+    mode: 'pickup' | 'destination';
+    initial?: [number, number];
+    /**
+     * Where the pinned point goes when the caller is not the search screen.
+     *
+     * A callback because the picker is a pushed screen rather than a modal the caller renders -
+     * the result has to come back to whoever opened it.
+     */
+    onPicked?: (picked: { name: string; coord: [number, number] }) => void;
+  };
   RoutePreview: {
     destination: string;
     destinationCoord?: [number, number];

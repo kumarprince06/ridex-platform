@@ -53,6 +53,13 @@ public class RiderProfile {
     @Column(name = "profile_image_key", length = 255)
     private String profileImageKey;
 
+    /** Folded in as each driver rates them, the same way a driver's average is kept. */
+    @Column(name = "rating", precision = 3, scale = 2)
+    private java.math.BigDecimal rating;
+
+    @Column(name = "rating_count", nullable = false)
+    private int ratingCount;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

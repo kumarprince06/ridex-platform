@@ -16,6 +16,7 @@ import { useCurrentAddress } from '../api/maps';
 import { listRides } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { LngLat, useCurrentLocation } from '../lib/location';
+import { listSavedPlaces } from '../api/places';
 import { Place, searchPlaces } from '../lib/places';
 import { RootStackParamList } from '../navigation/types';
 import { colors, IconName, radius, spacing, type } from '../theme';
@@ -63,6 +64,8 @@ export function SearchDestinationScreen({ navigation, route }: Props) {
   // Past destinations, each with the coordinates it was actually ridden to. A shortcut that
   // carries only a name is a shortcut that cannot be priced.
   const { data: rides } = useQuery(listRides, []);
+  const { data: savedPlaces } = useQuery(listSavedPlaces, []);
+  const saved = savedPlaces ?? [];
   const recent = (rides ?? [])
     .filter((ride) => ride.destinationAddress)
     .filter(
@@ -267,6 +270,24 @@ export function SearchDestinationScreen({ navigation, route }: Props) {
                 address={place.detail}
                 chevron
                 onPress={() => choose(place.name, place.coord)}
+              />
+            ))}
+          </>
+        ) : null}
+
+        {/* Saved first: somebody who named a place goes there more often than anywhere else. */}
+        {query.trim().length < 3 && saved.length > 0 ? (
+          <>
+            <SectionHeader title="SAVED" action="" />
+            {saved.map((place) => (
+              <PlaceRow
+                key={place.id}
+                icon="bookmark"
+                tone={colors.primary}
+                name={place.label}
+                address={place.address}
+                chevron
+                onPress={() => choose(place.address, [place.longitude, place.latitude])}
               />
             ))}
           </>

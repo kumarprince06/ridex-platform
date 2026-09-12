@@ -9,7 +9,7 @@ import { confirmShuttlePayment, type ShuttleBooking } from './shuttle';
  * bundled asset cannot be handed to it. Left empty until one is hosted, in which case checkout
  * falls back to the logo set on the Razorpay dashboard, which is where the branding belongs.
  */
-const CHECKOUT_LOGO = process.env.EXPO_PUBLIC_CHECKOUT_LOGO_URL ?? '';
+export const CHECKOUT_LOGO = process.env.EXPO_PUBLIC_CHECKOUT_LOGO_URL ?? '';
 
 /**
  * Opens Razorpay for a held seat and confirms it with the server.

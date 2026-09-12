@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.dispatch.DispatchTrigger;
 import com.ridex.driver.DriverCard;
+import com.ridex.shared.exception.ForbiddenException;
+import com.ridex.notification.Notifier;
+import com.ridex.driver.DriverProfileRepository;
 import com.ridex.location.DriverPresence;
 import com.ridex.payment.OutstandingPayments;
 import com.ridex.payment.PaymentService;
@@ -56,6 +59,8 @@ public class RideRequestService {
     private final TripRepository tripRepository;
     private final DriverCard driverCard;
     private final DriverPresence driverPresence;
+    private final DriverProfileRepository driverProfileRepository;
+    private final Notifier notifier;
 
     /** The zone a cancellation date is written in, for the line the rider reads on their next fare. */
     @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
@@ -181,6 +186,13 @@ public class RideRequestService {
         ride.cancel(CancelledBy.RIDER, request.text(), fee.amountMinor(), now);
         ride.setCancellationReasonCode(request.reasonCode());
 
+        // The ride is not happening, so the points it spent come back - as a new entry, which is
+        // what the booking path promised when it took them.
+        if (ride.getRedeemedPoints() > 0) {
+            pointsService.returnRidePoints(ride.getRider().getUser().getId(),
+                    ride.getRedeemedPoints(), ride.getId());
+        }
+
         rideRequestRepository.save(ride);
 
         // A driver was already on their way, so the fee is real. Nothing can be collected now -
@@ -198,11 +210,59 @@ public class RideRequestService {
     }
 
     /** The reasons the app offers, from the server, so both sides can never drift apart. */
-    public List<CancellationReasonResponse> cancellationReasons() {
+    public List<CancellationReasonResponse> cancellationReasons(CancelledBy side) {
         return Arrays.stream(CancellationReason.values())
+                .filter(reason -> reason.isFor(side))
                 .map(reason -> new CancellationReasonResponse(
                         reason.name(), reason.label(), reason.needsDetail()))
                 .toList();
+    }
+
+    /**
+     * The driver's cancellation.
+     *
+     * <p>Ends the rider's ride with a stated reason rather than leaving them watching a car that
+     * is not coming. No fee is charged to the rider: they did not cancel, and the policy rows for
+     * CancelledBy.DRIVER exist so a cancelling driver can be counted, not billed.
+     */
+    @Transactional
+    public RideResponse cancelAsDriver(String driverUserId, String rideId,
+            CancelRideRequest request) {
+        RideRequest ride = rideRequestRepository.findById(rideId)
+                .orElseThrow(() -> new NotFoundException("No such ride."));
+
+        String driverId = driverProfileRepository.findByUserId(driverUserId)
+                .orElseThrow(() -> new NotFoundException("No driver profile for this account."))
+                .getId();
+
+        if (!driverId.equals(ride.getAssignedDriverId())) {
+            throw new ForbiddenException("That ride was assigned to another driver.");
+        }
+        if (ride.getStatus().isTerminal()) {
+            throw new ConflictException("That ride has already ended.");
+        }
+        if (!request.reasonCode().isFor(CancelledBy.DRIVER)) {
+            throw new ValidationException("That is not a reason a driver can give.");
+        }
+        if (request.isDetailMissing()) {
+            throw new ValidationException("Tell us what went wrong, so we can act on it.");
+        }
+
+        ride.cancel(CancelledBy.DRIVER, request.text(), 0, Instant.now());
+        ride.setCancellationReasonCode(request.reasonCode());
+
+        if (ride.getRedeemedPoints() > 0) {
+            pointsService.returnRidePoints(ride.getRider().getUser().getId(),
+                    ride.getRedeemedPoints(), ride.getId());
+        }
+
+        rideRequestRepository.save(ride);
+
+        // The rider is watching a map, not their inbox: this is what moves them off it.
+        notifier.notifyUser(ride.getRider().getUser().getId(), "RIDE_CANCELLED_BY_DRIVER",
+                request.text(), "RIDE", ride.getId());
+
+        return toResponse(ride);
     }
 
     /** What the rider owes from an earlier cancellation, added to their next fare. */

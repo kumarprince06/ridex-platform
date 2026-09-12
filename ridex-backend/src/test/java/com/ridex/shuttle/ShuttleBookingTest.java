@@ -18,7 +18,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import com.ridex.payment.PaymentProvider;
+import com.ridex.payment.PaymentProviders;
 
 import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.User;
@@ -35,8 +44,17 @@ import com.ridex.shuttle.dto.BookSeatRequest;
 @SpringBootTest
 class ShuttleBookingTest {
 
+    /**
+     * The gateway, stubbed.
+     *
+     * <p>A pass is online-only - there is nobody to hand cash to when one is bought - so unlike a
+     * seat these tests cannot dodge the provider by paying cash.
+     */
+    @MockitoBean private PaymentProviders paymentProviders;
+
     @Autowired private ShuttleService shuttleService;
     @Autowired private PassService passService;
+    @Autowired private com.ridex.points.PointsService pointsService;
     @Autowired private RouteRepository routeRepository;
     @Autowired private RouteFareRepository routeFareRepository;
     @Autowired private ShuttleScheduleRepository scheduleRepository;
@@ -52,8 +70,19 @@ class ShuttleBookingTest {
 
     @BeforeEach
     void setUp() {
+        PaymentProvider gateway = mock(PaymentProvider.class);
+        when(gateway.name()).thenReturn("RAZORPAY");
+        when(gateway.createPaymentIntent(any(), anyString(), anyString()))
+                .thenAnswer(call -> new PaymentProvider.ProviderPayment(
+                        "order_" + call.getArgument(1), "REQUIRES_ACTION", null));
+        when(gateway.confirmPayment(anyString()))
+                .thenAnswer(call -> new PaymentProvider.ProviderPayment(
+                        call.getArgument(0), "SUCCEEDED", null));
+        when(paymentProviders.forMethod(any())).thenReturn(gateway);
+
         route = new Route();
-        route.setCode("R" + System.nanoTime() % 100000);
+        // Wide enough not to collide: these tests commit, so yesterday's rows are still here.
+        route.setCode("R" + System.nanoTime());
         route.setName("Whitefield to Electronic City");
         for (int i = 0; i < 4; i++) {
             RouteStop stop = new RouteStop();
@@ -153,22 +182,49 @@ class ShuttleBookingTest {
     void aPassCoversTheFareAndCountsARide() {
         String rider = newRider();
 
-        PassProduct product = new PassProduct();
-        product.setRoute(route);
-        product.setName("Weekly commuter");
-        product.setDurationDays((short) 7);
-        product.setRideLimit((short) 10);
-        product.setCurrency("INR");
-        product.setPriceMinor(50000);
-        passProductRepository.save(product);
+        PassProduct product = weeklyPass();
 
-        passService.buy(rider, product.getId(), LocalDate.now());
+        // Bought and paid for: a pass covers nothing until the money clears.
+        var pass = passService.buy(rider, product.getId(), LocalDate.now(), PaymentMethod.UPI, null);
+        passService.confirmPayment(rider, pass.id(), "pay_" + pass.id());
         var booking = shuttleService.book(rider, request("1A"));
 
         // Covered, so nothing is charged for the seat.
         assertThat(booking.fareMinor()).isZero();
         assertThat(booking.passId()).isNotNull();
         assertThat(passService.mine(rider).get(0).ridesUsed()).isEqualTo(1);
+    }
+
+    @Test
+    void anUnpaidPassCoversNothing() {
+        String rider = newRider();
+        PassProduct product = weeklyPass();
+
+        var pass = passService.buy(rider, product.getId(), LocalDate.now(), PaymentMethod.UPI, null);
+
+        // Prepaid: it exists, it has an open checkout, and it buys nothing until the money clears.
+        assertThat(pass.status()).isEqualTo("PENDING_PAYMENT");
+        assertThat(pass.checkout()).isNotNull();
+        assertThat(shuttleService.book(rider, request("1D")).fareMinor()).isEqualTo(6000);
+    }
+
+    @Test
+    void pointsPayPartOfAPassAndTheGatewayChargesTheRest() {
+        String rider = newRider();
+        for (int i = 0; i < 30; i++) {
+            pointsService.awardForCompletedRide(rider, "seed-" + System.nanoTime());
+        }
+        PassProduct product = weeklyPass();
+
+        var pass = passService.buy(rider, product.getId(), LocalDate.now(), PaymentMethod.UPI, 500);
+
+        // Points are a discount funded by the platform, so the pass is still worth its full price.
+        assertThat(pass.redeemedPoints()).isPositive();
+        assertThat(pass.discountMinor()).isPositive();
+        assertThat(pass.pricePaidMinor()).isEqualTo(50000);
+        // And the gateway is asked for the difference, not the whole price.
+        assertThat(pass.checkout().amountMinor())
+                .isEqualTo(product.getPriceMinor() - pass.discountMinor());
     }
 
     @Test
@@ -189,6 +245,17 @@ class ShuttleBookingTest {
         // A twelve-seater has no 9D, and selling one strands somebody at the roadside.
         assertThatThrownBy(() -> shuttleService.book(newRider(), request("9D")))
                 .isInstanceOf(ValidationException.class);
+    }
+
+    private PassProduct weeklyPass() {
+        PassProduct product = new PassProduct();
+        product.setRoute(route);
+        product.setName("Weekly commuter");
+        product.setDurationDays((short) 7);
+        product.setRideLimit((short) 10);
+        product.setCurrency("INR");
+        product.setPriceMinor(50000);
+        return passProductRepository.save(product);
     }
 
     private BookSeatRequest request(String seat) {

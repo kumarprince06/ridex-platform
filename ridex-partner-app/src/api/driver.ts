@@ -48,6 +48,10 @@ export type Trip = {
   quotedFareMinor: number;
   /** CASH or ONLINE - whether the driver collects at the door. */
   paymentMethod: string;
+  /** What was actually driven, once the trip has ended. */
+  actualDistanceMeters: number | null;
+  /** What the rider gave, once they have. Null while the ride is still unrated. */
+  riderRating: number | null;
   finalFareMinor: number | null;
 };
 
@@ -105,6 +109,59 @@ export function setPayoutAccount(account: {
   return request<PayoutAccount>('/api/v1/driver/payout-account', {
     method: 'PUT',
     body: account,
+  });
+}
+
+/** One line in the driver's history: what they earned, not what the rider paid. */
+export type TripSummary = {
+  tripId: string;
+  rideId: string;
+  status: string;
+  riderName: string;
+  pickupAddress: string | null;
+  destinationAddress: string | null;
+  currency: string;
+  fareMinor: number | null;
+  earnedMinor: number | null;
+  distanceMeters: number | null;
+  completedAt: string | null;
+  /** What the rider gave, once they have. Null while the ride is still unrated. */
+  riderRating: number | null;
+};
+
+export type CancellationReason = { code: string; label: string; needsDetail: boolean };
+
+export type DriverRating = {
+  rideId: string;
+  stars: number;
+  comment: string | null;
+  createdAt: string;
+};
+
+export function listTrips() {
+  return request<TripSummary[]>('/api/v1/trips');
+}
+
+export function listRatings() {
+  return request<DriverRating[]>('/api/v1/driver/ratings');
+}
+
+export function cancellationReasons() {
+  return request<CancellationReason[]>('/api/v1/driver/cancellation-reasons');
+}
+
+/** Ends the rider's ride with a stated reason, rather than leaving them watching the map. */
+export function cancelRide(rideId: string, reasonCode: string, reason?: string) {
+  return request<void>(`/api/v1/driver/rides/${rideId}/cancel`, {
+    method: 'POST',
+    body: { reasonCode, reason },
+  });
+}
+
+export function rateRider(rideId: string, stars: number, comment?: string) {
+  return request<void>(`/api/v1/driver/rides/${rideId}/rate-rider`, {
+    method: 'POST',
+    body: { stars, comment },
   });
 }
 

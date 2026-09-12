@@ -19,7 +19,15 @@ public record SeatMapResponse(
          */
         int aisleAfter,
         List<SeatResponse> seats,
-        int seatsAvailable) {
+        int seatsAvailable,
+        /**
+         * What this leg costs, when the caller named both stops.
+         *
+         * <p>On the seat map so the picker can show what points take off before the rider agrees
+         * to it - a discount that only appears on the ticket is a surprise, not an offer.
+         */
+        Long fareMinor,
+        String currency) {
 
     public record SeatResponse(String label, boolean available) {
     }

@@ -86,7 +86,8 @@ class AuthServiceTest {
 
         authService = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, passwordEncoder, rateLimiter, notifier, riderProfileService, driverProfileService);
+                jwtService, passwordEncoder, rateLimiter, mock(AuthEventRepository.class), notifier,
+                riderProfileService, driverProfileService);
         authService.generateDecoyHash();
 
         when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
@@ -245,7 +246,8 @@ class AuthServiceTest {
         when(encoder.encode(any())).thenReturn("hashed");
         AuthService service = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, encoder, rateLimiter, notifier, riderProfileService, driverProfileService);
+                jwtService, encoder, rateLimiter, mock(AuthEventRepository.class), notifier,
+                riderProfileService, driverProfileService);
         service.generateDecoyHash();
         when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
 
@@ -262,7 +264,8 @@ class AuthServiceTest {
         when(encoder.matches(any(), any())).thenReturn(false);
         AuthService service = new AuthService(
                 userRepository, userTokenRepository, refreshTokenRepository, authSecurityService,
-                jwtService, encoder, rateLimiter, notifier, riderProfileService, driverProfileService);
+                jwtService, encoder, rateLimiter, mock(AuthEventRepository.class), notifier,
+                riderProfileService, driverProfileService);
         service.generateDecoyHash();
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 

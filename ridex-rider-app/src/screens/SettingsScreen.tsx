@@ -2,76 +2,67 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Chip } from '../components/Chip';
+import { getPreferences, updatePreferences } from '../api/notifications';
+import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
 import { ToggleRow } from '../components/ToggleRow';
+import { useDevicePreferences } from '../lib/preferences';
 import { RootStackParamList } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
-const LANGUAGES = ['English', 'Español', 'Français'];
-
 const ABOUT_LINKS = ['Terms of Service', 'Privacy Policy', 'Open Source Licenses'];
 
 export function SettingsScreen({ navigation }: Props) {
-  const [darkMode, setDarkMode] = useState(true);
-  const [language, setLanguage] = useState('English');
-  const [backgroundLocation, setBackgroundLocation] = useState(true);
-  const [dataSaver, setDataSaver] = useState(false);
-  const [rideUpdates, setRideUpdates] = useState(true);
-  const [promotions, setPromotions] = useState(true);
+  const { preferences: device, set: setDevice } = useDevicePreferences();
+
+  // The server decides whether to push, so these live there. Held locally as well so a switch
+  // moves the moment it is tapped rather than after a round trip.
+  const { data: served } = useQuery(getPreferences);
+  const [notify, setNotify] = useState<{ push: boolean; promotions: boolean } | null>(null);
+  const push = notify?.push ?? served?.push ?? true;
+  const promotions = notify?.promotions ?? served?.promotions ?? true;
+
+  function change(next: { push?: boolean; promotions?: boolean }) {
+    const merged = { push, promotions, ...next };
+    setNotify(merged);
+    void updatePreferences({ ...merged, email: served?.email ?? true }).catch(() =>
+      // Put back what the server still believes: a switch that lies is worse than one that snaps
+      // back.
+      setNotify(null),
+    );
+  }
 
   return (
     <Screen onBack={() => navigation.goBack()} title="Settings">
-      <SectionLabel>APPEARANCE</SectionLabel>
-      <ToggleRow
-        title="Dark Mode"
-        subtitle="Always-on dark theme"
-        value={darkMode}
-        onValueChange={setDarkMode}
-      />
-
-      <Text style={styles.label}>Language</Text>
-      <View style={styles.languages}>
-        {LANGUAGES.map((option) => (
-          <Chip
-            key={option}
-            label={option}
-            selected={language === option}
-            onPress={() => setLanguage(option)}
-            style={styles.language}
-          />
-        ))}
-      </View>
-
       <SectionLabel>PRIVACY</SectionLabel>
       <ToggleRow
         title="Background Location"
         subtitle="Track location when app is closed"
-        value={backgroundLocation}
-        onValueChange={setBackgroundLocation}
+        value={device.backgroundLocation}
+        onValueChange={(value) => setDevice({ backgroundLocation: value })}
       />
       <ToggleRow
         title="Data Optimization"
         subtitle="Reduce data usage on metered connections"
-        value={dataSaver}
-        onValueChange={setDataSaver}
+        value={device.dataSaver}
+        onValueChange={(value) => setDevice({ dataSaver: value })}
       />
 
       <SectionLabel>NOTIFICATIONS</SectionLabel>
       <ToggleRow
-        title="Ride Updates"
-        subtitle="Driver status, arrival alerts"
-        value={rideUpdates}
-        onValueChange={setRideUpdates}
+        title="Push notifications"
+        subtitle="Trip updates and booking news on this phone"
+        value={push}
+        onValueChange={(value) => change({ push: value })}
       />
       <ToggleRow
         title="Promotions"
         subtitle="Deals, promo codes, and offers"
         value={promotions}
-        onValueChange={setPromotions}
+        onValueChange={(value) => change({ promotions: value })}
       />
 
       <SectionLabel>ABOUT</SectionLabel>
@@ -94,21 +85,6 @@ export function SettingsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  label: {
-    ...type.button,
-    fontSize: 15,
-    color: colors.text,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  languages: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  language: {
-    flex: 1,
-    alignItems: 'center',
-  },
   aboutRow: {
     flexDirection: 'row',
     alignItems: 'center',

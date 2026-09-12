@@ -32,7 +32,7 @@ Sources: [28-Rider-App-Gaps.md](28-Rider-App-Gaps.md),
 | M4 | Live location on the map | M | ☑ |
 | M5 | Admin detail pages | M | ☑ |
 | M6 | Admin shuttle operations | M | ☑ |
-| M7 | Support and Report an Issue | M | ☐ |
+| M7 | Support and Report an Issue | M | ☑ |
 | M8 | Demo deployment and CI/CD | M | ☐ |
 | M9 | Notifications feed | M | ☐ |
 | M10 | Driver money: bank details and payouts | M | ☐ |

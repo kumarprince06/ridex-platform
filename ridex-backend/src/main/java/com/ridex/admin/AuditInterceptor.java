@@ -6,6 +6,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -75,7 +76,7 @@ public class AuditInterceptor {
     }
 
     private static JwtPrincipal currentActor() {
-        var authentication = org.springframework.security.core.context.SecurityContextHolder
+        var authentication = SecurityContextHolder
                 .getContext().getAuthentication();
         return authentication != null && authentication.getPrincipal() instanceof JwtPrincipal principal
                 ? principal

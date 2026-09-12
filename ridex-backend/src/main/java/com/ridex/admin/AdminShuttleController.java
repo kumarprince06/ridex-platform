@@ -2,14 +2,15 @@ package com.ridex.admin;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.function.Function;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import com.ridex.shuttle.AdminShuttleService;
 import com.ridex.admin.dto.PageResponse;
+import com.ridex.shuttle.AdminShuttleService;
 import com.ridex.shuttle.dto.AdminRouteResponse;
 import com.ridex.shuttle.dto.AdminRouteSummary;
 import com.ridex.shuttle.dto.AssignDepartureRequest;
@@ -42,7 +43,7 @@ public class AdminShuttleController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
         return PageResponse.of(adminShuttleService.routes(page, size),
-                java.util.function.Function.identity());
+                Function.identity());
     }
 
     @GetMapping("/{routeId}")

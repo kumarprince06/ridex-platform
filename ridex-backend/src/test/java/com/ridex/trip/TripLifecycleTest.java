@@ -63,7 +63,7 @@ class TripLifecycleTest {
     @Autowired private RiderProfileService riderProfileService;
     @Autowired private UserRepository userRepository;
     @Autowired private com.ridex.vehicle.VehicleService vehicleService;
-    @Autowired private com.ridex.admin.AdminQueryService adminQueries;
+    @Autowired private com.ridex.admin.AdminRideQueries adminRides;
 
     private String riderUserId;
     private String driverUserId;
@@ -131,7 +131,7 @@ class TripLifecycleTest {
         tripService.start(driverUserId, tripId, new StartTripRequest(pickupCode));
         tripService.complete(driverUserId, tripId, new CompleteTripRequest(8900, 1560));
 
-        var detail = adminQueries.trip(rideId);
+        var detail = adminRides.trip(rideId);
 
         // The transitions with their actor: "who cancelled" is the first question in every dispute.
         assertThat(detail.timeline()).isNotEmpty()

@@ -2,22 +2,20 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Chip } from '../components/Chip';
+import { getPreferences, updatePreferences } from '../api/notifications';
+import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
 import { ToggleRow } from '../components/ToggleRow';
+import { useDevicePreferences } from '../lib/preferences';
 import { RootStackParamList } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
-const LANGUAGES = ['English', 'Español', 'Français'];
-
 const ABOUT_LINKS = ['Terms of Service', 'Privacy Policy', 'Open Source Licenses'];
 
 export function SettingsScreen({ navigation }: Props) {
-  const [darkMode, setDarkMode] = useState(true);
-  const [language, setLanguage] = useState('English');
   const [backgroundLocation, setBackgroundLocation] = useState(true);
   const [dataSaver, setDataSaver] = useState(false);
   const [offerAlerts, setOfferAlerts] = useState(true);
@@ -26,27 +24,6 @@ export function SettingsScreen({ navigation }: Props) {
 
   return (
     <Screen onBack={() => navigation.goBack()} title="Settings">
-      <SectionLabel>APPEARANCE</SectionLabel>
-      <ToggleRow
-        title="Dark Mode"
-        subtitle="Always-on dark theme"
-        value={darkMode}
-        onValueChange={setDarkMode}
-      />
-
-      <Text style={styles.label}>Language</Text>
-      <View style={styles.languages}>
-        {LANGUAGES.map((option) => (
-          <Chip
-            key={option}
-            label={option}
-            selected={language === option}
-            onPress={() => setLanguage(option)}
-            style={styles.language}
-          />
-        ))}
-      </View>
-
       <SectionLabel>PRIVACY</SectionLabel>
       <ToggleRow
         title="Background Location"
@@ -103,21 +80,6 @@ export function SettingsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  label: {
-    ...type.button,
-    fontSize: 15,
-    color: colors.text,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  languages: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  language: {
-    flex: 1,
-    alignItems: 'center',
-  },
   aboutRow: {
     flexDirection: 'row',
     alignItems: 'center',

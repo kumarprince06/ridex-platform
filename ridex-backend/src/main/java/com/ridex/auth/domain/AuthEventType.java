@@ -10,6 +10,7 @@ public enum AuthEventType {
     EMAIL_VERIFIED,
     PASSWORD_RESET_REQUESTED,
     PASSWORD_RESET,
+    PASSWORD_CHANGED,
     TOKEN_REFRESHED,
 
     // A spent refresh token was replayed: revokes every session for the account.

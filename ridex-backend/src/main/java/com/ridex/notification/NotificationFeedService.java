@@ -6,7 +6,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ridex.notification.dto.NotificationPreferenceResponse;
 import com.ridex.notification.dto.NotificationResponse;
+import com.ridex.notification.dto.UpdatePreferencesRequest;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class NotificationFeedService {
 
     private final UserNotificationRepository repository;
+    private final NotificationPreferenceRepository preferenceRepository;
 
     /** The last fifty. Nobody scrolls past that, and a feed is not an archive. */
     @Transactional(readOnly = true)
@@ -33,6 +36,33 @@ public class NotificationFeedService {
     @Transactional(readOnly = true)
     public long unreadCount(String userId) {
         return repository.countByUserIdAndReadAtIsNull(userId);
+    }
+
+    /** What this person wants to be told about. Everything, until they have said otherwise. */
+    @Transactional(readOnly = true)
+    public NotificationPreferenceResponse preferences(String userId) {
+        return preferenceRepository.findById(userId)
+                .map(row -> new NotificationPreferenceResponse(row.isPush(), row.isEmail(),
+                        row.isPromotions()))
+                .orElse(new NotificationPreferenceResponse(true, true, true));
+    }
+
+    @Transactional
+    public NotificationPreferenceResponse updatePreferences(String userId,
+            UpdatePreferencesRequest request) {
+        NotificationPreference row = preferenceRepository.findById(userId)
+                .orElseGet(() -> {
+                    NotificationPreference fresh = new NotificationPreference();
+                    fresh.setUserId(userId);
+                    return fresh;
+                });
+
+        row.setPush(request.push());
+        row.setEmail(request.email());
+        row.setPromotions(request.promotions());
+        preferenceRepository.save(row);
+
+        return new NotificationPreferenceResponse(row.isPush(), row.isEmail(), row.isPromotions());
     }
 
     /** Opening the screen is the acknowledgement, so this is one statement rather than per row. */

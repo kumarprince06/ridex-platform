@@ -39,7 +39,7 @@ Sources: [28-Rider-App-Gaps.md](28-Rider-App-Gaps.md),
 | M11 | Driver-side trip actions | M | ☑ |
 | M12 | Points polish | S | ☑ |
 | M13 | Passes: actually charge for them | M | ☑ |
-| M14 | Account, settings and security | M | ☐ |
+| M14 | Account, settings and security | M | ☑ |
 | M15 | Saved places | M | ☐ |
 | M16 | Small cleanups | S | ☐ |
 
@@ -320,6 +320,7 @@ Not on the board. Listed so they are a decision, not an oversight:
 
 | Item | Why not now |
 |---|---|
+| Account deletion, done properly | Needs a policy first: what happens to rides, invoices and unpaid dues. The app raises a support request instead of guessing |
 | Promotions | No backend module at all. Real feature, needs its own design. [32](32-Business-Readiness-and-New-Lines.md) |
 | Feature flags | `platform_settings` with a boolean type covers it if it is ever needed |
 | Notification templates in the database | The switch is fine until ops needs to edit copy without a deploy |

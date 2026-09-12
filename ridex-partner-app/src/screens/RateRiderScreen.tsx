@@ -6,6 +6,8 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Screen } from '../components/Screen';
 import { Stars } from '../components/Stars';
+import { rateRider } from '../api/driver';
+import { ApiError } from '../api/problem';
 import { RIDER_RATING_TAGS } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
@@ -14,18 +16,43 @@ type Props = RootScreenProps<'RateRider'>;
 
 export function RateRiderScreen({ navigation, route }: Props) {
   const riderName = route.params?.riderName ?? 'Your rider';
+  const rideId = route.params?.rideId;
   const [rating, setRating] = useState(5);
   const [tags, setTags] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
 
-  const finish = () => navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+  const home = () => navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+
+  // The tags are the comment: they are what a driver actually taps, and the server stores words.
+  async function submit() {
+    if (!rideId) {
+      home();
+      return;
+    }
+    setBusy(true);
+    try {
+      await rateRider(rideId, rating, tags.join(', ') || undefined);
+    } catch (caught) {
+      // A rating is not worth trapping a driver on a screen: the trip is over either way, and
+      // "already rated" is the most likely reason anyway.
+      if (!(caught instanceof ApiError)) {
+        // Nothing else to do with it - the next screen is home regardless.
+      }
+    } finally {
+      setBusy(false);
+      home();
+    }
+  }
+
+  const finish = () => void submit();
 
   return (
     <Screen
       footer={
         <View style={styles.actions}>
-          <Button label="Submit rating" onPress={finish} />
+          <Button label={busy ? 'Sending...' : 'Submit rating'} disabled={busy} onPress={finish} />
           {/* Skippable: a rating the driver is forced through is a rating nobody reads. */}
-          <Button label="Skip" variant="secondary" onPress={finish} />
+          <Button label="Skip" variant="secondary" onPress={home} />
         </View>
       }
     >

@@ -30,6 +30,7 @@ import com.ridex.trip.domain.Trip;
 import com.ridex.trip.domain.TripFareLine;
 import com.ridex.trip.domain.TripStatusHistory;
 import com.ridex.trip.dto.CompleteTripRequest;
+import com.ridex.trip.dto.DriverTripSummary;
 import com.ridex.trip.dto.FareComparisonResponse;
 import com.ridex.trip.dto.StartTripRequest;
 import com.ridex.trip.dto.TripResponse;
@@ -69,6 +70,8 @@ public class TripService {
     private final PointsService pointsService;
     private final PaymentService paymentService;
     private final Notifier notifier;
+    private final com.ridex.payment.DriverEarningRepository driverEarningRepository;
+    private final com.ridex.rating.RideRatingRepository rideRatingRepository;
 
     /**
      * Creates the trip and its pickup code the moment a driver is assigned.
@@ -328,6 +331,45 @@ public class TripService {
                 .orElseThrow(() -> new NotFoundException("No such trip."));
     }
 
+    /**
+     * This driver's trips, newest first.
+     *
+     * <p>Earnings come from the driver_earnings row rather than the fare: what a driver made and
+     * what the rider paid differ by the platform's commission, and showing the fare as income is a
+     * support ticket every week.
+     */
+    @Transactional(readOnly = true)
+    public List<DriverTripSummary> history(String driverUserId) {
+        String driverId = driverProfileRepository.findByUserId(driverUserId)
+                .orElseThrow(() -> new NotFoundException("No driver profile for this account."))
+                .getId();
+
+        return tripRepository.findTop50ByDriverIdOrderByCreatedAtDesc(driverId).stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    private DriverTripSummary toSummary(Trip trip) {
+        RideRequest ride = trip.getRideRequest();
+        return new DriverTripSummary(
+                trip.getId(),
+                ride.getId(),
+                ride.getStatus(),
+                ride.getRider().getUser().displayName().orElse("Your rider"),
+                ride.getPickupAddress(),
+                ride.getDestinationAddress(),
+                trip.getCurrency(),
+                trip.getFinalFareMinor(),
+                driverEarningRepository.findByTripId(trip.getId())
+                        .map(earning -> earning.getNetAmountMinor())
+                        .orElse(null),
+                trip.getActualDistanceMeters(),
+                trip.getCompletedAt(),
+                rideRatingRepository.findByRideId(ride.getId())
+                        .map(rating -> rating.getStars())
+                        .orElse(null));
+    }
+
     /** The trip a driver is on, for the screens between accepting an offer and completing it. */
     @Transactional(readOnly = true)
     public TripResponse forDriver(String driverUserId, String tripId) {
@@ -351,6 +393,10 @@ public class TripService {
                 trip.getCurrency(),
                 ride.getQuotedFareMinor(),
                 ride.getPaymentMethod().name(),
+                trip.getActualDistanceMeters(),
+                rideRatingRepository.findByRideId(ride.getId())
+                        .map(rating -> rating.getStars())
+                        .orElse(null),
                 trip.getFinalFareMinor());
     }
 

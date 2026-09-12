@@ -1,62 +1,105 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { getEarnings, getTrip } from '../api/driver';
+import { useQuery } from '../api/useQuery';
 import { RouteStops } from '../components/RouteStops';
 import { Screen } from '../components/Screen';
 import { Stars } from '../components/Stars';
-import { TRIPS } from '../data/mock';
+import { distance, money, when } from '../lib/format';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'TripDetails'>;
 
+/**
+ * One finished trip, from the driver's side.
+ *
+ * <p>The fare breakdown comes from the earnings row rather than the trip: gross, commission and
+ * net are what the platform actually booked, and docs/04 requires the three to stay
+ * distinguishable rather than blended into one number.
+ */
 export function TripDetailsScreen({ navigation, route }: Props) {
-  const trip = TRIPS.find((item) => item.id === route.params.tripId) ?? TRIPS[0];
+  const { tripId } = route.params;
+  const { data: trip, loading, error } = useQuery(() => getTrip(tripId), [tripId]);
+  const { data: earnings } = useQuery(getEarnings);
+
+  const line = earnings?.recent.find((entry) => entry.tripId === tripId);
+  const currency = trip?.currency ?? earnings?.currency ?? 'INR';
 
   return (
-    <Screen onBack={() => navigation.goBack()} title={`Trip #${trip.id}`}>
-      <View style={styles.hero}>
-        <Text style={styles.netLabel}>YOU EARNED</Text>
-        <Text style={styles.net}>{trip.net}</Text>
-        <Text style={styles.when}>{trip.when}</Text>
-      </View>
+    <Screen onBack={() => navigation.goBack()} title="Trip">
+      {loading ? <Text style={styles.muted}>Loading...</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <RouteStops
-        pickup={{ name: trip.pickup }}
-        dropoff={{ name: trip.dropoff }}
-        style={styles.stops}
-      />
+      {trip ? (
+        <>
+          <View style={styles.hero}>
+            <Text style={styles.netLabel}>YOU EARNED</Text>
+            <Text style={styles.net}>
+              {line ? money(line.netAmountMinor, currency) : '--'}
+            </Text>
+            <Text style={styles.when}>
+              {trip.completedAt ? when(trip.completedAt) : 'In progress'}
+            </Text>
+          </View>
 
-      <View style={styles.card}>
-        <Line label="Rider" value={trip.rider} />
-        <Line label="Ride type" value={trip.tier} />
-        <Line label="Distance" value={trip.distance} />
-        <Line label="Duration" value={trip.duration} />
-        <Line label="Payment" value={trip.payment} last />
-      </View>
+          <RouteStops
+            pickup={{ name: trip.pickupAddress ?? 'Pickup' }}
+            dropoff={{ name: trip.destinationAddress ?? 'Drop-off' }}
+            style={styles.stops}
+          />
 
-      <Text style={styles.sectionLabel}>FARE BREAKDOWN</Text>
+          <View style={styles.card}>
+            <Line label="Rider" value={trip.riderName} />
+            <Line
+              label="Distance"
+              value={trip.actualDistanceMeters == null ? '--' : distance(trip.actualDistanceMeters)}
+            />
+            <Line
+              label="Waiting"
+              value={`${Math.round(trip.waitingSeconds / 60)} min`}
+            />
+            <Line
+              label="Payment"
+              value={trip.paymentMethod === 'CASH' ? 'Cash at drop-off' : 'Paid online'}
+              last
+            />
+          </View>
 
-      {/* Split, never blended: docs/04 requires gross, fee and net to stay distinguishable. */}
-      <View style={styles.card}>
-        <Line label="Gross fare" value={trip.gross} />
-        <Line label="Platform fee" value="-$3.68" />
-        <Line label="Tax" value="-$0.40" />
-        <Line label="Tip" value="+$2.00" />
-        <Line label="Your net" value={trip.net} last strong />
-      </View>
+          <Text style={styles.sectionLabel}>FARE BREAKDOWN</Text>
 
-      {trip.rating ? (
-        <View style={styles.rating}>
-          <Stars value={trip.rating} />
-          <Text style={styles.ratingText}>{trip.rider} rated this trip</Text>
-        </View>
+          {/* Split, never blended: docs/04 requires gross, fee and net to stay distinguishable. */}
+          <View style={styles.card}>
+            {line ? (
+              <>
+                <Line label="Gross fare" value={money(line.grossAmountMinor, currency)} />
+                <Line
+                  label={`Platform fee (${Math.round(line.commissionRate * 100)}%)`}
+                  value={`-${money(line.commissionMinor, currency)}`}
+                />
+                <Line label="Your net" value={money(line.netAmountMinor, currency)} last strong />
+              </>
+            ) : (
+              <Line label="Not settled yet" value="--" last />
+            )}
+          </View>
+
+          {trip.riderRating ? (
+            <View style={styles.rating}>
+              <Stars value={trip.riderRating} />
+              <Text style={styles.ratingText}>{trip.riderName} rated this trip</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.support}>
+            <Ionicons name="help-buoy" size={17} color={colors.primary} />
+            <Text style={styles.supportText}>
+              Something wrong with this trip? Open a support case.
+            </Text>
+          </View>
+        </>
       ) : null}
-
-      <View style={styles.support}>
-        <Ionicons name="help-buoy" size={17} color={colors.primary} />
-        <Text style={styles.supportText}>Something wrong with this trip? Open a support case.</Text>
-      </View>
     </Screen>
   );
 }
@@ -81,6 +124,14 @@ function Line({
 }
 
 const styles = StyleSheet.create({
+  muted: {
+    ...type.body,
+    color: colors.textMuted,
+  },
+  error: {
+    ...type.body,
+    color: colors.danger,
+  },
   hero: {
     alignItems: 'center',
     paddingBottom: spacing.xl,

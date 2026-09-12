@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,7 +13,15 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ridex.platform.security.JwtPrincipal;
+import java.util.List;
+
 import com.ridex.driver.dto.DriverProfileResponse;
+import com.ridex.rating.dto.DriverRatingResponse;
+import com.ridex.rating.dto.RateRideRequest;
+import com.ridex.ride.domain.CancelledBy;
+import com.ridex.ride.dto.CancelRideRequest;
+import com.ridex.ride.dto.CancellationReasonResponse;
+import com.ridex.ride.dto.RideResponse;
 import com.ridex.driver.dto.PayoutAccountRequest;
 import com.ridex.driver.dto.PayoutAccountResponse;
 import com.ridex.driver.dto.UpdateDriverProfileRequest;
@@ -29,6 +38,8 @@ import lombok.RequiredArgsConstructor;
 public class DriverController {
 
     private final DriverProfileService driverProfileService;
+    private final com.ridex.ride.RideRequestService rideRequestService;
+    private final com.ridex.rating.RatingService ratingService;
     private final DriverOnboardingService driverOnboardingService;
 
     @GetMapping("/profile")
@@ -49,6 +60,36 @@ public class DriverController {
     public com.ridex.driver.dto.OnboardingResponse submitForReview(
             @AuthenticationPrincipal JwtPrincipal principal) {
         return driverOnboardingService.submitForReview(principal.userId());
+    }
+
+    /** The stars riders have given this driver, with whatever they wrote. */
+    @GetMapping("/ratings")
+    @ResponseStatus(HttpStatus.OK)
+    public List<DriverRatingResponse> ratings(@AuthenticationPrincipal JwtPrincipal principal) {
+        return ratingService.receivedBy(principal.userId());
+    }
+
+    /** The reasons a driver may give, from the server, so the app cannot invent one. */
+    @GetMapping("/cancellation-reasons")
+    @ResponseStatus(HttpStatus.OK)
+    public List<CancellationReasonResponse> cancellationReasons() {
+        return rideRequestService.cancellationReasons(CancelledBy.DRIVER);
+    }
+
+    /** Ends the rider's ride with a stated reason, rather than leaving them watching the map. */
+    @PostMapping("/rides/{rideId}/cancel")
+    @ResponseStatus(HttpStatus.OK)
+    public RideResponse cancelRide(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String rideId, @Valid @RequestBody CancelRideRequest request) {
+        return rideRequestService.cancelAsDriver(principal.userId(), rideId, request);
+    }
+
+    /** What the rider was like to carry. One per ride, like the rider's own rating. */
+    @PostMapping("/rides/{rideId}/rate-rider")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void rateRider(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String rideId, @Valid @RequestBody RateRideRequest request) {
+        ratingService.rateRider(principal.userId(), rideId, request);
     }
 
     @GetMapping("/payout-account")

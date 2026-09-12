@@ -24,3 +24,23 @@ export function unreadCount() {
 export function markAllRead() {
   return request<void>('/api/v1/notifications/read', { method: 'POST' });
 }
+
+
+/** What a person wants to be told about. The server decides whether to send, so it keeps these. */
+export type NotificationPreferences = {
+  push: boolean;
+  email: boolean;
+  promotions: boolean;
+};
+
+export function getPreferences() {
+  return request<NotificationPreferences>('/api/v1/notifications/preferences');
+}
+
+/** All three at once: a settings screen sends what its switches are now, not what changed. */
+export function updatePreferences(preferences: NotificationPreferences) {
+  return request<NotificationPreferences>('/api/v1/notifications/preferences', {
+    method: 'PUT',
+    body: preferences,
+  });
+}

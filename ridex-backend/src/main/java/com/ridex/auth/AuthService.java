@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ridex.auth.dto.LoginRequest;
 import com.ridex.auth.dto.LoginResponse;
 import com.ridex.auth.dto.LogoutRequest;
+import com.ridex.auth.dto.AuthEventResponse;
+import com.ridex.auth.dto.ChangePasswordRequest;
 import com.ridex.auth.dto.ForgotPasswordRequest;
 import com.ridex.auth.dto.RefreshTokenRequest;
 import com.ridex.auth.dto.RefreshTokenResponse;
@@ -42,6 +44,7 @@ import com.ridex.platform.ratelimit.RateLimiter;
 import com.ridex.rider.RiderProfileService;
 import com.ridex.platform.ratelimit.TooManyRequestsException;
 import com.ridex.platform.security.JwtService;
+import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.shared.util.VerificationTokenGenerator;
@@ -66,6 +69,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final RateLimiter rateLimiter;
+    private final AuthEventRepository authEventRepository;
     private final Notifier notifier;
     private final RiderProfileService riderProfileService;
     private final DriverProfileService driverProfileService;
@@ -368,6 +372,37 @@ public class AuthService {
         rateLimiter.reset("rl:login:" + user.getEmail());
 
         authSecurityService.record(user.getId(), AuthEventType.PASSWORD_RESET, null, null, null);
+    }
+
+    /**
+     * Changes the password of whoever is signed in.
+     *
+     * <p>Every other session is revoked: changing a password is what somebody does when they think
+     * another device has it, and leaving those sessions alive makes the change theatre.
+     */
+    @Transactional
+    public void changePassword(String callerUserId, ChangePasswordRequest request) {
+        User user = userRepository.findById(callerUserId)
+                .orElseThrow(() -> new NotFoundException("No such account."));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new ValidationException("That is not your current password.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+
+        refreshTokenRepository.revokeAllForUser(user.getId(), Instant.now());
+        authSecurityService.record(user.getId(), AuthEventType.PASSWORD_CHANGED, null, null, null);
+    }
+
+    /** This account's own login history. Never anybody else's - it names IP addresses. */
+    @Transactional(readOnly = true)
+    public List<AuthEventResponse> loginHistory(String callerUserId) {
+        return authEventRepository.findTop20ByUserIdOrderByOccurredAtDesc(callerUserId).stream()
+                .map(event -> new AuthEventResponse(event.getEventType().name(),
+                        event.getIpAddress(), event.getUserAgent(), event.getOccurredAt()))
+                .toList();
     }
 
     // Silent on an unknown, revoked or someone else's token: distinguishing them would answer

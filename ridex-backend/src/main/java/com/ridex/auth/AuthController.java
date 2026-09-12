@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ridex.auth.dto.LoginRequest;
 import com.ridex.auth.dto.LoginResponse;
 import com.ridex.auth.dto.LogoutRequest;
+import com.ridex.auth.dto.AuthEventResponse;
+import com.ridex.auth.dto.ChangePasswordRequest;
 import com.ridex.auth.dto.ForgotPasswordRequest;
 import com.ridex.auth.dto.RefreshTokenRequest;
 import com.ridex.auth.dto.RefreshTokenResponse;
@@ -95,6 +97,21 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
+    }
+
+    /** Changing a password from inside the app. Ends every other session by design. */
+    @PostMapping("/change-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@AuthenticationPrincipal JwtPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(principal.userId(), request);
+    }
+
+    /** This account's own login history - what happened, from where, and when. */
+    @GetMapping("/login-history")
+    @ResponseStatus(HttpStatus.OK)
+    public List<AuthEventResponse> loginHistory(@AuthenticationPrincipal JwtPrincipal principal) {
+        return authService.loginHistory(principal.userId());
     }
 
     @GetMapping("/sessions")

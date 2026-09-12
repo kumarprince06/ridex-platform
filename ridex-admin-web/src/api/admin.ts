@@ -83,6 +83,78 @@ export type AuditEntry = {
   occurredAt: string;
 };
 
+/** One on-duty driver with a live position. Drivers whose phone stopped reporting are not listed. */
+export type LiveDriver = {
+  driverId: string;
+  name: string;
+  vehicle: string | null;
+  registrationNumber: string | null;
+  latitude: number;
+  longitude: number;
+  onTrip: boolean;
+};
+
+export type FareLine = { type: string; label: string; amountMinor: number };
+
+export type PaymentDetail = {
+  payment: AdminPayment;
+  provider: string;
+  /** The gateway's own id - what support quotes when opening a ticket with the provider. */
+  providerPaymentId: string | null;
+  failureReason: string | null;
+  events: {
+    id: string;
+    provider: string;
+    providerEventId: string;
+    eventType: string;
+    receivedAt: string;
+  }[];
+};
+
+export type TripDetail = {
+  trip: AdminTrip;
+  tripId: string | null;
+  quotedDistanceMeters: number | null;
+  actualDistanceMeters: number | null;
+  actualDurationSeconds: number | null;
+  waitingSeconds: number;
+  cancellationReason: string | null;
+  quotedLines: FareLine[];
+  chargedLines: FareLine[];
+  timeline: {
+    fromStatus: string | null;
+    toStatus: string;
+    actorType: string;
+    actorId: string | null;
+    reason: string | null;
+    occurredAt: string;
+  }[];
+};
+
+export type RiderDetail = {
+  rider: AdminRider;
+  pointsBalance: number;
+  currency: string;
+  outstandingDuesMinor: number;
+  recentRides: AdminTrip[];
+};
+
+export function getPayment(paymentId: string) {
+  return request<PaymentDetail>(`/api/v1/admin/payments/${paymentId}`);
+}
+
+export function getTrip(rideId: string) {
+  return request<TripDetail>(`/api/v1/admin/trips/${rideId}`);
+}
+
+export function getRider(riderId: string) {
+  return request<RiderDetail>(`/api/v1/admin/riders/${riderId}`);
+}
+
+export function getLiveDrivers() {
+  return request<LiveDriver[]>('/api/v1/admin/drivers/live');
+}
+
 export function getDashboard() {
   return request<Dashboard>('/api/v1/admin/dashboard');
 }
@@ -352,6 +424,37 @@ export type ShuttleRouteSummary = {
 };
 
 const SHUTTLE = '/api/v1/admin/shuttle/routes';
+
+/** One departure as it is actually running, with every seat ever sold on it. */
+export type Departure = {
+  shuttleTripId: string;
+  scheduleId: string;
+  routeName: string;
+  departsAt: string;
+  seatCapacity: number;
+  seatsSold: number;
+  seatsCancelled: number;
+  boarded: number;
+  driverId: string | null;
+  driverName: string | null;
+  vehicle: string | null;
+  registrationNumber: string | null;
+  seats: {
+    bookingId: string;
+    seatLabel: string;
+    riderName: string;
+    riderEmail: string;
+    boardingStopName: string | null;
+    alightingStopName: string | null;
+    status: string;
+    paymentStatus: string;
+    boardedAt: string | null;
+  }[];
+};
+
+export function listDepartures(date: string) {
+  return request<Departure[]>(`/api/v1/admin/shuttle/departures?date=${date}`);
+}
 
 export function listRoutes(page = 0, size = DEFAULT_PAGE_SIZE) {
   return request<Page<ShuttleRouteSummary>>(`${SHUTTLE}?page=${page}&size=${size}`);

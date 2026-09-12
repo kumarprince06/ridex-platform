@@ -272,6 +272,20 @@ public class NotificationTemplates {
             // free of joins - it renders what it was handed, hours later if the relay was down.
             case "RIDE_RECEIPT" -> receipt(payload);
 
+            // The rider is watching a map, not their inbox, so this one is mostly a push - but the
+            // reason goes in the words, because "your ride was cancelled" without one is worse
+            // than the wait.
+            case "RIDE_CANCELLED_BY_DRIVER" -> new Rendered(
+                    "Your driver cancelled",
+                    "Your driver cancelled this ride: " + payload
+                            + ". No cancellation fee applies - book again and we will find somebody else.",
+                    layout.wrap("Your driver cancelled",
+                            "The ride was cancelled: " + payload + ".",
+                            layout.heading("Your driver cancelled")
+                                    + layout.paragraph("The reason given was: " + payload + ".")
+                                    + layout.note("You have not been charged a cancellation fee. "
+                                            + "Book again and we will find another driver.")));
+
             default -> throw new IllegalStateException("No template for " + message.getEventType());
         };
     }

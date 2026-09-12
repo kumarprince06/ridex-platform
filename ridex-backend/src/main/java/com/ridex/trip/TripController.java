@@ -6,7 +6,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import com.ridex.platform.security.JwtPrincipal;
+import java.util.List;
+
 import com.ridex.trip.dto.CompleteTripRequest;
+import com.ridex.trip.dto.DriverTripSummary;
 import com.ridex.trip.dto.StartTripRequest;
 import com.ridex.trip.dto.TripResponse;
 
@@ -20,6 +23,13 @@ import lombok.RequiredArgsConstructor;
 public class TripController {
 
     private final TripService tripService;
+
+    /** This driver's own trips, newest first. */
+    @GetMapping
+    @ResponseStatus(HttpStatus.OK)
+    public List<DriverTripSummary> history(@AuthenticationPrincipal JwtPrincipal principal) {
+        return tripService.history(principal.userId());
+    }
 
     /** Everything the trip screens show: who the rider is, where they are going, what it costs. */
     @GetMapping("/{tripId}")

@@ -36,7 +36,7 @@ Sources: [28-Rider-App-Gaps.md](28-Rider-App-Gaps.md),
 | M8 | Demo deployment and CI/CD | M | ☐ |
 | M9 | Notifications feed | M | ☑ |
 | M10 | Driver money: bank details and payouts | M | ☑ |
-| M11 | Driver-side trip actions | M | ☐ |
+| M11 | Driver-side trip actions | M | ☑ |
 | M12 | Points polish | S | ☐ |
 | M13 | Passes: actually charge for them | M | ☐ |
 | M14 | Account, settings and security | M | ☐ |

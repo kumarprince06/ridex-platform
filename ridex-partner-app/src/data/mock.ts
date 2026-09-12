@@ -28,86 +28,6 @@ export const VEHICLE = {
 };
 
 /** One offer, as dispatch would push it over the socket. */
-export type TripStatus = 'Completed' | 'Cancelled';
-
-export type Trip = {
-  id: string;
-  status: TripStatus;
-  rider: string;
-  tier: string;
-  net: string;
-  gross: string;
-  pickup: string;
-  dropoff: string;
-  when: string;
-  distance: string;
-  duration: string;
-  rating?: number;
-  payment: string;
-};
-
-export const TRIPS: Trip[] = [
-  {
-    id: '9241',
-    status: 'Completed',
-    rider: 'Elena Fischer',
-    tier: 'RideX Comfort',
-    net: '$14.72',
-    gross: '$18.40',
-    pickup: 'Union Square Park',
-    dropoff: 'Midtown Tower',
-    when: 'Today, 3:12 PM',
-    distance: '7.8 km',
-    duration: '19 min',
-    rating: 5,
-    payment: 'Card · Visa 4242',
-  },
-  {
-    id: '9238',
-    status: 'Completed',
-    rider: 'Tom Alvarez',
-    tier: 'RideX Go',
-    net: '$8.16',
-    gross: '$10.20',
-    pickup: 'Grand Central',
-    dropoff: 'Chelsea Market',
-    when: 'Today, 1:48 PM',
-    distance: '4.1 km',
-    duration: '12 min',
-    rating: 5,
-    payment: 'Cash',
-  },
-  {
-    id: '9230',
-    status: 'Cancelled',
-    rider: 'Priya Nair',
-    tier: 'RideX Go',
-    net: '$2.00',
-    gross: '$2.00',
-    pickup: 'Bryant Park',
-    dropoff: 'Hudson Yards',
-    when: 'Today, 12:20 PM',
-    distance: '—',
-    duration: '—',
-    payment: 'Cancellation fee',
-  },
-  {
-    id: '9221',
-    status: 'Completed',
-    rider: 'Daniel Kim',
-    tier: 'RideX XL',
-    net: '$26.32',
-    gross: '$32.90',
-    pickup: 'JFK Terminal 4',
-    dropoff: 'Brooklyn Heights',
-    when: 'Yesterday, 9:05 PM',
-    distance: '24.6 km',
-    duration: '41 min',
-    rating: 4,
-    payment: 'Card · Amex 1007',
-  },
-];
-
 /** The fare breakdown, split the way docs/04 requires it to be auditable. */
 export type EarningsPeriod = {
   net: string;
@@ -193,15 +113,6 @@ export const DOCUMENTS: DriverDocument[] = [
   { type: 'Insurance certificate', status: 'Expiring', detail: 'Expires in 12 days' },
   { type: 'Background check', status: 'Approved', detail: 'Cleared 08 Mar 2024' },
   { type: 'Profile photo', status: 'Under review', detail: 'Submitted 2 days ago' },
-];
-
-export const CANCEL_REASONS = [
-  'Rider is not at the pickup point',
-  'Rider asked me to cancel',
-  'Cannot reach the pickup location',
-  'Too many passengers for the vehicle',
-  'Vehicle or safety problem',
-  'Other',
 ];
 
 export const RIDER_RATING_TAGS = ['On time', 'Polite', 'Clear pickup', 'Left it clean', 'Great chat'];

@@ -139,7 +139,7 @@ export function ArrivedAtPickupScreen({ navigation, route }: Props) {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => navigation.navigate('CancelTrip')}
+          onPress={() => navigation.navigate('CancelTrip', { rideId: trip?.rideId })}
           style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
         >
           <Text style={styles.cancelLabel}>Rider is not here</Text>

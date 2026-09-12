@@ -64,7 +64,8 @@ class DriverBoardingTest {
     @BeforeEach
     void setUp() {
         Route route = new Route();
-        route.setCode("B" + System.nanoTime() % 100000);
+        // Wide enough not to collide: these tests commit, so yesterday's rows are still here.
+        route.setCode("B" + System.nanoTime());
         route.setName("Whitefield to Electronic City");
         for (int i = 0; i < 3; i++) {
             RouteStop stop = new RouteStop();

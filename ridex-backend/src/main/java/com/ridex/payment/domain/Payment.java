@@ -32,6 +32,10 @@ public class Payment {
     @Column(name = "shuttle_booking_id", length = 26, updatable = false)
     private String shuttleBookingId;
 
+    /** The commuter pass this bought. Exactly one of the three subjects is ever set. */
+    @Column(name = "pass_id", length = 26, updatable = false)
+    private String passId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "rider_id", nullable = false, updatable = false,
             foreignKey = @ForeignKey(name = "fk_payments_rider"))

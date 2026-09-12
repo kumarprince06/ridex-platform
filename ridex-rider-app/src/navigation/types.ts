@@ -77,6 +77,8 @@ export type RootStackParamList = {
   // search - the vehicle is already going, and the question is whether a seat on it is free.
   ShuttleRoutes: undefined;
   ShuttleDepartures: { routeId: string };
+  /** Passes are per route: a commuter buys the corridor they actually use. */
+  ShuttlePasses: { routeId: string; routeName: string };
   ShuttleSeats: {
     routeId: string;
     scheduleId: string;

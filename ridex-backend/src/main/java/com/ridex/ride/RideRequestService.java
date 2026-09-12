@@ -1,13 +1,21 @@
 package com.ridex.ride;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Currency;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.dispatch.DispatchTrigger;
+import com.ridex.driver.DriverCard;
+import com.ridex.location.DriverPresence;
+import com.ridex.payment.OutstandingPayments;
+import com.ridex.payment.PaymentService;
+import com.ridex.payment.domain.PaymentMethod;
 import com.ridex.points.PointsService;
 import com.ridex.pricing.FareEstimateRepository;
 import com.ridex.pricing.domain.FareEstimate;
@@ -28,6 +36,8 @@ import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.money.Money;
+import com.ridex.trip.TripRepository;
+import com.ridex.trip.domain.Trip;
 
 import lombok.RequiredArgsConstructor;
 
@@ -39,13 +49,13 @@ public class RideRequestService {
     private final CancellationPolicyRepository cancellationPolicyRepository;
     private final FareEstimateRepository fareEstimateRepository;
     private final RiderProfileRepository riderProfileRepository;
-    private final com.ridex.payment.OutstandingPayments outstandingPayments;
+    private final OutstandingPayments outstandingPayments;
     private final DispatchTrigger dispatchTrigger;
     private final PointsService pointsService;
-    private final com.ridex.payment.PaymentService paymentService;
-    private final com.ridex.trip.TripRepository tripRepository;
-    private final com.ridex.driver.DriverCard driverCard;
-    private final com.ridex.location.DriverPresence driverPresence;
+    private final PaymentService paymentService;
+    private final TripRepository tripRepository;
+    private final DriverCard driverCard;
+    private final DriverPresence driverPresence;
 
     /** The zone a cancellation date is written in, for the line the rider reads on their next fare. */
     @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
@@ -93,7 +103,7 @@ public class RideRequestService {
         ride.setCurrency(estimate.getCurrency());
         // Null means cash: the app sent nothing, or it is an older build than this field.
         ride.setPaymentMethod(request.paymentMethod() == null
-                ? com.ridex.payment.domain.PaymentMethod.CASH
+                ? PaymentMethod.CASH
                 : request.paymentMethod());
         ride.setQuotedFareMinor(estimate.getTotalMinor());
 
@@ -180,7 +190,7 @@ public class RideRequestService {
             paymentService.recordDue(ride.getRider().getId(), fee,
                     "Cancellation fee for a ride on "
                             + java.time.format.DateTimeFormatter.ofPattern("d MMM")
-                                    .withZone(java.time.ZoneId.of(serviceZone)).format(now),
+                                    .withZone(ZoneId.of(serviceZone)).format(now),
                     "RIDE_CANCELLATION", ride.getId());
         }
 
@@ -189,7 +199,7 @@ public class RideRequestService {
 
     /** The reasons the app offers, from the server, so both sides can never drift apart. */
     public List<CancellationReasonResponse> cancellationReasons() {
-        return java.util.Arrays.stream(CancellationReason.values())
+        return Arrays.stream(CancellationReason.values())
                 .map(reason -> new CancellationReasonResponse(
                         reason.name(), reason.label(), reason.needsDetail()))
                 .toList();
@@ -233,12 +243,12 @@ public class RideRequestService {
         // Only while the ride is live: where the driver is stops being the rider's business the
         // moment they get out.
         var position = ride.getStatus().isTerminal()
-                ? java.util.Optional.<com.ridex.location.DriverPresence.Position>empty()
+                ? Optional.<DriverPresence.Position>empty()
                 : driverPresence.positionOf(ride.getAssignedDriverId());
         return new DriverResponse(card.name(), card.phone(), card.rating(), card.vehicle(),
                 card.registrationNumber(),
-                position.map(com.ridex.location.DriverPresence.Position::latitude).orElse(null),
-                position.map(com.ridex.location.DriverPresence.Position::longitude).orElse(null));
+                position.map(DriverPresence.Position::latitude).orElse(null),
+                position.map(DriverPresence.Position::longitude).orElse(null));
     }
 
     private String pickupCodeFor(RideRequest ride) {
@@ -246,7 +256,7 @@ public class RideRequestService {
             return null;
         }
         return tripRepository.findByRideRequestId(ride.getId())
-                .map(com.ridex.trip.domain.Trip::getPickupCode)
+                .map(Trip::getPickupCode)
                 .orElse(null);
     }
 

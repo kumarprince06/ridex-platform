@@ -6,19 +6,23 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ridex.rider.RiderProfileRepository;
-import com.ridex.rider.domain.RiderProfile;
 import com.ridex.notification.DeliveryChannel;
 import com.ridex.notification.Notifier;
+import com.ridex.payment.OutstandingPayments;
+import com.ridex.payment.PaymentService;
+import com.ridex.payment.domain.PaymentMethod;
+import com.ridex.payment.domain.PaymentStatus;
+import com.ridex.points.PointsService;
+import com.ridex.rider.RiderProfileRepository;
+import com.ridex.rider.domain.RiderProfile;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
-import com.ridex.payment.PaymentService;
 import com.ridex.shared.money.Money;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.shared.util.UlidGenerator;
@@ -44,12 +48,12 @@ public class ShuttleService {
     private final RouteFareRepository routeFareRepository;
     private final PassRepository passRepository;
     private final Notifier notifier;
-    private final com.ridex.payment.OutstandingPayments outstandingPayments;
+    private final OutstandingPayments outstandingPayments;
     private final RiderProfileRepository riderProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final ShuttleCrew shuttleCrew;
-    private final com.ridex.payment.PaymentService paymentService;
-    private final com.ridex.points.PointsService pointsService;
+    private final PaymentService paymentService;
+    private final PointsService pointsService;
 
     /** How long a picked seat is held while the rider pays for it. */
     private static final java.time.Duration HOLD = java.time.Duration.ofMinutes(10);
@@ -257,7 +261,7 @@ public class ShuttleService {
             Money gross = Money.of(booking.getFareMinor(), currency);
             Money discount = Money.of(booking.getDiscountMinor(), currency);
 
-            if (method == com.ridex.payment.domain.PaymentMethod.CASH) {
+            if (method == PaymentMethod.CASH) {
                 // Nothing to authorise - the money changes hands at the door. The seat is confirmed
                 // now, and the fare is settled when the driver checks the passenger in.
                 booking.setPaymentStatus("CASH_DUE");
@@ -366,7 +370,7 @@ public class ShuttleService {
                 .orElseThrow(() -> new NotFoundException("No such booking."));
 
         var status = paymentService.confirmShuttlePayment(bookingId, gatewayPaymentId);
-        if (status == com.ridex.payment.domain.PaymentStatus.SUCCEEDED) {
+        if (status == PaymentStatus.SUCCEEDED) {
             confirmBooking(booking);
         }
 
@@ -490,7 +494,7 @@ public class ShuttleService {
 
         if (payment != null) {
             payload.append("Paid with|")
-                    .append(payment.method() == com.ridex.payment.domain.PaymentMethod.CASH
+                    .append(payment.method() == PaymentMethod.CASH
                             ? "Cash to the driver"
                             : payment.method() + " · " + payment.provider())
                     .append('\n');

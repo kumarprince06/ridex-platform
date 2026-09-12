@@ -9,9 +9,10 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ridex.driver.DriverProfileRepository;
 import com.ridex.payment.domain.*;
-import com.ridex.payment.dto.EarningsResponse;
 import com.ridex.payment.dto.EarningLineResponse;
+import com.ridex.payment.dto.EarningsResponse;
 import com.ridex.payment.dto.PaymentResponse;
 import com.ridex.payment.dto.RidePaymentResponse;
 import com.ridex.platform.settings.SettingsService;
@@ -53,7 +54,7 @@ public class PaymentService {
     private String razorpayKeyId;
     private final SettingsService settings;
     private final List<PaymentProvider> providers;
-    private final com.ridex.driver.DriverProfileRepository driverProfileRepository;
+    private final DriverProfileRepository driverProfileRepository;
 
     /**
      * Settles a completed trip: one payment, one earnings record, and the ledger entries for both.

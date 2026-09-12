@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ridex.driver.DriverProfileRepository;
 import com.ridex.notification.DeliveryChannel;
 import com.ridex.notification.Notifier;
-import com.ridex.payment.PaymentService;
+import com.ridex.payment.ShuttlePaymentService;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.ForbiddenException;
 import com.ridex.shared.exception.NotFoundException;
@@ -39,7 +39,7 @@ import lombok.RequiredArgsConstructor;
 public class DriverShuttleService {
 
     private final ShuttleTripRepository shuttleTripRepository;
-    private final PaymentService paymentService;
+    private final ShuttlePaymentService shuttlePayments;
     private final ShuttleBookingRepository bookingRepository;
     private final DriverProfileRepository driverProfileRepository;
     private final RouteStopRepository routeStopRepository;
@@ -93,7 +93,7 @@ public class DriverShuttleService {
         // rather than at booking, or the books would show money the driver had not been handed.
         if ("CASH_DUE".equals(booking.getPaymentStatus())) {
             booking.setPaymentStatus("PAID");
-            paymentService.settleShuttleCash(booking.getId());
+            shuttlePayments.settleShuttleCash(booking.getId());
         }
         bookingRepository.save(booking);
 

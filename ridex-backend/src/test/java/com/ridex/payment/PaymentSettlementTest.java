@@ -147,6 +147,9 @@ class PaymentSettlementTest {
         paymentService.settleTrip(tripId, 0, com.ridex.payment.domain.PaymentMethod.CASH);
 
         assertThat(paymentRepository.findAll().stream()
+                // Shuttle seats are payments with no trip, and this scans every payment in the
+                // database - including any another test left behind.
+                .filter(payment -> payment.getTrip() != null)
                 .filter(payment -> payment.getTrip().getId().equals(tripId))
                 .count()).isEqualTo(1);
     }

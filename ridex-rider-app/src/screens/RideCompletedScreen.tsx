@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { distance, money } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getReceipt } from '../api/rides';
+import { ApiError } from '../api/problem';
+import { payForRide } from '../api/rideCheckout';
+import { getReceipt, ridePayment, type RidePayment } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { StatTiles } from '../components/StatTiles';
@@ -20,6 +23,34 @@ export function RideCompletedScreen({ navigation, route }: Props) {
     () => (rideId ? getReceipt(rideId) : Promise.resolve(null)),
     [rideId],
   );
+
+  // A taxi fare is priced from the distance driven, so the charge only exists now. Cash rides come
+  // back settled; an online one carries the gateway order this screen opens.
+  const { data: payment } = useQuery(
+    () => (rideId ? ridePayment(rideId) : Promise.resolve(null)),
+    [rideId],
+  );
+  const [paid, setPaid] = useState<RidePayment | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const owed = paid ?? payment;
+  const outstanding = owed != null && !owed.settled;
+
+  async function pay() {
+    if (!rideId || !owed) {
+      return;
+    }
+    setPaying(true);
+    setError(null);
+    try {
+      setPaid(await payForRide(rideId, owed));
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not take that payment.');
+    } finally {
+      setPaying(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -42,8 +73,10 @@ export function RideCompletedScreen({ navigation, route }: Props) {
             {receipt ? money(receipt.chargedTotalMinor, receipt.currency) : '—'}
           </Text>
           <View>
-            <Text style={styles.chargedTo}>paid by</Text>
-            <Text style={styles.card}>Cash</Text>
+            <Text style={styles.chargedTo}>{outstanding ? 'to pay' : 'paid by'}</Text>
+            <Text style={styles.card}>
+              {owed == null ? '—' : owed.method === 'CASH' ? 'Cash' : 'Online'}
+            </Text>
           </View>
         </View>
 
@@ -71,7 +104,24 @@ export function RideCompletedScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.footer}>
-        <Button label="Rate Your Ride" onPress={() => navigation.navigate('RateDriver', { rideId })} />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {/* Nothing to tap on a cash ride: the driver was handed the money in the car. */}
+        {outstanding ? (
+          <Button
+            label={paying ? 'Opening checkout...' : `Pay ${money(owed.amountMinor, owed.currency)}`}
+            disabled={paying}
+            onPress={() => void pay()}
+            style={styles.secondary}
+          />
+        ) : null}
+
+        <Button
+          label="Rate Your Ride"
+          variant={outstanding ? 'secondary' : 'primary'}
+          onPress={() => navigation.navigate('RateDriver', { rideId })}
+          style={outstanding ? styles.secondary : undefined}
+        />
         {/* Was navigating to a hardcoded fixture id, which opened somebody else's receipt. */}
         {rideId ? (
           <Button
@@ -94,6 +144,12 @@ export function RideCompletedScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
   safe: {
     flex: 1,
     backgroundColor: colors.bg,

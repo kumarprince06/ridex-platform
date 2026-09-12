@@ -154,6 +154,32 @@ export function cancelRide(rideId: string, reasonCode: string, reason?: string) 
   });
 }
 
+/** What settling a finished trip needs: the gateway order, or nothing when it was paid in cash. */
+export type RidePayment = {
+  paymentId: string;
+  method: PaymentMethod;
+  status: string;
+  currency: string;
+  amountMinor: number;
+  /** Null for cash, and for a fare points covered entirely. */
+  gatewayOrderId: string | null;
+  gatewayKeyId: string | null;
+  /** True when there is nothing left to pay - cash handed over, or the gateway already cleared. */
+  settled: boolean;
+};
+
+export function ridePayment(rideId: string) {
+  return request<RidePayment>(`/api/v1/rides/${rideId}/payment`);
+}
+
+/** The gateway is asked, the app is not believed - the same rule as a seat and a pass. */
+export function confirmRidePayment(rideId: string, gatewayPaymentId: string) {
+  return request<RidePayment>(`/api/v1/rides/${rideId}/payment/confirm`, {
+    method: 'POST',
+    body: { gatewayPaymentId },
+  });
+}
+
 export function getReceipt(rideId: string) {
   return request<Receipt>(`/api/v1/rides/${rideId}/receipt`);
 }

@@ -22,14 +22,14 @@ export function CheckInboxScreen({ navigation, route }: Props) {
         <Ionicons name="mail-unread" size={46} color={colors.primary} style={styles.envelope} />
         <Text style={styles.title}>Check your inbox</Text>
         <Text style={styles.body}>
-          We&apos;ve sent a reset link to <Text style={styles.email}>{email}</Text>. It expires in
-          15 minutes.
+          We&apos;ve sent a 6-digit code to <Text style={styles.email}>{email}</Text>. It expires
+          in 15 minutes.
         </Text>
 
-        {/* Stands in for tapping the emailed link, so the flow stays walkable on-device. */}
         <Button
-          label="Open Reset Link"
-          onPress={() => navigation.navigate('NewPassword')}
+          label="I have the code"
+          // The address goes with it: the server checks the code against an account, not a session.
+          onPress={() => navigation.navigate('NewPassword', { email })}
           style={styles.action}
         />
       </View>

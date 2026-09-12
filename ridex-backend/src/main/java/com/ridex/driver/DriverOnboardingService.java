@@ -118,6 +118,9 @@ public class DriverOnboardingService {
     /** Queued inside the transaction, so a decision that rolls back is never announced. */
     private void notify(DriverProfile driver, String eventType, String payload) {
         notifier.enqueue(DeliveryChannel.EMAIL, driver.getUser().getEmail(), eventType, payload);
+        // And in the app: a driver refreshing their status should not have to open their inbox
+        // to find out whether they may drive tomorrow.
+        notifier.notifyUser(driver.getUser().getId(), eventType, payload, "DRIVER", driver.getId());
     }
 
     private DriverProfile requireDriver(String driverUserId) {

@@ -332,6 +332,10 @@ export type Payout = {
   failureReason: string | null;
   createdAt: string;
   settledAt: string | null;
+  /** Where this money is going, masked. Null when the driver has not told us yet. */
+  payoutAccountHolder: string | null;
+  payoutAccountMasked: string | null;
+  payoutIfsc: string | null;
 };
 
 export function listPayouts(status?: PayoutStatus, page = 0, size = DEFAULT_PAGE_SIZE) {

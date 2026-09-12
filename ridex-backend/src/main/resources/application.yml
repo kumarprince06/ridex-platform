@@ -7,6 +7,12 @@ spring:
   application:
     name: ridex-backend
 
+  config:
+    # The repo's own .env, read as properties so `mvnw spring-boot:run` works without exporting
+    # eight variables by hand. Optional: a container has none, and real environment variables
+    # outrank anything imported here, so a deployment is never configured by a stray file.
+    import: optional:file:../.env[.properties],optional:file:.env[.properties]
+
   datasource:
     url: jdbc:postgresql://localhost:5432/ridex_platform
     username: ridex_app

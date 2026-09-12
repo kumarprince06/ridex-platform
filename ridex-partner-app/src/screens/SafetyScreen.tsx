@@ -4,7 +4,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Row } from '../components/Row';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
-import { OFFER } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -17,7 +16,7 @@ type Props = RootScreenProps<'Safety'>;
  *
  * Safety actions are auditable per docs/04, so each one records who triggered it and when.
  */
-export function SafetyScreen({ navigation }: Props) {
+export function SafetyScreen({ navigation, route }: Props) {
   return (
     <Screen onBack={() => navigation.goBack()} title="Safety">
       <View style={styles.emergency}>
@@ -50,8 +49,9 @@ export function SafetyScreen({ navigation }: Props) {
       />
       <Row
         icon="flag"
-        title={`Report ${OFFER.rider}`}
+        title={`Report ${route.params?.riderName ?? 'your rider'}`}
         subtitle="Behaviour, safety concern or incident"
+        onPress={() => navigation.navigate('ReportIssue')}
       />
 
       <SectionLabel>GET HELP</SectionLabel>

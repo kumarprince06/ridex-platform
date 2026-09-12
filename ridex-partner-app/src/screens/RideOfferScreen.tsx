@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { OfferCard } from '../components/OfferCard';
-import { OFFER } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
 
@@ -40,8 +39,13 @@ export function RideOfferScreen({ navigation, route }: Props) {
     if (!offer) return;
     setBusy(true);
     try {
-      await acceptOffer(offer.offerId);
-      navigation.replace('NavigateToPickup', { rideId: offer.rideId });
+      // The accept response carries the trip: every later action - arrive, start, complete - is
+      // against that id, and without it the driver has a ride they cannot drive.
+      const accepted = await acceptOffer(offer.offerId);
+      navigation.replace('NavigateToPickup', {
+        rideId: accepted.rideId,
+        tripId: accepted.tripId ?? undefined,
+      });
     } catch (caught) {
       // "That ride has already been taken" is the 409 from the claim: somebody was faster.
       setError(caught instanceof ApiError ? caught.userMessage : 'Could not accept.');
@@ -73,25 +77,24 @@ export function RideOfferScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute pickupLabel={OFFER.pickup} destinationLabel={OFFER.dropoff} />
+      <MapCanvas
+        showRoute
+        pickupLabel={offer?.pickupAddress ?? 'Pickup'}
+        destinationLabel={offer?.destinationAddress ?? 'Drop-off'}
+      />
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
-        {/* Falls back to the mock card only until the offer resolves, so the sheet does not jump. */}
-        <OfferCard
-          offer={
-            offer
-              ? {
-                  ...OFFER,
-                  fare: `${offer.currency} ${(offer.quotedFareMinor / 100).toFixed(2)}`,
-                  tripDistance: `${(offer.tripDistanceMeters / 1000).toFixed(1)} km`,
-                  pickup: offer.pickupAddress ?? OFFER.pickup,
-                  dropoff: offer.destinationAddress ?? OFFER.dropoff,
-                }
-              : OFFER
-          }
-          secondsLeft={Math.max(0, secondsLeft)}
-          totalSeconds={WINDOW_SECONDS}
-        />
+        {/* Nothing invented while it loads: an offer card showing somebody else's fare is how a
+            driver accepts a ride they would have declined. */}
+        {offer ? (
+          <OfferCard
+            offer={offer}
+            secondsLeft={Math.max(0, secondsLeft)}
+            totalSeconds={WINDOW_SECONDS}
+          />
+        ) : (
+          <Text style={styles.loading}>Loading the offer...</Text>
+        )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -115,6 +118,12 @@ export function RideOfferScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  loading: {
+    ...type.body,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: spacing.lg,
+  },
   error: {
     ...type.body,
     color: colors.danger,

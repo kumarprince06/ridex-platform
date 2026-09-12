@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { date } from '../lib/format';
 
 import { listSettings, updateSetting, type Setting } from '../api/admin';
 import { ApiError } from '../api/problem';
@@ -70,7 +71,7 @@ export function PricingPage() {
                 </span>
               ) : '—' },
             { key: 'updated', header: 'Last changed', render: (row) => (
-              <span className="cell-muted">{new Date(row.updatedAt).toLocaleDateString()}</span>
+              <span className="cell-muted">{date(row.updatedAt)}</span>
             ) },
             { key: 'actions', header: '', align: 'right', render: (row) =>
               editing === row.key ? (

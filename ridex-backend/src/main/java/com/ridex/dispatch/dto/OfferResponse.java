@@ -15,5 +15,11 @@ public record OfferResponse(
         String currency,
         long quotedFareMinor,
         // Server-issued. A countdown the phone computed could be waited out by a paused app.
-        Instant expiresAt) {
+        Instant expiresAt,
+        /**
+         * Set only on the response to accepting: the trip the driver is now on. Every later action
+         * - arrive, start, complete - is against this id, and without it the app has an accepted
+         * ride it cannot drive.
+         */
+        String tripId) {
 }

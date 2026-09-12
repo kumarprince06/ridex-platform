@@ -16,6 +16,12 @@ import com.ridex.ride.domain.RideStatus;
 
 public interface RideRequestRepository extends JpaRepository<RideRequest, String> {
 
+    java.util.List<RideRequest> findByStatusIn(java.util.Collection<RideStatus> statuses);
+
+    /** Every ride a rider has taken, newest first - the admin's rider page, capped by the caller. */
+    java.util.List<RideRequest> findTop20ByRiderIdOrderByRequestedAtDesc(String riderId);
+
+
     /**
      * The rider's own history, minus the searches that never found a driver.
      *

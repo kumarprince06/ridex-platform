@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { clockTime, money, shortDate } from '../lib/format';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { ApiError } from '../api/problem';
-import { formatMoney } from '../api/rides';
-import { cancelBooking } from '../api/shuttle';
+import { cancelBooking, getBooking } from '../api/shuttle';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { payForSeat } from '../api/shuttleCheckout';
 import { Button } from '../components/Button';
+import { MapCanvas } from '../components/MapCanvas';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -23,6 +24,14 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ShuttleBooked'>;
  * <p>Three identical grey cards read as a settings screen. A ticket has one thing on it that
  * matters at the door - the seat and the code - and everything else is smaller and below it.
  */
+/** A quarter of an hour before departure, which is when the server starts sharing the position. */
+const TRACKING_OPENS_MS = 15 * 60 * 1000;
+
+/** And two hours after, by which time every route on the platform has finished its run. */
+const TRACKING_CLOSES_MS = 2 * 60 * 60 * 1000;
+
+const TRACK_POLL_MS = 15000;
+
 export function ShuttleBookedScreen({ navigation, route }: Props) {
   const [booking, setBooking] = useState(route.params.booking);
   const [busy, setBusy] = useState(false);
@@ -36,6 +45,31 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   // Half an hour before departure the seat can no longer be sold to anybody else, so it stops
   // being cancellable. The server decides this too; this only keeps the button honest.
   const cancellable = !cancelled && Date.now() < new Date(booking.cancellableUntil).getTime();
+
+  // From a quarter of an hour before it leaves, the vehicle is worth watching - which is also when
+  // the server starts putting its position on the crew.
+  const tracking =
+    !cancelled && Date.now() > departs.getTime() - TRACKING_OPENS_MS
+    && Date.now() < departs.getTime() + TRACKING_CLOSES_MS;
+
+  useEffect(() => {
+    if (!tracking) {
+      return;
+    }
+    // Polled, not pushed: the ticket is open for minutes at a time and a socket for one marker is
+    // not worth its reconnect logic.
+    const refresh = () =>
+      void getBooking(booking.id).then((fresh) => fresh && setBooking(fresh)).catch(() => undefined);
+
+    refresh();
+    const timer = setInterval(refresh, TRACK_POLL_MS);
+    return () => clearInterval(timer);
+  }, [tracking, booking.id]);
+
+  const vehicleAt: [number, number] | undefined =
+    booking.crew?.latitude == null || booking.crew?.longitude == null
+      ? undefined
+      : [booking.crew.longitude, booking.crew.latitude];
 
   async function pay() {
     setBusy(true);
@@ -96,7 +130,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         >
           <Ionicons name="time-outline" size={16} color={colors.amber} />
           <Text style={styles.pendingText}>
-            Seat held. Pay {formatMoney(booking.fareMinor, booking.currency)} to confirm it.
+            Seat held. Pay {money(booking.fareMinor, booking.currency)} to confirm it.
           </Text>
           <Text style={styles.payNow}>{busy ? '…' : 'Pay'}</Text>
         </Pressable>
@@ -106,7 +140,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         <View style={styles.pending}>
           <Ionicons name="cash-outline" size={16} color={colors.amber} />
           <Text style={styles.pendingText}>
-            Pay {formatMoney(booking.fareMinor, booking.currency)} to the driver when you get on.
+            Pay {money(booking.fareMinor, booking.currency)} to the driver when you get on.
           </Text>
         </View>
       ) : null}
@@ -122,10 +156,10 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
             <View style={styles.stubRight}>
               <Text style={styles.eyebrow}>DEPARTS</Text>
               <Text style={styles.departs}>
-                {departs.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                {clockTime(departs)}
               </Text>
               <Text style={styles.date}>
-                {departs.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}
+                {shortDate(departs)}
               </Text>
             </View>
           </View>
@@ -172,6 +206,17 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
       </View>
 
+      {tracking ? (
+        <MapCanvas
+          showRoute
+          pickupCoord={[booking.boardingLng, booking.boardingLat]}
+          destinationCoord={[booking.alightingLng, booking.alightingLat]}
+          driverCoord={vehicleAt}
+          driverLabel={vehicleAt ? booking.crew?.registrationNumber ?? 'Shuttle' : undefined}
+          style={styles.map}
+        />
+      ) : null}
+
       {booking.crew ? (
         <View style={styles.crew}>
           <View style={styles.plate}>
@@ -199,11 +244,33 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
       ) : null}
 
+      {/* Only when points were actually spent: a zero discount line is noise on a receipt. */}
+      {booking.discountMinor > 0 ? (
+        <>
+          <View style={styles.fare}>
+            <Text style={styles.fareLabel}>Fare</Text>
+            <Text style={styles.fareValue}>
+              {money(booking.fareMinor, booking.currency)}
+            </Text>
+          </View>
+          <View style={styles.fareTight}>
+            <Text style={styles.fareLabel}>Points ({booking.redeemedPoints})</Text>
+            <Text style={styles.credit}>
+              -{money(booking.discountMinor, booking.currency)}
+            </Text>
+          </View>
+        </>
+      ) : null}
+
       <View style={styles.fare}>
-        <Text style={styles.fareLabel}>Fare</Text>
+        <Text style={styles.fareLabel}>
+          {booking.discountMinor > 0 ? 'Total' : 'Fare'}
+        </Text>
         <Text style={styles.fareValue}>
           {/* A pass covered it, so nothing was charged - "0.00" would read as an error. */}
-          {booking.passId ? 'Covered by your pass' : formatMoney(booking.fareMinor, booking.currency)}
+          {booking.passId
+            ? 'Covered by your pass'
+            : money(booking.fareMinor - booking.discountMinor, booking.currency)}
         </Text>
       </View>
 
@@ -219,7 +286,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
           <Text style={styles.cancelText}>Cancel this seat</Text>
           <Text style={styles.cancelNote}>
             {booking.creditIfCancelledMinor > 0
-              ? `${formatMoney(booking.creditIfCancelledMinor, booking.currency)} back as points · closes 30 min before departure`
+              ? `${money(booking.creditIfCancelledMinor, booking.currency)} back as points · closes 30 min before departure`
               : 'Closes 30 minutes before departure'}
           </Text>
         </Pressable>
@@ -229,7 +296,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         title="Cancel this seat?"
         body={
           booking.creditIfCancelledMinor > 0
-            ? `${formatMoney(booking.creditIfCancelledMinor, booking.currency)} of ${formatMoney(booking.fareMinor, booking.currency)} comes back as points you can spend on your next ride. Seats cannot be cancelled within 30 minutes of departure.`
+            ? `${money(booking.creditIfCancelledMinor, booking.currency)} of ${money(booking.fareMinor, booking.currency)} comes back as points you can spend on your next ride. Seats cannot be cancelled within 30 minutes of departure.`
             : 'Nothing has been charged for this seat yet.'
         }
         confirmLabel="Cancel seat"
@@ -255,6 +322,12 @@ function Leg({ label, value, align }: { label: string; value: string; align?: 'r
 const NOTCH = 22;
 
 const styles = StyleSheet.create({
+  map: {
+    height: 200,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    marginBottom: spacing.lg,
+  },
   flex: { flex: 1 },
   right: { alignItems: 'flex-end' },
   rightText: { textAlign: 'right' },
@@ -417,6 +490,17 @@ const styles = StyleSheet.create({
   fareLabel: {
     ...type.body,
     color: colors.textMuted,
+  },
+  fareTight: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: spacing.lg,
+  },
+  credit: {
+    ...type.button,
+    fontSize: 16,
+    color: colors.primary,
   },
   fareValue: {
     ...type.button,

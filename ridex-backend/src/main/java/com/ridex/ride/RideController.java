@@ -15,8 +15,11 @@ import com.ridex.rating.RatingService;
 import com.ridex.rating.dto.RateRideRequest;
 import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CancellationQuote;
+import com.ridex.ride.dto.CancellationReasonResponse;
 import com.ridex.ride.dto.CreateRideRequest;
 import com.ridex.ride.dto.RideResponse;
+import com.ridex.trip.TripService;
+import com.ridex.trip.dto.FareComparisonResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class RideController {
 
     private final RideRequestService rideRequestService;
-    private final com.ridex.trip.TripService tripService;
+    private final TripService tripService;
     private final RatingService ratingService;
     private final PaymentService paymentService;
 
@@ -68,14 +71,14 @@ public class RideController {
     /** The cancel screen's reason list, so the app never invents a code the server refuses. */
     @GetMapping("/cancellation-reasons")
     @ResponseStatus(HttpStatus.OK)
-    public java.util.List<com.ridex.ride.dto.CancellationReasonResponse> cancellationReasons() {
+    public java.util.List<CancellationReasonResponse> cancellationReasons() {
         return rideRequestService.cancellationReasons();
     }
 
     /** What an earlier cancellation left owing, added to the next fare. */
     @GetMapping("/dues")
     @ResponseStatus(HttpStatus.OK)
-    public com.ridex.ride.dto.CancellationQuote dues(@AuthenticationPrincipal JwtPrincipal principal) {
+    public CancellationQuote dues(@AuthenticationPrincipal JwtPrincipal principal) {
         return rideRequestService.outstandingDues(principal.userId());
     }
 
@@ -106,7 +109,7 @@ public class RideController {
     /** The rider's receipt: what was quoted against what was charged, line for line. */
     @GetMapping("/{rideId}/receipt")
     @ResponseStatus(HttpStatus.OK)
-    public com.ridex.trip.dto.FareComparisonResponse receipt(
+    public FareComparisonResponse receipt(
             @AuthenticationPrincipal JwtPrincipal principal, @PathVariable String rideId) {
         // Ownership is checked first: the receipt itself is looked up by ride, not by caller.
         rideRequestService.get(principal.userId(), rideId);

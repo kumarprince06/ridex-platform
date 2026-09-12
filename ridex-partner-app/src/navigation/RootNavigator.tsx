@@ -11,6 +11,8 @@ import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { HelpSupportScreen } from '../screens/HelpSupportScreen';
+import { ReportIssueScreen } from '../screens/ReportIssueScreen';
+import { SupportTicketScreen } from '../screens/SupportTicketScreen';
 import { NavigateToPickupScreen } from '../screens/NavigateToPickupScreen';
 import { NewPasswordScreen } from '../screens/NewPasswordScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
@@ -25,6 +27,8 @@ import { RideOfferScreen } from '../screens/RideOfferScreen';
 import { SafetyScreen } from '../screens/SafetyScreen';
 import { ScanPickupScreen } from '../screens/ScanPickupScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { ShuttleDepartureScreen } from '../screens/ShuttleDepartureScreen';
+import { ShuttleRunsScreen } from '../screens/ShuttleRunsScreen';
 import { SignInScreen } from '../screens/SignInScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { SuspendedScreen } from '../screens/SuspendedScreen';
@@ -100,6 +104,9 @@ export function RootNavigator() {
         <Stack.Screen name="Safety" component={SafetyScreen} />
         <Stack.Screen name="ScanPickup" component={ScanPickupScreen} options={{ presentation: 'fullScreenModal' }} />
 
+        <Stack.Screen name="ShuttleRuns" component={ShuttleRunsScreen} />
+        <Stack.Screen name="ShuttleDeparture" component={ShuttleDepartureScreen} />
+
         <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
         <Stack.Screen name="Payouts" component={PayoutsScreen} />
         <Stack.Screen name="Documents" component={DocumentsScreen} />
@@ -110,6 +117,8 @@ export function RootNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+        <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
+        <Stack.Screen name="SupportTicket" component={SupportTicketScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,5 +1,7 @@
 package com.ridex.shuttle.dto;
 
+import com.ridex.payment.domain.PaymentMethod;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
@@ -19,10 +21,16 @@ public record BookSeatRequest(
          * door; anything else opens checkout there and then, because a seat is inventory and
          * holding it for somebody who has not paid costs another rider their journey.
          */
-        com.ridex.payment.domain.PaymentMethod paymentMethod) {
+        PaymentMethod paymentMethod,
+
+        /**
+         * Points to put towards the seat. A request, not an instruction: the server spends what
+         * the balance and the fare actually allow, and answers with what it took.
+         */
+        Integer redeemPoints) {
 
     /** Online unless the rider says otherwise. */
-    public com.ridex.payment.domain.PaymentMethod methodOrDefault() {
-        return paymentMethod == null ? com.ridex.payment.domain.PaymentMethod.UPI : paymentMethod;
+    public PaymentMethod methodOrDefault() {
+        return paymentMethod == null ? PaymentMethod.UPI : paymentMethod;
     }
 }

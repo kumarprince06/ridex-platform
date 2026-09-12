@@ -180,7 +180,7 @@ class ShuttleBookingTest {
     void travellingBackwardsAlongTheRouteIsRefused() {
         assertThatThrownBy(() -> shuttleService.book(newRider(), new BookSeatRequest(
                 schedule.getId(), serviceDate.toString(), last.getId(), first.getId(), "1C",
-                PaymentMethod.CASH)))
+                PaymentMethod.CASH, null)))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -194,7 +194,7 @@ class ShuttleBookingTest {
     private BookSeatRequest request(String seat) {
         // Cash keeps these tests off the gateway: what they are about is seat inventory.
         return new BookSeatRequest(schedule.getId(), serviceDate.toString(),
-                first.getId(), last.getId(), seat, PaymentMethod.CASH);
+                first.getId(), last.getId(), seat, PaymentMethod.CASH, null);
     }
 
     private String newRider() {

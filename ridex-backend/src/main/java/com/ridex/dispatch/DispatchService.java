@@ -148,10 +148,10 @@ public class DispatchService {
 
         // Same transaction as the assignment: a ride cannot be assigned without a pickup code,
         // or the rider has nothing to show and the driver nothing to check.
-        tripService.createForAssignedRide(offer.getRideRequest().getId());
+        String tripId = tripService.createForAssignedRide(offer.getRideRequest().getId());
 
         OfferResponse response = toResponse(
-                rideOfferRepository.findById(offerId).orElseThrow());
+                rideOfferRepository.findById(offerId).orElseThrow(), tripId);
         offerNotifier.taken(offer.getRideRequest().getId(), offerId);
         return response;
     }
@@ -193,6 +193,11 @@ public class DispatchService {
     }
 
     private OfferResponse toResponse(RideOffer offer) {
+        // An open offer has no trip yet: one is created the moment somebody accepts.
+        return toResponse(offer, null);
+    }
+
+    private OfferResponse toResponse(RideOffer offer, String tripId) {
         RideRequest ride = offer.getRideRequest();
         return new OfferResponse(
                 offer.getId(),
@@ -205,6 +210,7 @@ public class DispatchService {
                 offer.getDistanceMeters(),
                 ride.getCurrency(),
                 ride.getQuotedFareMinor(),
-                offer.getExpiresAt());
+                offer.getExpiresAt(),
+                tripId);
     }
 }

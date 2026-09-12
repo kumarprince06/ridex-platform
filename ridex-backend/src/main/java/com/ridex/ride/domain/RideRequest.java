@@ -3,6 +3,7 @@ package com.ridex.ride.domain;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+import com.ridex.payment.domain.PaymentMethod;
 import com.ridex.pricing.domain.FareEstimate;
 import com.ridex.pricing.domain.RideType;
 import com.ridex.rider.domain.RiderProfile;
@@ -69,8 +70,8 @@ public class RideRequest {
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false, length = 20)
-    private com.ridex.payment.domain.PaymentMethod paymentMethod =
-            com.ridex.payment.domain.PaymentMethod.CASH;
+    private PaymentMethod paymentMethod =
+            PaymentMethod.CASH;
 
     @Column(name = "currency", nullable = false, length = 3)
     private String currency;

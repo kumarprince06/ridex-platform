@@ -1,6 +1,17 @@
+server:
+  # 8080 unless something else on the machine already has it - a dev box often runs another
+  # project's service there, and the failure ("port already in use") reads like this app's fault.
+  port: ${RIDEX_PORT:8080}
+
 spring:
   application:
     name: ridex-backend
+
+  config:
+    # The repo's own .env, read as properties so `mvnw spring-boot:run` works without exporting
+    # eight variables by hand. Optional: a container has none, and real environment variables
+    # outrank anything imported here, so a deployment is never configured by a stray file.
+    import: optional:file:../.env[.properties],optional:file:.env[.properties]
 
   datasource:
     url: jdbc:postgresql://localhost:5432/ridex_platform

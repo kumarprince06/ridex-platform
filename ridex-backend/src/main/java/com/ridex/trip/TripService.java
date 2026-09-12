@@ -10,11 +10,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.driver.DriverProfileRepository;
 import com.ridex.driver.domain.DriverProfile;
+import com.ridex.notification.DeliveryChannel;
+import com.ridex.notification.Notifier;
+import com.ridex.payment.PaymentService;
+import com.ridex.points.PointsService;
 import com.ridex.pricing.PricingRuleRepository;
 import com.ridex.pricing.domain.Fare;
 import com.ridex.pricing.domain.FareCalculator;
-import com.ridex.notification.DeliveryChannel;
-import com.ridex.notification.Notifier;
 import com.ridex.pricing.domain.FareLine;
 import com.ridex.pricing.dto.FareLineResponse;
 import com.ridex.ride.RideRequestRepository;
@@ -22,9 +24,6 @@ import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
-import com.ridex.payment.PaymentService;
-import com.ridex.payment.domain.PaymentMethod;
-import com.ridex.points.PointsService;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.trip.domain.ActorType;
 import com.ridex.trip.domain.Trip;
@@ -36,7 +35,9 @@ import com.ridex.trip.dto.StartTripRequest;
 import com.ridex.trip.dto.TripResponse;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TripService {
@@ -48,6 +49,15 @@ public class TripService {
      * blindly. Without a bound, a wrong odometer or a tampered client prices the ride.
      */
     private static final double MAX_DISTANCE_OVERRUN = 2.0;
+
+    /**
+     * How far short of the quoted route the reported distance may fall before it is ignored.
+     *
+     * <p>A trip between the same two points cannot be a quarter of the route it was quoted on. A
+     * number that low is a phone that never got a fix, not a shortcut - and pricing a real trip at
+     * the base fare is as wrong as pricing it at double.
+     */
+    private static final double MIN_DISTANCE_SHORTFALL = 0.25;
 
     private final TripRepository tripRepository;
     private final TripStatusHistoryRepository tripStatusHistoryRepository;
@@ -63,7 +73,7 @@ public class TripService {
     /**
      * Creates the trip and its pickup code the moment a driver is assigned.
      *
-     * @return the raw six digits, for the rider's screen and QR. Never stored, never logged.
+     * @return the trip id, which is what the driver's app drives every later action against.
      */
     @Transactional
     public String createForAssignedRide(String rideId) {
@@ -84,7 +94,7 @@ public class TripService {
         tripRepository.save(trip);
 
         record(trip, null, ride.getStatus(), ActorType.SYSTEM, null, "driver assigned");
-        return pickupCode;
+        return trip.getId();
     }
 
     /** The driver is at the pickup point. The waiting clock starts here, on the server's word. */
@@ -154,9 +164,8 @@ public class TripService {
         RideStatus from = ride.getStatus();
         ride.transitionTo(RideStatus.COMPLETED);
 
-        int quotedDistance = ride.getFareEstimate().getDistanceMeters();
-        // Bounded, not trusted: a broken odometer must not be able to invent a fare.
-        int distance = Math.min(request.distanceMeters(), (int) (quotedDistance * MAX_DISTANCE_OVERRUN));
+        int distance = boundedDistance(
+                trip, request.distanceMeters(), ride.getFareEstimate().getDistanceMeters());
 
         var rule = pricingRuleRepository.findInForce(ride.getRideType().getId(), Instant.now())
                 .orElseThrow(() -> new ConflictException("No pricing is in force for that ride type."));
@@ -248,6 +257,27 @@ public class TripService {
                 charged);
     }
 
+    /**
+     * The reported distance, held to the quoted route in both directions.
+     *
+     * <p>The driver's app is the only thing that was there, so its number is used - but a
+     * client-supplied distance is a client-supplied fare. Outside the band the quote is used
+     * instead and the trip is logged for ops: one flagged trip is a bad fix, a driver with a
+     * column of them is something else.
+     */
+    private int boundedDistance(Trip trip, int reported, int quoted) {
+        int ceiling = (int) (quoted * MAX_DISTANCE_OVERRUN);
+        int floor = (int) (quoted * MIN_DISTANCE_SHORTFALL);
+
+        if (reported > ceiling || reported < floor) {
+            int priced = reported > ceiling ? ceiling : quoted;
+            log.warn("Trip {} reported {} m against a {} m quote; priced on {} m",
+                    trip.getId(), reported, quoted, priced);
+            return priced;
+        }
+        return reported;
+    }
+
     private void record(Trip trip, RideStatus from, RideStatus to, ActorType actorType,
             String actorId, String reason) {
         TripStatusHistory history = new TripStatusHistory();
@@ -296,18 +326,32 @@ public class TripService {
                 .orElseThrow(() -> new NotFoundException("No such trip."));
     }
 
+    /** The trip a driver is on, for the screens between accepting an offer and completing it. */
+    @Transactional(readOnly = true)
+    public TripResponse forDriver(String driverUserId, String tripId) {
+        return toResponse(requireOwnTrip(driverUserId, tripId));
+    }
+
     private TripResponse toResponse(Trip trip) {
+        RideRequest ride = trip.getRideRequest();
         return new TripResponse(
                 trip.getId(),
-                trip.getRideRequest().getId(),
-                trip.getRideRequest().getStatus(),
+                ride.getId(),
+                ride.getStatus(),
+                // An email address is a worse greeting than none at all.
+                ride.getRider().getUser().displayName().orElse("Your rider"),
+                ride.getPickupAddress(),
+                ride.getDestinationAddress(),
                 trip.getArrivedAt(),
                 trip.getStartedAt(),
                 trip.getCompletedAt(),
                 trip.getWaitingSeconds(),
                 trip.getCurrency(),
+                ride.getQuotedFareMinor(),
+                ride.getPaymentMethod().name(),
                 trip.getFinalFareMinor());
     }
+
 
     Currency currencyOf(Trip trip) {
         return Currency.getInstance(trip.getCurrency());

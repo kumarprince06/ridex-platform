@@ -40,6 +40,7 @@ import { ShuttleSeatsScreen } from '../screens/ShuttleSeatsScreen';
 import { TripDetailsScreen } from '../screens/TripDetailsScreen';
 import { TripReceiptScreen } from '../screens/TripReceiptScreen';
 import { ReportIssueScreen } from '../screens/ReportIssueScreen';
+import { SupportTicketScreen } from '../screens/SupportTicketScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { SavedPlacesScreen } from '../screens/SavedPlacesScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
@@ -110,6 +111,7 @@ export function RootNavigator() {
         <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
         <Stack.Screen name="TripReceipt" component={TripReceiptScreen} />
         <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
+        <Stack.Screen name="SupportTicket" component={SupportTicketScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         <Stack.Screen name="SavedPlaces" component={SavedPlacesScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />

@@ -62,12 +62,15 @@ class TripLifecycleTest {
     @Autowired private DriverProfileService driverProfileService;
     @Autowired private RiderProfileService riderProfileService;
     @Autowired private UserRepository userRepository;
+    @Autowired private com.ridex.vehicle.VehicleService vehicleService;
+    @Autowired private com.ridex.admin.AdminRideQueries adminRides;
 
     private String riderUserId;
     private String driverUserId;
     private String rideId;
     private String tripId;
     private String pickupCode;
+    private String acceptedTripId;
 
     @BeforeEach
     void setUp() {
@@ -86,13 +89,57 @@ class TripLifecycleTest {
 
         dispatchService.offerRide(rideId, 1);
         String offerId = dispatchService.liveOffers(driverUserId).get(0).offerId();
-        dispatchService.accept(driverUserId, offerId);
+        acceptedTripId = dispatchService.accept(driverUserId, offerId).tripId();
 
         Trip trip = tripRepository.findByRideRequestId(rideId).orElseThrow();
         tripId = trip.getId();
         // The raw code is returned once and never stored, so the test regenerates one the same way
         // the rider receives it.
         pickupCode = reissueKnownPickupCode(trip);
+    }
+
+    @Test
+    void acceptingAnOfferHandsTheDriverTheTripToDrive() {
+        // Without this the partner app has an accepted ride and no id to arrive, start or complete
+        // against - which is every trip screen dead in the water.
+        assertThat(acceptedTripId).isEqualTo(tripId);
+    }
+
+    @Test
+    void bothSidesSeeTheSamePersonAndTheSameAddresses() {
+        var vehicle = vehicleService.add(driverUserId, new com.ridex.vehicle.dto.AddVehicleRequest(
+                com.ridex.vehicle.domain.VehicleType.SEDAN, "Toyota", "Camry", 2022, "White", 4,
+                "KA-01-TL-" + (System.nanoTime() % 10000)));
+        vehicleService.review(vehicle.id(), true);
+
+        // The rider is looking for a plate, not a driver id.
+        var ride = rideRequestService.get(riderUserId, rideId);
+        assertThat(ride.driver()).isNotNull();
+        assertThat(ride.driver().vehicle()).isEqualTo("Toyota Camry");
+        assertThat(ride.driver().registrationNumber()).isEqualTo(vehicle.registrationNumber());
+
+        // And the driver is looking for a person and two addresses, not a mock rider.
+        var trip = tripService.forDriver(driverUserId, tripId);
+        assertThat(trip.riderName()).isNotBlank();
+        assertThat(trip.pickupAddress()).isEqualTo("Koramangala");
+        assertThat(trip.destinationAddress()).isEqualTo("Indiranagar");
+    }
+
+    @Test
+    void opsSeesTheWholeRideOnOneScreen() {
+        tripService.arrive(driverUserId, tripId);
+        tripService.start(driverUserId, tripId, new StartTripRequest(pickupCode));
+        tripService.complete(driverUserId, tripId, new CompleteTripRequest(8900, 1560));
+
+        var detail = adminRides.trip(rideId);
+
+        // The transitions with their actor: "who cancelled" is the first question in every dispute.
+        assertThat(detail.timeline()).isNotEmpty()
+                .last().extracting(step -> step.toStatus()).isEqualTo(RideStatus.COMPLETED);
+        // And both sides of the fare, which is what a fare dispute is actually about.
+        assertThat(detail.quotedLines()).isNotEmpty();
+        assertThat(detail.chargedLines()).isNotEmpty();
+        assertThat(detail.actualDistanceMeters()).isEqualTo(8900);
     }
 
     @Test
@@ -155,6 +202,19 @@ class TripLifecycleTest {
 
         assertThat(tripRepository.findById(tripId).orElseThrow().getActualDistanceMeters())
                 .isEqualTo(16_400);
+    }
+
+    @Test
+    void aDeviceThatNeverGotAFixIsPricedOnTheQuote() {
+        tripService.arrive(driverUserId, tripId);
+        tripService.start(driverUserId, tripId, new StartTripRequest(pickupCode));
+
+        // Location refused: zero metres driven is a phone, not a trip, and the base fare alone
+        // would undercharge the ride as badly as a broken odometer overcharges it.
+        tripService.complete(driverUserId, tripId, new CompleteTripRequest(0, 1560));
+
+        assertThat(tripRepository.findById(tripId).orElseThrow().getActualDistanceMeters())
+                .isEqualTo(8200);
     }
 
     @Test

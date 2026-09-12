@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import com.ridex.payment.dto.ConfirmPaymentRequest;
 import com.ridex.platform.security.JwtPrincipal;
 import com.ridex.shuttle.dto.*;
 
@@ -56,7 +57,7 @@ public class ShuttleController {
     @ResponseStatus(HttpStatus.OK)
     public ShuttleBookingResponse confirmPayment(@AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable String bookingId,
-            @Valid @RequestBody com.ridex.payment.dto.ConfirmPaymentRequest request) {
+            @Valid @RequestBody ConfirmPaymentRequest request) {
         return shuttleService.confirmPayment(principal.userId(), bookingId,
                 request.gatewayPaymentId());
     }

@@ -27,6 +27,9 @@ export type Crew = {
   vehicle: string;
   registrationNumber: string;
   seatCapacity: number;
+  /** Where the vehicle is, from fifteen minutes before departure. Null before that. */
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type Departure = {
@@ -62,9 +65,17 @@ export type ShuttleBooking = {
   seatLabel: string;
   boardingStopName: string;
   alightingStopName: string;
+  boardingLat: number;
+  boardingLng: number;
+  alightingLat: number;
+  alightingLng: number;
   departsAt: string;
   currency: string;
+  /** The published fare, before points. */
   fareMinor: number;
+  /** Points spent on this seat, and what they took off the fare. */
+  redeemedPoints: number;
+  discountMinor: number;
   /** Set when a pass covered the seat, so nothing was charged. */
   passId: string | null;
   status: string;
@@ -145,11 +156,21 @@ export function bookSeat(booking: {
   alightingStopId: string;
   seatLabel: string;
   paymentMethod: ShuttlePaymentMethod;
+  /**
+   * A request, not an instruction: the server spends what the balance and the fare allow, and
+   * answers with what it actually took.
+   */
+  redeemPoints?: number;
 }) {
   return request<ShuttleBooking>('/api/v1/shuttle/bookings', { method: 'POST', body: booking });
 }
 
 /** This rider's shuttle seats. Newest first, and without the boarding code - see the backend. */
+/** One booking, by asking for the rider's own and picking it out - there is no single-seat GET. */
+export function getBooking(bookingId: string) {
+  return listBookings().then((bookings) => bookings.find((b) => b.id === bookingId) ?? null);
+}
+
 export function listBookings() {
   return request<ShuttleBooking[]>('/api/v1/shuttle/bookings');
 }

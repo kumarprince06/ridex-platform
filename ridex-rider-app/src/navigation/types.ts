@@ -67,7 +67,7 @@ export type RootStackParamList = {
   // has to show it is the last one in this chain.
   DriverApproaching: { destination: string; rideId?: string };
   DriverArrived: { destination: string; rideId?: string };
-  TripInProgress: { destination: string };
+  TripInProgress: { destination: string; rideId?: string };
   RideCompleted: { destination: string; rideId?: string };
   RateDriver: { rideId?: string };
   CancelRide: { rideId?: string };
@@ -94,7 +94,9 @@ export type RootStackParamList = {
 
   TripDetails: { rideId: string };
   TripReceipt: { rideId: string };
-  ReportIssue: undefined;
+  /** A ride id turns a report into a ride's report: support opens the trip beside the thread. */
+  ReportIssue: { rideId?: string } | undefined;
+  SupportTicket: { ticketId: string };
   EditProfile: undefined;
   SavedPlaces: undefined;
   Notifications: undefined;

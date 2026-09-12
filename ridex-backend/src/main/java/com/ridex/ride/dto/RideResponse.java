@@ -32,5 +32,7 @@ public record RideResponse(
          * the ride is live and only to the rider it belongs to.
          */
         String pickupCode,
+        /** Who is coming, and in what. Null until dispatch has assigned somebody. */
+        DriverResponse driver,
         Instant requestedAt) {
 }

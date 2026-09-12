@@ -5,13 +5,6 @@ import { IconName } from '../theme';
  * backend is wired - kept in one file so it is obvious what is fake and easy to delete.
  */
 
-export const DRIVER = {
-  name: 'Marcus Rivera',
-  vehicle: 'Toyota Camry 2022 · RX · 4821',
-  rating: '4.92',
-  tier: 'RideX Comfort',
-};
-
 export const NOTIFICATIONS: {
   icon: IconName;
   tone: string;
@@ -57,15 +50,6 @@ export const NOTIFICATIONS: {
     body: 'Zero-emission rides now available in your area. Try it today!',
     when: '2 days ago',
   },
-];
-
-export const ISSUE_CATEGORIES: { icon: IconName; tone: string; label: string }[] = [
-  { icon: 'car', tone: '#E0785A', label: 'Driver Behavior' },
-  { icon: 'location', tone: '#E05A6F', label: 'Wrong Route' },
-  { icon: 'card', tone: '#E0B252', label: 'Payment Issue' },
-  { icon: 'cube', tone: '#C89A6A', label: 'Lost Item' },
-  { icon: 'ban', tone: '#E05A6F', label: 'Safety Concern' },
-  { icon: 'bug', tone: '#B8D65F', label: 'App Bug' },
 ];
 
 export const FAQS = [

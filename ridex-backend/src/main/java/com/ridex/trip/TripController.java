@@ -21,6 +21,14 @@ public class TripController {
 
     private final TripService tripService;
 
+    /** Everything the trip screens show: who the rider is, where they are going, what it costs. */
+    @GetMapping("/{tripId}")
+    @ResponseStatus(HttpStatus.OK)
+    public TripResponse get(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String tripId) {
+        return tripService.forDriver(principal.userId(), tripId);
+    }
+
     @PostMapping("/{tripId}/arrive")
     @ResponseStatus(HttpStatus.OK)
     public TripResponse arrive(@AuthenticationPrincipal JwtPrincipal principal,

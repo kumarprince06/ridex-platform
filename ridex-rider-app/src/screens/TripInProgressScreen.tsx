@@ -8,22 +8,19 @@ import { Avatar } from '../components/Avatar';
 import { MapCanvas } from '../components/MapCanvas';
 import { Sheet } from '../components/Sheet';
 import { StatTiles } from '../components/StatTiles';
-import { DRIVER } from '../data/mock';
+import { driverCoordOf, useJourney } from '../lib/journey';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripInProgress'>;
 
-/** Stands in for the driver completing the trip (T11). The rider never ends their own trip. */
-const COMPLETE_MS = 12000;
-
 export function TripInProgressScreen({ navigation, route }: Props) {
-  const { destination } = route.params;
+  const { destination, rideId } = route.params;
 
-  useEffect(() => {
-    const timer = setTimeout(() => navigation.replace('RideCompleted', { destination }), COMPLETE_MS);
-    return () => clearTimeout(timer);
-  }, [navigation, destination]);
+  // The rider never ends their own trip: the driver swipes to complete and the server prices it.
+  const { ride } = useJourney(rideId, 'TripInProgress', navigation, destination);
+  const driver = ride?.driver;
+  const driverAt = driverCoordOf(ride);
   const [seconds, setSeconds] = useState(7 * 60 + 23);
 
   useEffect(() => {
@@ -37,7 +34,7 @@ export function TripInProgressScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute driverAt={0.62} driverLabel="3 min" />
+      <MapCanvas showRoute driverCoord={driverAt} driverLabel="You are here" />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <View style={styles.headerRow}>
@@ -71,10 +68,10 @@ export function TripInProgressScreen({ navigation, route }: Props) {
         </View>
 
         <View style={styles.driverRow}>
-          <Avatar name={DRIVER.name} size={44} />
+          <Avatar name={driver?.name ?? 'Your driver'} size={44} />
           <View style={styles.flex}>
-            <Text style={styles.driverName}>{DRIVER.name}</Text>
-            <Text style={styles.driverMeta}>RX · 4821</Text>
+            <Text style={styles.driverName}>{driver?.name ?? 'Your driver'}</Text>
+            <Text style={styles.driverMeta}>{driver?.registrationNumber ?? ''}</Text>
           </View>
 
           <View style={styles.actionChip}>

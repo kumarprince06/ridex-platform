@@ -26,6 +26,18 @@ export type RideStatus =
   | 'DRIVER_AT_PICKUP' | 'TRIP_STARTED' | 'COMPLETED'
   | 'CANCELLED_BY_RIDER' | 'CANCELLED_BY_DRIVER' | 'CANCELLED_BY_SYSTEM' | 'EXPIRED';
 
+/** Who is coming and in what. Null until dispatch has assigned somebody. */
+export type RideDriver = {
+  name: string;
+  phone: string | null;
+  rating: string | null;
+  vehicle: string;
+  registrationNumber: string;
+  /** Where the car is now. Null when the driver's phone has stopped reporting. */
+  latitude: number | null;
+  longitude: number | null;
+};
+
 export type Ride = {
   id: string;
   status: RideStatus;
@@ -48,6 +60,7 @@ export type Ride = {
    * the server withholds it once the trip has ended.
    */
   pickupCode: string | null;
+  driver: RideDriver | null;
   requestedAt: string;
 };
 
@@ -145,13 +158,6 @@ export function getReceipt(rideId: string) {
   return request<Receipt>(`/api/v1/rides/${rideId}/receipt`);
 }
 
-/** Minor units to a display string. Currency lives on the response, never assumed. */
-export function formatMoney(amountMinor: number, currency: string): string {
-  const sign = amountMinor < 0 ? '-' : '';
-  const abs = Math.abs(amountMinor);
-  return `${sign}${currency} ${(abs / 100).toFixed(2)}`;
-}
-
 const STATUS_LABELS: Record<RideStatus, string> = {
   REQUESTED: 'Requested',
   SEARCHING: 'Finding a driver',
@@ -177,23 +183,6 @@ export function isCancelled(status: RideStatus): boolean {
 
 export function isLive(status: RideStatus): boolean {
   return !isCancelled(status) && status !== 'COMPLETED';
-}
-
-/**
- * Today and yesterday get named, because "Today, 2:30 PM" is what the rider is actually scanning
- * for in a list. Anything older is just a date.
- */
-export function formatWhen(iso: string): string {
-  const at = new Date(iso);
-  const time = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-  const midnight = new Date();
-  midnight.setHours(0, 0, 0, 0);
-  const daysAgo = Math.floor((midnight.getTime() - at.getTime()) / 86_400_000) + 1;
-
-  if (daysAgo <= 0) return `Today, ${time}`;
-  if (daysAgo === 1) return `Yesterday, ${time}`;
-  return `${at.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
 }
 
 /** One rating per ride, and only once it completed. The server rejects a second attempt. */

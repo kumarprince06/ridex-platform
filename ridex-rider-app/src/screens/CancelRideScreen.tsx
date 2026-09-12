@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { money } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
-import { cancellationQuote, cancellationReasons, cancelRide, formatMoney } from '../api/rides';
+import { cancellationQuote, cancellationReasons, cancelRide } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
@@ -94,7 +95,7 @@ export function CancelRideScreen({ navigation, route }: Props) {
               ? 'Checking the cancellation fee'
               : quote.free
                 ? 'Free to cancel'
-                : `Cancellation fee ${formatMoney(quote.feeMinor, quote.currency)}`}
+                : `Cancellation fee ${money(quote.feeMinor, quote.currency)}`}
           </Text>
           <Text style={styles.noticeBody}>
             {quote?.free === false

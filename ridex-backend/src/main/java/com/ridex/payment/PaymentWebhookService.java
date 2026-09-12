@@ -4,14 +4,14 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-// Boot 4 ships Jackson 3, whose ObjectMapper lives here. The com.fasterxml one is still on
-// the classpath - jjwt pulls it in - but has no bean, which is a confusing way to fail.
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
 import com.ridex.payment.domain.Payment;
 import com.ridex.payment.domain.PaymentEvent;
 import com.ridex.payment.domain.PaymentStatus;
+import com.ridex.shuttle.ShuttleBookingRepository;
+import com.ridex.shuttle.ShuttleService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,8 +34,8 @@ public class PaymentWebhookService {
     private final PaymentEventRepository paymentEventRepository;
     private final PaymentRepository paymentRepository;
     private final ObjectMapper objectMapper;
-    private final com.ridex.shuttle.ShuttleService shuttleService;
-    private final com.ridex.shuttle.ShuttleBookingRepository shuttleBookingRepository;
+    private final ShuttleService shuttleService;
+    private final ShuttleBookingRepository shuttleBookingRepository;
 
     /**
      * Records one verified webhook and applies it.

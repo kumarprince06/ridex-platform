@@ -16,7 +16,11 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = {
   showRoute?: boolean;
-  driverAt?: number;
+  /**
+   * Where the driver actually is, from their own phone. Undefined hides the marker - a puck
+   * interpolated along the route is a car the rider is not waiting for.
+   */
+  driverCoord?: LngLat;
   driverLabel?: string;
   showUserDot?: boolean;
   /** The trip's real ends, when the caller knows them. A past trip did not start where the
@@ -40,7 +44,7 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
 
 export function MapCanvas({
   showRoute = false,
-  driverAt,
+  driverCoord,
   driverLabel,
   showUserDot = false,
   pickupCoord,
@@ -84,10 +88,7 @@ export function MapCanvas({
 
   const line = hasRoute ? (road ?? [PICKUP!, DESTINATION!]) : [];
 
-  const driver: [number, number] | undefined =
-    driverAt === undefined || line.length === 0
-      ? undefined
-      : line[Math.min(line.length - 1, Math.max(0, Math.round((line.length - 1) * driverAt)))];
+  const driver = driverCoord;
 
   return (
     <View style={[styles.map, style]}>

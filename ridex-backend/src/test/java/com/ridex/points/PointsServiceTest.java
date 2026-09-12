@@ -118,7 +118,8 @@ class PointsServiceTest {
         pointsService.awardForCompletedRide(user, "ride-6");   // 120
 
         // 100 points to the rupee: 120 available redeems 100, and the remainder stays.
-        int spent = pointsService.redeem(user, 120, "ride-7");
+        // A fare large enough not to be the binding ceiling: this test is about the balance.
+        int spent = pointsService.redeem(user, 120, 50_000, "ride-7");
 
         assertThat(spent).isEqualTo(100);
         assertThat(pointEntryRepository.balanceOf(user)).isEqualTo(20);
@@ -130,7 +131,7 @@ class PointsServiceTest {
         pointsService.awardForCompletedRide(user, "ride-1");
 
         // 20 points is under one rupee, so nothing is spent rather than going negative.
-        assertThat(pointsService.redeem(user, 5000, "ride-2")).isZero();
+        assertThat(pointsService.redeem(user, 5000, 50_000, "ride-2")).isZero();
         assertThat(pointEntryRepository.balanceOf(user)).isEqualTo(20);
     }
 

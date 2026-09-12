@@ -74,15 +74,26 @@ export function DriveScreen({ navigation }: Props) {
             <DutyPill online={online} />
           </View>
 
-          <Pressable
-            onPress={() => navigation.navigate('Notifications')}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            style={styles.bell}
-          >
-            <Ionicons name="notifications-outline" size={19} color={colors.text} />
-            <View style={styles.bellDot} />
-          </Pressable>
+          <View style={styles.topActions}>
+            <Pressable
+              onPress={() => navigation.navigate('ShuttleRuns')}
+              accessibilityRole="button"
+              accessibilityLabel="My shuttle runs"
+              style={styles.bell}
+            >
+              <Ionicons name="bus-outline" size={19} color={colors.text} />
+            </Pressable>
+
+            <Pressable
+              onPress={() => navigation.navigate('Notifications')}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              style={styles.bell}
+            >
+              <Ionicons name="notifications-outline" size={19} color={colors.text} />
+              <View style={styles.bellDot} />
+            </Pressable>
+          </View>
         </View>
 
         <EarningsBar net={today.net} goal={today.goal} progress={today.goalProgress} />
@@ -159,6 +170,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  topActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,

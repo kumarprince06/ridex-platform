@@ -1,4 +1,5 @@
 import { request } from './client';
+import { useQuery } from './useQuery';
 
 export type OnboardingStatus =
   | 'REGISTERED' | 'PROFILE_SUBMITTED' | 'DOCUMENTS_SUBMITTED'
@@ -27,17 +28,26 @@ export type Offer = {
   // Server-issued. The countdown is rendered from this, never computed on the phone, or a paused
   // app could accept an offer that expired minutes ago.
   expiresAt: string;
+  /** Set only on the accept response: the trip every later action is against. */
+  tripId: string | null;
 };
 
 export type Trip = {
   tripId: string;
   rideId: string;
   status: string;
+  /** Who is in the car and where they are going. The offer is gone by the time these screens open. */
+  riderName: string;
+  pickupAddress: string | null;
+  destinationAddress: string | null;
   arrivedAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
   waitingSeconds: number;
   currency: string;
+  quotedFareMinor: number;
+  /** CASH or ONLINE - whether the driver collects at the door. */
+  paymentMethod: string;
   finalFareMinor: number | null;
 };
 
@@ -72,6 +82,20 @@ export function acceptOffer(offerId: string) {
 
 export function rejectOffer(offerId: string) {
   return request<void>(`/api/v1/driver/offers/${offerId}/reject`, { method: 'POST' });
+}
+
+export function getTrip(tripId: string) {
+  return request<Trip>(`/api/v1/trips/${tripId}`);
+}
+
+/**
+ * The live trip for the screens between accepting an offer and completing it.
+ *
+ * Null when there is no trip id, which is how these screens are opened outside the accept flow -
+ * they still render, with nothing invented on them.
+ */
+export function useTrip(tripId?: string) {
+  return useQuery(() => (tripId ? getTrip(tripId) : Promise.resolve(null)), [tripId]).data;
 }
 
 export function arriveAtPickup(tripId: string) {

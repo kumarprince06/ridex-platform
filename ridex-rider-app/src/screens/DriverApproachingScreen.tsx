@@ -1,34 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '../components/Avatar';
 import { MapCanvas } from '../components/MapCanvas';
 import { Sheet } from '../components/Sheet';
-import { DRIVER } from '../data/mock';
+import { driverCoordOf, useJourney } from '../lib/journey';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverApproaching'>;
 
-/** How long the mock driver takes to cover the last minute. Replaced by the trip status socket (T11). */
-const ARRIVAL_MS = 6000;
-
 export function DriverApproachingScreen({ navigation, route }: Props) {
   const { destination, rideId } = route.params;
 
   // The rider does not decide that the driver has arrived - the driver does, and the server says
-  // so. This timer stands in for that message until the socket exists.
-  useEffect(() => {
-    const timer = setTimeout(() => navigation.replace('DriverArrived', { destination, rideId }), ARRIVAL_MS);
-    return () => clearTimeout(timer);
-  }, [navigation, destination, rideId]);
+  // so. This screen moves when that lands, not on a timer.
+  const { ride } = useJourney(rideId, 'DriverApproaching', navigation, destination);
+  const driver = ride?.driver;
+  const driverAt = driverCoordOf(ride);
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute driverAt={0.48} driverLabel="3 min" />
+      <MapCanvas showRoute driverCoord={driverAt} driverLabel={driver?.name ?? 'Driver'} />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <View style={styles.headerRow}>
@@ -54,11 +49,13 @@ export function DriverApproachingScreen({ navigation, route }: Props) {
 
       <Sheet>
         <View style={styles.row}>
-          <Avatar name={DRIVER.name} size={48} />
+          <Avatar name={driver?.name ?? 'Your driver'} size={48} />
 
           <View style={styles.flex}>
-            <Text style={styles.title}>{DRIVER.name} is almost here</Text>
-            <Text style={styles.meta}>RX · 4821 · Pearl White</Text>
+            <Text style={styles.title}>{driver?.name ?? 'Your driver'} is almost here</Text>
+            <Text style={styles.meta}>
+              {driver ? `${driver.registrationNumber} · ${driver.vehicle}` : 'On the way'}
+            </Text>
           </View>
 
           <View style={styles.etaBlock}>

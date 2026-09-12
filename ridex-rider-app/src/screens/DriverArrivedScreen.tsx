@@ -1,40 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getRide } from '../api/rides';
-import { useQuery } from '../api/useQuery';
 import { MapCanvas } from '../components/MapCanvas';
 import { PickupPass } from '../components/PickupPass';
 import { Sheet } from '../components/Sheet';
+import { driverCoordOf, useJourney } from '../lib/journey';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverArrived'>;
 
-/** Stands in for the driver scanning the pass and the server starting the trip (T11). */
-const START_MS = 9000;
-
 export function DriverArrivedScreen({ navigation, route }: Props) {
   const { destination, rideId } = route.params;
 
   // The code is the server's, issued when the driver was assigned. Nothing about it is derived
-  // here - a number this app invented would match nothing the driver can check.
-  const { data: ride } = useQuery(
-    () => (rideId ? getRide(rideId) : Promise.resolve(null)),
-    [rideId],
-  );
-
-  useEffect(() => {
-    const timer = setTimeout(() => navigation.replace('TripInProgress', { destination }), START_MS);
-    return () => clearTimeout(timer);
-  }, [navigation, destination]);
+  // here - a number this app invented would match nothing the driver can check. The same poll
+  // moves this screen on when the driver checks that code and the trip starts.
+  const { ride } = useJourney(rideId, 'DriverArrived', navigation, destination);
+  const driverAt = driverCoordOf(ride);
 
   return (
     <View style={styles.root}>
-      {/* Driver puck sits on the pickup pin: driverAt 0 is the pickup end of the route. */}
-      <MapCanvas showRoute driverAt={0} driverLabel="Arrived!" />
+      <MapCanvas showRoute driverCoord={driverAt} driverLabel="Arrived!" />
 
       <Sheet>
         <View style={styles.banner}>

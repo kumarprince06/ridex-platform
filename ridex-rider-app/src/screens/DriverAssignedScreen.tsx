@@ -4,10 +4,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '../components/Avatar';
-import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { Sheet } from '../components/Sheet';
-import { DRIVER } from '../data/mock';
+import { driverCoordOf, useJourney } from '../lib/journey';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -15,10 +14,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DriverAssigned'>;
 
 export function DriverAssignedScreen({ navigation, route }: Props) {
   const { destination, rideId } = route.params;
+  const { ride } = useJourney(rideId, 'DriverAssigned', navigation, destination);
+  const driver = ride?.driver;
+  const driverAt = driverCoordOf(ride);
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute driverAt={0.22} driverLabel="3 min" />
+      <MapCanvas showRoute driverCoord={driverAt} driverLabel={driver?.name ?? 'Driver'} />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         <View style={styles.headerRow}>
@@ -56,15 +58,15 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
 
         <View style={styles.driverRow}>
           <View>
-            <Avatar name={DRIVER.name} size={50} />
+            <Avatar name={driver?.name ?? 'Your driver'} size={50} />
             <View style={styles.verified}>
               <Ionicons name="checkmark" size={9} color={colors.onPrimary} />
             </View>
           </View>
 
           <View style={styles.flex}>
-            <Text style={styles.driverName}>{DRIVER.name}</Text>
-            <Text style={styles.driverMeta}>★ {DRIVER.rating} · 3,840 trips</Text>
+            <Text style={styles.driverName}>{driver?.name ?? 'Assigning your driver'}</Text>
+            {driver?.rating ? <Text style={styles.driverMeta}>★ {driver.rating}</Text> : null}
           </View>
 
           <View style={styles.actionChip}>
@@ -78,12 +80,13 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
         <View style={styles.vehicle}>
           <Ionicons name="car" size={20} color="#E0785A" />
           <View style={styles.flex}>
-            <Text style={styles.vehicleName}>Toyota Camry 2022</Text>
-            <Text style={styles.vehicleColor}>Pearl White</Text>
+            <Text style={styles.vehicleName}>{driver?.vehicle ?? 'Vehicle on its way'}</Text>
           </View>
-          <View style={styles.plate}>
-            <Text style={styles.plateText}>RX · 4821</Text>
-          </View>
+          {driver ? (
+            <View style={styles.plate}>
+              <Text style={styles.plateText}>{driver.registrationNumber}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.actions}>
@@ -95,11 +98,9 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
 
-          <Button
-            label="Track your driver"
-            onPress={() => navigation.navigate('DriverApproaching', { destination, rideId })}
-            style={styles.track}
-          />
+          {/* The screen moves when the driver does, so there is nothing to press: a "track"
+              button would only jump ahead of the server and bounce the rider back. */}
+          <Text style={styles.tracking}>Tracking your driver</Text>
         </View>
       </Sheet>
     </View>
@@ -270,8 +271,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
   },
-  track: {
-    flex: 1.4,
-    borderRadius: radius.pill,
+  tracking: {
+    ...type.body,
+    color: colors.textMuted,
+    flex: 1,
+    textAlign: 'center',
   },
 });

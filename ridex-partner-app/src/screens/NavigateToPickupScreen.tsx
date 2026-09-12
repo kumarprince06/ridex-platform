@@ -4,12 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
-import { arriveAtPickup } from '../api/driver';
+import { arriveAtPickup, useTrip } from '../api/driver';
 import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
 import { RiderBar } from '../components/RiderBar';
 import { SwipeAction } from '../components/SwipeAction';
-import { OFFER } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -18,6 +17,8 @@ type Props = RootScreenProps<'NavigateToPickup'>;
 /** Ride request state DRIVER_ASSIGNED / DRIVER_ARRIVING. */
 export function NavigateToPickupScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
+  const trip = useTrip(route.params?.tripId);
+  const pickup = trip?.pickupAddress ?? 'Pickup point';
 
   async function onArrive() {
     const tripId = route.params?.tripId;
@@ -38,12 +39,12 @@ export function NavigateToPickupScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute driverAt={0.2} driverLabel="You" pickupLabel={OFFER.pickup} />
+      <MapCanvas showRoute driverAt={0.2} driverLabel="You" pickupLabel={pickup} />
 
       <SafeAreaView style={styles.banner} edges={['top']} pointerEvents="box-none">
         <View style={styles.eta}>
           <Ionicons name="navigate" size={17} color={colors.onPrimary} />
-          <Text style={styles.etaLabel}>{OFFER.pickupEta} to pickup · 1.2 km</Text>
+          <Text style={styles.etaLabel}>Heading to pickup</Text>
         </View>
       </SafeAreaView>
 
@@ -51,11 +52,11 @@ export function NavigateToPickupScreen({ navigation, route }: Props) {
         <View style={styles.grabber} />
 
         <Text style={styles.label}>PICKING UP</Text>
-        <RiderBar name={OFFER.rider} rating={OFFER.riderRating} note={OFFER.pickup} />
+        <RiderBar name={trip?.riderName ?? 'Your rider'} note={pickup} />
 
         <View style={styles.addressCard}>
           <Ionicons name="location" size={17} color={colors.primary} />
-          <Text style={styles.address}>{OFFER.pickup}</Text>
+          <Text style={styles.address}>{pickup}</Text>
         </View>
 
         {/* Turn-by-turn is a handoff to the phone's map app, not a second navigation stack. */}

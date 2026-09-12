@@ -3,21 +3,28 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { EARNINGS, OFFER, TRIPS } from '../data/mock';
+import { useTrip } from '../api/driver';
+import { EARNINGS, TRIPS } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'TripCompleted'>;
 
 /** Ride request state COMPLETED. Shows the driver's net first - the fare is the rider's number. */
-export function TripCompletedScreen({ navigation }: Props) {
+export function TripCompletedScreen({ navigation, route }: Props) {
+  const completed = useTrip(route.params?.tripId);
+  // ponytail: the earnings breakdown below is still mock - the driver's cut of one trip needs the
+  // earnings endpoint (M10), and this screen only owed M3 the route it just drove.
   const trip = TRIPS[0];
 
   return (
     <Screen
       footer={
         <View style={styles.actions}>
-          <Button label="Rate the rider" onPress={() => navigation.replace('RateRider')} />
+          <Button
+            label="Rate the rider"
+            onPress={() => navigation.replace('RateRider', { riderName: completed?.riderName })}
+          />
           <Button
             label="Back to driving"
             variant="secondary"
@@ -45,7 +52,9 @@ export function TripCompletedScreen({ navigation }: Props) {
 
       <View style={styles.summary}>
         <Text style={styles.summaryRoute}>
-          {OFFER.pickup} → {OFFER.dropoff}
+          {completed
+            ? `${completed.pickupAddress ?? 'Pickup'} → ${completed.destinationAddress ?? 'Drop-off'}`
+            : 'Trip complete'}
         </Text>
         <Text style={styles.summaryMeta}>
           {trip.distance} · {trip.duration} · {trip.payment}

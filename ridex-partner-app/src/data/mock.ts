@@ -28,40 +28,6 @@ export const VEHICLE = {
 };
 
 /** One offer, as dispatch would push it over the socket. */
-export type Offer = {
-  id: string;
-  rider: string;
-  riderRating: number;
-  tier: string;
-  fare: string;
-  surge?: string;
-  pickup: string;
-  pickupDetail: string;
-  pickupEta: string;
-  dropoff: string;
-  dropoffDetail: string;
-  tripDistance: string;
-  tripDuration: string;
-  payment: string;
-};
-
-export const OFFER: Offer = {
-  id: 'OFR-77213',
-  rider: 'Elena Fischer',
-  riderRating: 4.87,
-  tier: 'RideX Comfort',
-  fare: '$18.40',
-  surge: '1.3x',
-  pickup: 'Union Square Park',
-  pickupDetail: '4 min · 1.2 km away',
-  pickupEta: '4 min',
-  dropoff: 'Midtown Tower',
-  dropoffDetail: '221 W 42nd St',
-  tripDistance: '7.8 km',
-  tripDuration: '19 min',
-  payment: 'Card · Visa 4242',
-};
-
 export type TripStatus = 'Completed' | 'Cancelled';
 
 export type Trip = {

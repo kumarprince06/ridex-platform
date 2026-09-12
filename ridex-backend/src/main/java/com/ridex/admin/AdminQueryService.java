@@ -44,6 +44,12 @@ public class AdminQueryService {
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final com.ridex.payment.PaymentRepository paymentRepository;
+    private final com.ridex.location.DriverPresence driverPresence;
+    private final com.ridex.payment.PaymentEventRepository paymentEventRepository;
+    private final com.ridex.trip.TripStatusHistoryRepository tripStatusHistoryRepository;
+    private final com.ridex.points.PointsService pointsService;
+    private final com.ridex.payment.PaymentService paymentService;
+    private final com.ridex.driver.DriverCard driverCard;
 
     @org.springframework.beans.factory.annotation.Value("${app.reporting.zone}")
     private String reportingZone;
@@ -146,6 +152,37 @@ public class AdminQueryService {
                 this::toDriver);
     }
 
+    /**
+     * Every on-duty driver the platform can actually place, for the live map.
+     *
+     * <p>Positions come from Redis rather than a table: the pings are seconds old by design and a
+     * driver who stopped reporting simply drops off the map instead of haunting it.
+     */
+    @Transactional(readOnly = true)
+    public List<LiveDriverResponse> liveDrivers() {
+        var onDuty = driverProfileRepository.findByOnDutyTrue();
+        var positions = driverPresence.positionsOf(onDuty.stream().map(DriverProfile::getId).toList());
+
+        var driving = rideRequestRepository.findByStatusIn(RideStatus.liveWithDriver()).stream()
+                .map(RideRequest::getAssignedDriverId)
+                .collect(java.util.stream.Collectors.toSet());
+
+        return onDuty.stream()
+                .filter(driver -> positions.containsKey(driver.getId()))
+                .map(driver -> {
+                    var at = positions.get(driver.getId());
+                    var card = driverCard.forDriver(driver.getId());
+                    return new LiveDriverResponse(
+                            driver.getId(),
+                            card == null ? "Driver" : card.name(),
+                            card == null ? null : card.vehicle(),
+                            card == null ? null : card.registrationNumber(),
+                            at.latitude(), at.longitude(),
+                            driving.contains(driver.getId()));
+                })
+                .toList();
+    }
+
     /** One driver, for the detail screen. The same shape as a list row, so nothing renders twice. */
     @Transactional(readOnly = true)
     public AdminDriverResponse driver(String driverId) {
@@ -170,7 +207,11 @@ public class AdminQueryService {
                 ? paymentRepository.findAllByOrderByCreatedAtDesc(pageable)
                 : paymentRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
 
-        return PageResponse.of(payments, payment -> new AdminPaymentResponse(
+        return PageResponse.of(payments, this::toPayment);
+    }
+
+    private AdminPaymentResponse toPayment(com.ridex.payment.domain.Payment payment) {
+        return new AdminPaymentResponse(
                 payment.getId(),
                 // A shuttle seat has no trip. Reading through it here took the whole payments
                 // page down with a null pointer the moment the first seat was paid for.
@@ -184,7 +225,7 @@ public class AdminQueryService {
                 payment.getDiscountAmountMinor(),
                 payment.getNetAmountMinor(),
                 payment.getCreatedAt(),
-                payment.getPaidAt()));
+                payment.getPaidAt());
     }
 
     @Transactional(readOnly = true)
@@ -204,6 +245,85 @@ public class AdminQueryService {
 
     private static int clampSize(int size) {
         return Math.min(Math.max(1, size), MAX_PAGE_SIZE);
+    }
+
+    /**
+     * One payment with the gateway's own record of it.
+     *
+     * <p>ponytail: the events are listed without their payload. The body is the provider's JSON,
+     * sometimes with card metadata in it, and nothing on the screen reads it yet.
+     */
+    @Transactional(readOnly = true)
+    public AdminPaymentDetailResponse payment(String paymentId) {
+        var payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new com.ridex.shared.exception.NotFoundException("No such payment."));
+
+        var events = paymentEventRepository.findByPaymentIdOrderByReceivedAtAsc(paymentId).stream()
+                .map(event -> new AdminPaymentDetailResponse.Event(event.getId(), event.getProvider(),
+                        event.getProviderEventId(), event.getEventType(), event.getReceivedAt()))
+                .toList();
+
+        return new AdminPaymentDetailResponse(toPayment(payment), payment.getProvider(),
+                payment.getProviderPaymentId(), payment.getFailureReason(), events);
+    }
+
+    /** One ride: how it moved, what it was quoted, what it was charged. */
+    @Transactional(readOnly = true)
+    public AdminTripDetailResponse trip(String rideId) {
+        var ride = rideRequestRepository.findById(rideId)
+                .orElseThrow(() -> new com.ridex.shared.exception.NotFoundException("No such ride."));
+
+        var trip = tripRepository.findByRideRequestId(rideId).orElse(null);
+
+        var quoted = ride.getFareEstimate().getLines().stream()
+                .map(line -> new com.ridex.pricing.dto.FareLineResponse(
+                        line.getLineType(), line.getLabel(), line.getAmountMinor()))
+                .toList();
+
+        var charged = trip == null ? List.<com.ridex.pricing.dto.FareLineResponse>of()
+                : trip.getFareLines().stream()
+                        .map(line -> new com.ridex.pricing.dto.FareLineResponse(
+                                line.getLineType(), line.getLabel(), line.getAmountMinor()))
+                        .toList();
+
+        var timeline = trip == null ? List.<AdminTripDetailResponse.Transition>of()
+                : tripStatusHistoryRepository.findByTripIdOrderByOccurredAtAsc(trip.getId()).stream()
+                        .map(row -> new AdminTripDetailResponse.Transition(row.getFromStatus(),
+                                row.getToStatus(), row.getActorType(), row.getActorId(),
+                                row.getReason(), row.getOccurredAt()))
+                        .toList();
+
+        return new AdminTripDetailResponse(
+                toTrip(ride),
+                trip == null ? null : trip.getId(),
+                ride.getFareEstimate().getDistanceMeters(),
+                trip == null ? null : trip.getActualDistanceMeters(),
+                trip == null ? null : trip.getActualDurationSeconds(),
+                trip == null ? 0 : trip.getWaitingSeconds(),
+                ride.getCancellationReason(),
+                quoted, charged, timeline);
+    }
+
+    /** One rider, with the two numbers support is always asked about: points and what they owe. */
+    @Transactional(readOnly = true)
+    public AdminRiderDetailResponse rider(String riderId) {
+        var profile = riderProfileRepository.findById(riderId)
+                .orElseThrow(() -> new com.ridex.shared.exception.NotFoundException("No such rider."));
+
+        var dues = paymentService.duesFor(profile.getId(), "INR");
+
+        // Twenty: enough to see a pattern, and this page is opened while somebody is on the phone.
+        var rides = rideRequestRepository
+                .findTop20ByRiderIdOrderByRequestedAtDesc(profile.getId()).stream()
+                .map(this::toTrip)
+                .toList();
+
+        return new AdminRiderDetailResponse(
+                toRider(profile),
+                pointsService.balance(profile.getUser().getId()).balance(),
+                dues.currency().getCurrencyCode(),
+                dues.amountMinor(),
+                rides);
     }
 
     private AdminRiderResponse toRider(RiderProfile profile) {

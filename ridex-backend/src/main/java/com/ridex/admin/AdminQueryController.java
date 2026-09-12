@@ -56,10 +56,38 @@ public class AdminQueryController {
         return adminQueryService.drivers(status, q, page, size);
     }
 
+    /** The live map: who is on duty, where, and whether they are carrying somebody. */
+    @GetMapping("/drivers/live")
+    @ResponseStatus(HttpStatus.OK)
+    public java.util.List<LiveDriverResponse> liveDrivers() {
+        return adminQueryService.liveDrivers();
+    }
+
     @GetMapping("/drivers/{driverId}")
     @ResponseStatus(HttpStatus.OK)
     public AdminDriverResponse driver(@org.springframework.web.bind.annotation.PathVariable String driverId) {
         return adminQueryService.driver(driverId);
+    }
+
+    @GetMapping("/payments/{paymentId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminPaymentDetailResponse payment(
+            @org.springframework.web.bind.annotation.PathVariable String paymentId) {
+        return adminQueryService.payment(paymentId);
+    }
+
+    @GetMapping("/trips/{rideId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminTripDetailResponse trip(
+            @org.springframework.web.bind.annotation.PathVariable String rideId) {
+        return adminQueryService.trip(rideId);
+    }
+
+    @GetMapping("/riders/{riderId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminRiderDetailResponse rider(
+            @org.springframework.web.bind.annotation.PathVariable String riderId) {
+        return adminQueryService.rider(riderId);
     }
 
     @GetMapping("/trips")

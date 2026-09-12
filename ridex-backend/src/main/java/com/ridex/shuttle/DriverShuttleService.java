@@ -99,10 +99,8 @@ public class DriverShuttleService {
 
         // Queued inside the transaction, so the passenger is only told they are on board if the
         // check-in actually committed.
-        notifier.enqueue(DeliveryChannel.PUSH,
-                booking.getRider().getUser().getId(),
-                "SHUTTLE_BOARDED",
-                booking.getSeatLabel());
+        notifier.notifyUser(booking.getRider().getUser().getId(), "SHUTTLE_BOARDED",
+                booking.getSeatLabel(), "SHUTTLE_BOOKING", booking.getId());
 
         return manifest(trip);
     }

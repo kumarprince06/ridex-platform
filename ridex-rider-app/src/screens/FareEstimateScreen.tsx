@@ -17,7 +17,7 @@ import { ApiError } from '../api/problem';
 import { Button } from '../components/Button';
 import { RouteStops } from '../components/RouteStops';
 import { Screen } from '../components/Screen';
-import { RIDE_TIERS } from '../data/mock';
+import { lookFor } from '../lib/rideTypes';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -41,7 +41,7 @@ export function FareEstimateScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const tier = RIDE_TIERS.find((item) => item.id === tierId) ?? RIDE_TIERS[0]!;
+  const tier = lookFor(tierId);
 
   // What the toggle actually takes off, computed the way the server will: capped by the balance,
   // by what one journey may spend, and by the fare itself. A discount the rider only discovers
@@ -123,11 +123,12 @@ export function FareEstimateScreen({ navigation, route }: Props) {
             <Ionicons name={tier.icon} size={20} color={tier.tone} />
           </View>
           <View style={styles.flex}>
-            <Text style={styles.tierName}>{tier.name}</Text>
+            {/* The name is the server's: it is the one being priced. */}
+            <Text style={styles.tierName}>{quote?.displayName ?? 'Pricing...'}</Text>
             <Text style={styles.tierMeta}>
               {quote
                 ? `${Math.max(1, Math.round(quote.durationSeconds / 60))} min · ${quote.seatCapacity} seats`
-                : tier.blurb}
+                : ''}
             </Text>
           </View>
         </View>

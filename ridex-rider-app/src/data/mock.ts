@@ -13,24 +13,4 @@ export const FAQS = [
   'Is RideX available 24/7?',
 ];
 
-export type RideTier = {
-  id: string;
-  name: string;
-  blurb: string;
-  price: string;
-  eta: string;
-  seats: number;
-  tone: string;
-  icon: IconName;
-  popular?: boolean;
-};
-
-export const RIDE_TIERS: RideTier[] = [
-  { id: 'go', name: 'RideX Go', blurb: 'Affordable everyday rides', price: '$8–11', eta: '3 min', seats: 3, tone: '#E0785A', icon: 'car' },
-  { id: 'comfort', name: 'RideX Comfort', blurb: 'Extra legroom & quiet ride', price: '$13–17', eta: '5 min', seats: 4, tone: '#5FB8D6', icon: 'car-sport', popular: true },
-  { id: 'xl', name: 'RideX XL', blurb: 'SUV for groups up to 6', price: '$18–24', eta: '7 min', seats: 6, tone: '#8FA0BF', icon: 'bus' },
-  { id: 'premium', name: 'RideX Premium', blurb: 'Luxury sedans & executive', price: '$28–36', eta: '8 min', seats: 4, tone: '#E05A6F', icon: 'car-sport' },
-  { id: 'electric', name: 'RideX Electric', blurb: 'Zero emissions, smooth ride', price: '$10–14', eta: '6 min', seats: 4, tone: '#E0B252', icon: 'flash' },
-];
-
 export const RATING_TAGS = ['Friendly', 'Great Driver', 'Clean Car', 'On Time', 'Smooth Ride'];

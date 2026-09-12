@@ -311,6 +311,8 @@ public class TripService {
         notifier.enqueue(DeliveryChannel.EMAIL,
                 trip.getRideRequest().getRider().getUser().getEmail(),
                 "RIDE_RECEIPT", payload.toString());
+        notifier.notifyUser(trip.getRideRequest().getRider().getUser().getId(), "RIDE_RECEIPT",
+                payload.toString(), "RIDE", trip.getRideRequest().getId());
     }
 
     /** Minor units to a display string. The currency is on the fare, never assumed. */

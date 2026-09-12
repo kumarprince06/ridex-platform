@@ -138,10 +138,12 @@ public class DriverDocumentService {
 
         // The rejection carries the reason; the approval names the document, because a driver with
         // five in the queue cannot tell which one was cleared from "Document approved" alone.
-        notifier.enqueue(DeliveryChannel.EMAIL,
-                document.getDriver().getUser().getEmail(),
-                approved ? "DOCUMENT_APPROVED" : "DOCUMENT_REJECTED",
-                approved ? readable(document.getDocumentType()) : notes);
+        String eventType = approved ? "DOCUMENT_APPROVED" : "DOCUMENT_REJECTED";
+        String payload = approved ? readable(document.getDocumentType()) : notes;
+        notifier.enqueue(DeliveryChannel.EMAIL, document.getDriver().getUser().getEmail(),
+                eventType, payload);
+        notifier.notifyUser(document.getDriver().getUser().getId(), eventType, payload,
+                "DOCUMENT", document.getId());
 
         return DriverDocumentResponse.of(driverDocumentRepository.save(document));
     }

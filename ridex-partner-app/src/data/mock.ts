@@ -195,20 +195,6 @@ export const DOCUMENTS: DriverDocument[] = [
   { type: 'Profile photo', status: 'Under review', detail: 'Submitted 2 days ago' },
 ];
 
-export const NOTIFICATIONS: {
-  icon: IconName;
-  tone: string;
-  title: string;
-  body: string;
-  when: string;
-  unread?: boolean;
-}[] = [
-  { icon: 'cash', tone: '#5FD68A', title: 'Payout on the way', body: '$864.10 is heading to HDFC ••4412.', when: '2h ago', unread: true },
-  { icon: 'shield-checkmark', tone: '#8FA0BF', title: 'Document approved', body: 'Your vehicle registration was approved.', when: 'Yesterday', unread: true },
-  { icon: 'star', tone: '#E0B252', title: 'You got a 5-star rating', body: 'Elena rated your trip to Midtown Tower.', when: 'Yesterday' },
-  { icon: 'trending-up', tone: '#E0785A', title: 'Busy area nearby', body: 'Demand is high around Midtown until 8 PM.', when: '2 days ago' },
-];
-
 export const CANCEL_REASONS = [
   'Rider is not at the pickup point',
   'Rider asked me to cancel',

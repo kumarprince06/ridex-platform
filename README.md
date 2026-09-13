@@ -73,14 +73,14 @@ Module conventions: [docs/08-Backend-Architecture.md](docs/08-Backend-Architectu
 
 ## Technology
 
-**Backend** — Java 21, Spring Boot 3.x, Spring Security, Spring Data JPA, Flyway, PostgreSQL,
+**Backend** — Java 21, Spring Boot 4.1, Spring Security, Spring Data JPA, Flyway, PostgreSQL,
 Redis, Maven
 
 **Web** — React, TypeScript, Vite, TanStack Query, React Hook Form, Zod
 
 **Mobile** — React Native, TypeScript, React Navigation, secure token storage
 
-**Testing** — JUnit 5, Mockito, Spring Boot Test, Testcontainers
+**Testing** — JUnit 5, Mockito, Spring Boot Test, ArchUnit
 
 Deliberately **not** used: Kafka, Kubernetes, microservices, a general event bus. Start as a
 modular monolith with Redis; split only when scale or team boundaries justify it.
@@ -193,8 +193,8 @@ Full policy: [docs/14-Security.md](docs/14-Security.md).
 
 ## Testing
 
-Every task lands with its test. Unit tests for domain and application logic; Testcontainers
-integration tests for anything touching the schema; security tests asserting that protected
+Every task lands with its test. Unit tests for domain and application logic; integration tests
+against real PostgreSQL for anything touching the schema; security tests asserting that protected
 routes reject unauthenticated calls.
 
 ```bash

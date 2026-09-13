@@ -1,8 +1,11 @@
 package com.ridex.payment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Currency;
@@ -54,6 +57,9 @@ class PaymentSettlementTest {
     @MockitoBean private MapsService mapsProvider;
     @MockitoBean private DriverPresence driverPresence;
     @MockitoBean private OfferNotifier offerNotifier;
+    // The online gateway, stubbed: the build has no Razorpay keys. Cash stays the real provider.
+    @MockitoBean private PaymentProviders paymentProviders;
+    @Autowired private CashPaymentProvider cashProvider;
 
     @Autowired private PaymentService paymentService;
     @Autowired private PaymentRepository paymentRepository;
@@ -76,6 +82,14 @@ class PaymentSettlementTest {
 
     @BeforeEach
     void setUp() {
+        PaymentProvider gateway = mock(PaymentProvider.class);
+        when(gateway.name()).thenReturn("RAZORPAY");
+        when(gateway.createPaymentIntent(any(), anyString(), anyString()))
+                .thenAnswer(call -> new PaymentProvider.ProviderPayment(
+                        "order_" + call.getArgument(1), "REQUIRES_ACTION", null));
+        when(paymentProviders.forMethod(any())).thenAnswer(call ->
+                call.getArgument(0) == PaymentMethod.CASH ? cashProvider : gateway);
+
         when(mapsProvider.route(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                 .thenReturn(new RouteEstimate(8200, 1080, "8.2 km", "18 mins", null));
 

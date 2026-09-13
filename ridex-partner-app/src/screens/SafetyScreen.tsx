@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Row } from '../components/Row';
 import { Screen } from '../components/Screen';
@@ -14,7 +14,8 @@ type Props = RootScreenProps<'Safety'>;
  * only destructive-coloured control on it: at the moment a driver opens this screen they should
  * not have to read a list to find the one action that matters.
  *
- * Safety actions are auditable per docs/04, so each one records who triggered it and when.
+ * Only actions that work are offered: trip sharing, audio recording and a safety desk need a
+ * backend that does not exist yet, and a safety button that does nothing is worse than none.
  */
 export function SafetyScreen({ navigation, route }: Props) {
   return (
@@ -26,27 +27,21 @@ export function SafetyScreen({ navigation, route }: Props) {
 
         <Text style={styles.emergencyTitle}>Emergency call</Text>
         <Text style={styles.emergencyBody}>
-          Calls local emergency services and shares your live location, trip ID and vehicle details
-          with the RideX safety team.
+          Opens your phone's dialler on 112, India's emergency number.
         </Text>
 
-        <View style={styles.emergencyButton}>
+        <Pressable
+          onPress={() => void Linking.openURL('tel:112')}
+          accessibilityRole="button"
+          accessibilityLabel="Call 112"
+          style={styles.emergencyButton}
+        >
           <Ionicons name="call" size={19} color={colors.text} />
           <Text style={styles.emergencyLabel}>Call 112</Text>
-        </View>
+        </Pressable>
       </View>
 
       <SectionLabel>DURING THIS TRIP</SectionLabel>
-      <Row
-        icon="share-social"
-        title="Share trip status"
-        subtitle="Send a live link to someone you trust"
-      />
-      <Row
-        icon="recording"
-        title="Record audio"
-        subtitle="Stored encrypted, released only to support on a case"
-      />
       <Row
         icon="flag"
         title={`Report ${route.params?.riderName ?? 'your rider'}`}
@@ -56,20 +51,11 @@ export function SafetyScreen({ navigation, route }: Props) {
 
       <SectionLabel>GET HELP</SectionLabel>
       <Row
-        icon="headset"
-        title="Call safety support"
-        subtitle="24/7, answers within a minute"
-      />
-      <Row
         icon="help-buoy"
         title="Help centre"
         onPress={() => navigation.navigate('HelpSupport')}
       />
 
-      <Text style={styles.note}>
-        Every action here is logged with a timestamp. Trip details are shared with support only when
-        you trigger one.
-      </Text>
     </Screen>
   );
 }

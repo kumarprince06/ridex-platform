@@ -46,3 +46,58 @@ jobs:
       - name: Build and test
         working-directory: ridex-backend
         run: ./mvnw --batch-mode verify
+
+  # Type errors are the cheapest bug there is, and none of the three clients was checked here
+  # before: every one of them shipped a break that only showed up on a device.
+  clients:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [ridex-rider-app, ridex-partner-app, ridex-admin-web]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - name: Install
+        working-directory: ${{ matrix.app }}
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: ${{ matrix.app }}
+        run: npx tsc --noEmit
+
+  # The three generated documents must match the code they describe. Regenerating them here and
+  # failing on a difference is what stops the contract drifting again.
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Regenerate and compare
+        run: |
+          java tools/DocGen.java api           > /tmp/api.md
+          java tools/DocGen.java erd           > /tmp/erd.md
+          java tools/DocGen.java notifications > /tmp/notifications.md
+          # The generated-on line carries today's date and the commit; everything below it is the
+          # document itself.
+          for pair in "api:10-API-Contract" "erd:09-Project-ERD" "notifications:12-Notification-Matrix"; do
+            name="${pair%%:*}"; doc="${pair##*:}"
+            if ! diff <(grep -v '^Generated on' "/tmp/$name.md") \
+                      <(grep -v '^Generated on' "docs/$doc.md"); then
+              echo "::error::docs/$doc.md is out of date - run: java tools/DocGen.java $name > docs/$doc.md"
+              exit 1
+            fi
+          done

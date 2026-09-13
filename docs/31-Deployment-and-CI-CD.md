@@ -67,13 +67,19 @@ walked through it in the same week. Otherwise Option A and a keep-warm ping is e
 
 ---
 
-## What has to be built first
+## The runbook
 
-The repo has **no Dockerfile and no deploy workflow** — CI builds and tests only. Before any
-deployment:
+Written and working: [`deploy/README.md`](../deploy/README.md) is the step-by-step, and
+`deploy/docker-compose.prod.yml` is what runs. The rest of this document is why it is shaped that
+way.
 
-1. **`ridex-backend/Dockerfile`** — multi-stage: Maven build, then a JRE 21 runtime image. Keep it
-   under 300 MB.
+## What had to be built first
+
+All of this now exists:
+
+1. **`ridex-backend/Dockerfile`** — multi-stage: Maven build, then a JRE 21 runtime image, running
+   as a non-root user. 442 MB, most of it the JRE and the Spring dependency set; a jlink runtime
+   would roughly halve it and is the next thing to try if the pull ever becomes the slow part.
 2. **`docker-compose.prod.yml`** — backend, Postgres, Redis, Caddy. The existing
    `docker-compose.yml` is a local dev file (it has Mailpit in it) and should not be reused as-is.
 3. **Secrets out of `.env`.** `.env` currently holds a real Brevo SMTP key, real Razorpay test
@@ -181,20 +187,17 @@ which is the argument that this is a platform, not a screen collection.
 
 ## What to fix before showing it to anyone
 
-Not deployment work, but it is what a visitor will hit:
+The four things that used to be here - the rider app running on timers, the hardcoded 8.2 km fare,
+the missing shuttle screens, the mock admin detail pages - are done. Fifteen of the sixteen modules
+on [34-Module-Task-Board.md](34-Module-Task-Board.md) are closed and this deployment is the last one.
 
-1. The rider app's live ride still advances on timers, and the driver shown is a mock
-   (`34-Module-Task-Board.md`, 1 and 2).
-2. The partner app reports a **hardcoded 8.2 km** on every completed trip, so every fare is wrong
-   (`34-Module-Task-Board.md`, 1).
-3. The partner app has no shuttle screens at all, so booked seats cannot be boarded
-   (`34-Module-Task-Board.md`, 3).
-4. Admin detail pages are mock behind real lists (`34-Module-Task-Board.md`, 1).
+What a visitor can still find:
 
-Those four are what turns "it looks finished" into "it is finished" — and they are the ones a
-technical viewer finds in ten minutes.
-
----
+1. A taxi ride is cash only. `/rides/{id}/payment` and its confirm endpoint exist and the rider app
+   does not call them yet; shuttle seats and passes do charge through Razorpay.
+2. SMS is a stub. Verification codes and receipts go by email; `SmsChannel` logs and returns.
+3. Feature flags, notification templates, promotions and staff management are the four admin pages
+   still reading mock data, and each is listed as deliberately deferred on the board.
 
 ## For showing the work publicly
 

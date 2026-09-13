@@ -29,6 +29,7 @@ import com.ridex.location.DriverPresence;
 import com.ridex.maps.MapsService;
 import com.ridex.maps.domain.RouteEstimate;
 import com.ridex.payment.domain.LedgerAccountType;
+import com.ridex.payment.domain.PaymentMethod;
 import com.ridex.points.PointsService;
 import com.ridex.pricing.FareEstimateService;
 import com.ridex.pricing.dto.EstimateRequest;
@@ -140,6 +141,30 @@ class PaymentSettlementTest {
     }
 
     @Test
+    void anOnlineRideIsOwedUntilTheGatewayClears() {
+        String rideId = book(0, PaymentMethod.UPI);
+        runTripToCompletion(rideId);
+
+        // A taxi fare is priced from the distance driven, so the charge only exists now - and the
+        // rider's app needs the gateway order to settle it.
+        var owed = paymentService.forRider(riderUserId, rideId);
+        assertThat(owed.method()).isEqualTo(PaymentMethod.UPI);
+        assertThat(owed.settled()).isFalse();
+        assertThat(owed.amountMinor()).isPositive();
+    }
+
+    @Test
+    void aCashRideIsSettledTheMomentItEnds() {
+        String rideId = book(0, PaymentMethod.CASH);
+        runTripToCompletion(rideId);
+
+        // The driver was handed the money in the car: there is nothing for the app to open.
+        var owed = paymentService.forRider(riderUserId, rideId);
+        assertThat(owed.settled()).isTrue();
+        assertThat(owed.gatewayOrderId()).isNull();
+    }
+
+    @Test
     void settlingTheSameTripTwiceDoesNotChargeTwice() {
         String tripId = runTripToCompletion(book(0));
 
@@ -161,9 +186,13 @@ class PaymentSettlementTest {
     }
 
     private String book(int redeemPoints) {
+        return book(redeemPoints, null);
+    }
+
+    private String book(int redeemPoints, PaymentMethod method) {
         return rideRequestService.create(riderUserId, new CreateRideRequest(
                 fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(),
-                "Koramangala", "Indiranagar", redeemPoints, null)).id();
+                "Koramangala", "Indiranagar", redeemPoints, method)).id();
     }
 
     private String runTripToCompletion(String rideId) {

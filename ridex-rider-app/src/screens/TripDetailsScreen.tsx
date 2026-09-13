@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { money, when } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -9,7 +10,9 @@ import {
   isLive,
   rideRoute,
   rideStatusLabel,
+  ridePayment,
 } from '../api/rides';
+import { payForRide } from '../api/rideCheckout';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
@@ -25,6 +28,28 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TripDetails'>;
 export function TripDetailsScreen({ navigation, route }: Props) {
   const { rideId } = route.params;
   const { data: ride, loading, error } = useQuery(() => getRide(rideId), [rideId]);
+
+  // A rider who closed the gateway on the completion screen still owes the fare, and an unpaid
+  // fare blocks their next booking. This is where they come back to it.
+  const { data: payment, refetch: refetchPayment } = useQuery(
+    () => ridePayment(rideId).catch(() => null),
+    [rideId],
+  );
+  const [paying, setPaying] = useState(false);
+  const outstanding = payment != null && !payment.settled;
+
+  async function pay() {
+    if (!payment) {
+      return;
+    }
+    setPaying(true);
+    try {
+      await payForRide(rideId, payment);
+      refetchPayment();
+    } finally {
+      setPaying(false);
+    }
+  }
 
   if (!ride) {
     return (
@@ -131,8 +156,14 @@ export function TripDetailsScreen({ navigation, route }: Props) {
           onPress={() => navigation.navigate('ReportIssue', { rideId })}
           style={styles.flex}
         />
-        {/* A receipt exists only once the trip was actually charged. */}
-        {ride.status === 'COMPLETED' ? (
+        {outstanding ? (
+          <Button
+            label={paying ? 'Opening...' : `Pay ${money(payment.amountMinor, payment.currency)}`}
+            onPress={() => void pay()}
+            style={styles.flex}
+          />
+        ) : ride.status === 'COMPLETED' ? (
+          /* A receipt exists only once the trip was actually charged. */
           <Button
             label="View Receipt"
             onPress={() => navigation.navigate('TripReceipt', { rideId: ride.id })}

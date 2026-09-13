@@ -33,7 +33,7 @@ product that no longer exists is worse than no document. What is left of them is
 | M5 | Admin detail pages | M | ☑ |
 | M6 | Admin shuttle operations | M | ☑ |
 | M7 | Support and Report an Issue | M | ☑ |
-| M8 | Demo deployment and CI/CD | M | ☐ |
+| M8 | Demo deployment and CI/CD | M | ☑ |
 | M9 | Notifications feed | M | ☑ |
 | M10 | Driver money: bank details and payouts | M | ☑ |
 | M11 | Driver-side trip actions | M | ☑ |

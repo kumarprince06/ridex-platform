@@ -10,12 +10,12 @@ trips, and platform operations manage the marketplace. Built with Java 21 and Sp
 ## Status
 
 **Architecture:** Modular monolith, one platform database
-**Backend:** Java 21 + Spring Boot · 137 endpoints · 188 tests
+**Backend:** Java 21 + Spring Boot · 137 endpoints · 190 tests
 **Database:** PostgreSQL + Flyway (38 migrations, 47 tables) · Redis for presence and rate limits
 **Clients:** two React Native apps and one React console, all on the same API
 
-Fifteen of the sixteen modules on [the module board](docs/34-Module-Task-Board.md) are closed.
-What is left is the demo deployment (M8).
+All sixteen modules on [the module board](docs/34-Module-Task-Board.md) are closed, including the
+demo deployment (M8). What is deliberately left out is listed at the bottom of that board.
 
 ---
 
@@ -199,7 +199,7 @@ routes reject unauthenticated calls.
 
 ```bash
 cd ridex-backend
-./mvnw test          # 188 tests against a real Postgres and Redis
+./mvnw test          # 190 tests against a real Postgres and Redis
 ```
 
 The three documents that describe the code are generated from it, so they cannot quietly drift:

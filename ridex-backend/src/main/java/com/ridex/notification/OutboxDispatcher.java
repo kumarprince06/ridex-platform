@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,11 @@ public class OutboxDispatcher {
     private final NotificationTemplates templates;
     private final NotificationPreferenceRepository preferences;
 
+    // Off in tests: with no mail server or push credentials every message retries until it is
+    // marked dead, which fills the build log with errors that mean nothing.
+    @Value("${app.outbox.enabled:true}")
+    private boolean enabled;
+
     public OutboxDispatcher(OutboxRepository outboxRepository, List<NotificationChannel> channels,
             NotificationTemplates templates, NotificationPreferenceRepository preferences) {
         this.outboxRepository = outboxRepository;
@@ -40,6 +46,9 @@ public class OutboxDispatcher {
     @Scheduled(fixedDelayString = "${app.outbox.poll-ms:5000}")
     @Transactional
     public void dispatchPending() {
+        if (!enabled) {
+            return;
+        }
         List<OutboxMessage> batch = outboxRepository.claimBatch(Instant.now(), PageRequest.of(0, BATCH));
 
         for (OutboxMessage message : batch) {

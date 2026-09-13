@@ -103,7 +103,7 @@ export function VehicleDetailsScreen({ navigation }: Props) {
       </View>
 
       <TextField label="Make" value={make} onChangeText={setMake} placeholder="Toyota" icon="car-outline" autoCapitalize="words" />
-      <TextField label="Model" value={model} onChangeText={setModel} placeholder="Camry Hybrid" icon="car-sport-outline" autoCapitalize="words" />
+      <TextField label="Model" value={model} onChangeText={setModel} placeholder="Swift Dzire" icon="car-sport-outline" autoCapitalize="words" />
       <TextField label="Year" value={year} onChangeText={setYear} placeholder="2022" icon="calendar-outline" keyboardType="number-pad" />
       <TextField label="Number Plate" value={plate} onChangeText={setPlate} placeholder="KA 05 MJ 4412" icon="pricetag-outline" autoCapitalize="none" />
       <TextField label="Colour" value={colour} onChangeText={setColour} placeholder="White" icon="color-palette-outline" autoCapitalize="words" />

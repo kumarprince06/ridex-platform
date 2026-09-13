@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { MapCanvas } from '../components/MapCanvas';
 import { Sheet } from '../components/Sheet';
-import { driverCoordOf, useJourney } from '../lib/journey';
+import { dial, driverCoordOf, useJourney } from '../lib/journey';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -17,6 +17,7 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
   const { ride } = useJourney(rideId, 'DriverAssigned', navigation, destination);
   const driver = ride?.driver;
   const driverAt = driverCoordOf(ride);
+  const phone = driver?.phone;
 
   return (
     <View style={styles.root}>
@@ -38,24 +39,10 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
             <Text style={styles.statusText}>Driver Assigned</Text>
           </View>
 
-          <View style={styles.chip}>
-            <Ionicons name="shield-checkmark-outline" size={19} color={colors.text} />
-          </View>
         </View>
       </SafeAreaView>
 
       <Sheet>
-        <View style={styles.eta}>
-          <View>
-            <Text style={styles.etaLabel}>Arriving in</Text>
-            <Text style={styles.etaValue}>3 min</Text>
-          </View>
-          <View style={styles.etaRight}>
-            <Text style={styles.etaLabel}>Distance</Text>
-            <Text style={styles.etaDistance}>0.8 km</Text>
-          </View>
-        </View>
-
         <View style={styles.driverRow}>
           <View>
             <Avatar name={driver?.name ?? 'Your driver'} size={50} />
@@ -69,12 +56,24 @@ export function DriverAssignedScreen({ navigation, route }: Props) {
             {driver?.rating ? <Text style={styles.driverMeta}>★ {driver.rating}</Text> : null}
           </View>
 
-          <View style={styles.actionChip}>
-            <Ionicons name="call" size={17} color={colors.primary} />
-          </View>
-          <View style={styles.actionChip}>
+          {phone ? (
+            <Pressable
+              onPress={() => dial(phone)}
+              accessibilityRole="button"
+              accessibilityLabel="Call driver"
+              style={styles.actionChip}
+            >
+              <Ionicons name="call" size={17} color={colors.primary} />
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => navigation.navigate('ReportIssue', { rideId })}
+            accessibilityRole="button"
+            accessibilityLabel="Report an issue"
+            style={styles.actionChip}
+          >
             <Ionicons name="alert-circle-outline" size={17} color={colors.text} />
-          </View>
+          </Pressable>
         </View>
 
         <View style={styles.vehicle}>

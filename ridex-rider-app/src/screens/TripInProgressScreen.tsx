@@ -8,7 +8,8 @@ import { Avatar } from '../components/Avatar';
 import { MapCanvas } from '../components/MapCanvas';
 import { Sheet } from '../components/Sheet';
 import { StatTiles } from '../components/StatTiles';
-import { driverCoordOf, useJourney } from '../lib/journey';
+import { money } from '../lib/format';
+import { dial, driverCoordOf, useJourney } from '../lib/journey';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -21,6 +22,7 @@ export function TripInProgressScreen({ navigation, route }: Props) {
   const { ride } = useJourney(rideId, 'TripInProgress', navigation, destination);
   const driver = ride?.driver;
   const driverAt = driverCoordOf(ride);
+  const phone = driver?.phone;
   const [seconds, setSeconds] = useState(7 * 60 + 23);
 
   useEffect(() => {
@@ -44,26 +46,22 @@ export function TripInProgressScreen({ navigation, route }: Props) {
             <Text style={styles.timer}>{elapsed}</Text>
           </View>
 
-          <View style={styles.chip}>
-            <Ionicons name="shield-checkmark-outline" size={19} color={colors.text} />
-          </View>
         </View>
       </SafeAreaView>
 
       <Sheet>
-        <StatTiles
-          stats={[
-            { value: '4 min', label: 'ETA' },
-            { value: '38 km/h', label: 'Speed', tone: colors.amber },
-            { value: '~$10.88', label: 'Fare', tone: colors.primary },
-          ]}
-        />
+        {/* Only what the server knows: the quoted fare. The final one is priced when the trip ends. */}
+        {ride ? (
+          <StatTiles
+            stats={[{ value: money(ride.quotedFareMinor, ride.currency), label: 'Quoted fare', tone: colors.primary }]}
+          />
+        ) : null}
 
         <View style={styles.destination}>
           <View style={styles.dotAmber} />
           <View style={styles.flex}>
             <Text style={styles.destName}>{destination}</Text>
-            <Text style={styles.destDetail}>89 E 42nd St, New York</Text>
+            <Text style={styles.destDetail}>{ride?.destinationAddress ?? ''}</Text>
           </View>
         </View>
 
@@ -74,9 +72,16 @@ export function TripInProgressScreen({ navigation, route }: Props) {
             <Text style={styles.driverMeta}>{driver?.registrationNumber ?? ''}</Text>
           </View>
 
-          <View style={styles.actionChip}>
-            <Ionicons name="call" size={16} color={colors.text} />
-          </View>
+          {phone ? (
+            <Pressable
+              onPress={() => dial(phone)}
+              accessibilityRole="button"
+              accessibilityLabel="Call driver"
+              style={styles.actionChip}
+            >
+              <Ionicons name="call" size={16} color={colors.text} />
+            </Pressable>
+          ) : null}
         </View>
       </Sheet>
     </View>

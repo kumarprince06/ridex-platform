@@ -46,7 +46,7 @@ export function PersonalDetailsScreen({ navigation, route }: Props) {
         icon="card-outline"
         autoCapitalize="none"
       />
-      <TextField label="Driving City" value={city} onChangeText={setCity} placeholder="New York" icon="location-outline" autoCapitalize="words" />
+      <TextField label="Driving City" value={city} onChangeText={setCity} placeholder="Kolkata" icon="location-outline" autoCapitalize="words" />
       <TextField label="Home Address" value={address} onChangeText={setAddress} placeholder="Street, area, ZIP" icon="home-outline" autoCapitalize="words" />
     </Screen>
   );

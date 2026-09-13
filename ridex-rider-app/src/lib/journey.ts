@@ -1,3 +1,4 @@
+import { Linking } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect } from 'react';
 
@@ -77,4 +78,9 @@ export function driverCoordOf(ride: Ride | null): LngLat | undefined {
     return undefined;
   }
   return [driver.longitude, driver.latitude];
+}
+
+/** Opens the phone's dialler on the driver's number. Screens only offer the call when there is one. */
+export function dial(phone: string): void {
+  void Linking.openURL(`tel:${phone}`);
 }

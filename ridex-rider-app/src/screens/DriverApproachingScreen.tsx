@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { MapCanvas } from '../components/MapCanvas';
 import { Sheet } from '../components/Sheet';
-import { driverCoordOf, useJourney } from '../lib/journey';
+import { dial, driverCoordOf, useJourney } from '../lib/journey';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -20,6 +20,7 @@ export function DriverApproachingScreen({ navigation, route }: Props) {
   const { ride } = useJourney(rideId, 'DriverApproaching', navigation, destination);
   const driver = ride?.driver;
   const driverAt = driverCoordOf(ride);
+  const phone = driver?.phone;
 
   return (
     <View style={styles.root}>
@@ -30,10 +31,10 @@ export function DriverApproachingScreen({ navigation, route }: Props) {
           <Pressable
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Safety"
+            accessibilityLabel="Go back"
             style={styles.chip}
           >
-            <Ionicons name="shield-checkmark-outline" size={19} color={colors.text} />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
 
           <View style={styles.statusPill}>
@@ -41,9 +42,16 @@ export function DriverApproachingScreen({ navigation, route }: Props) {
             <Text style={styles.statusText}>Approaching</Text>
           </View>
 
-          <View style={styles.chip}>
-            <Ionicons name="call" size={18} color={colors.primary} />
-          </View>
+          {phone ? (
+            <Pressable
+              onPress={() => dial(phone)}
+              accessibilityRole="button"
+              accessibilityLabel="Call driver"
+              style={styles.chip}
+            >
+              <Ionicons name="call" size={18} color={colors.primary} />
+            </Pressable>
+          ) : null}
         </View>
       </SafeAreaView>
 
@@ -58,18 +66,16 @@ export function DriverApproachingScreen({ navigation, route }: Props) {
             </Text>
           </View>
 
-          <View style={styles.etaBlock}>
-            <Text style={styles.eta}>1 min</Text>
-            <Text style={styles.etaLabel}>away</Text>
-          </View>
         </View>
 
-        <View style={styles.actions}>
-          <Pressable accessibilityRole="button" style={styles.call}>
-            <Ionicons name="call" size={15} color={colors.primary} />
-            <Text style={styles.callText}>Call</Text>
-          </Pressable>
-        </View>
+        {phone ? (
+          <View style={styles.actions}>
+            <Pressable onPress={() => dial(phone)} accessibilityRole="button" style={styles.call}>
+              <Ionicons name="call" size={15} color={colors.primary} />
+              <Text style={styles.callText}>Call</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </Sheet>
     </View>
   );

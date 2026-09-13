@@ -199,6 +199,8 @@
 						<RIDEX_JWT_SECRET>test-only-signing-key-long-enough-for-hmac-sha256</RIDEX_JWT_SECRET>
 						<!-- Tests drive the sweep themselves; on a timer it races context shutdown. -->
 						<app.dispatch.sweep-enabled>false</app.dispatch.sweep-enabled>
+						<!-- No mail server or push credentials in the build: sends would only retry and die. -->
+						<app.outbox.enabled>false</app.outbox.enabled>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

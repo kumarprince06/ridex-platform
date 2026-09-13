@@ -2,25 +2,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { listRides } from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { Avatar } from '../components/Avatar';
 import { Row } from '../components/Row';
 import { SectionLabel } from '../components/SectionLabel';
 import { TabScreenProps } from '../navigation/types';
 import { useSession } from '../auth/session';
+import { money } from '../lib/format';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = TabScreenProps<'Profile'>;
-
-const STATS = [
-  { icon: 'car' as const, tone: '#E0785A', value: '47', label: 'Total Trips' },
-  { icon: 'wallet' as const, tone: '#E0B252', value: '$24.50', label: 'Saved' },
-  { icon: 'star' as const, tone: '#E0B252', value: '8 mo', label: 'Member' },
-];
 
 export function ProfileScreen({ navigation }: Props) {
   const { profile } = useSession();
   // Falls back to the placeholder until the profile has loaded, or the header jumps on first paint.
   const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Your account';
+
+  // Counted from the rider's own rides, so every figure here is one the server actually sent.
+  const { data: rides } = useQuery(listRides, []);
+  const completed = (rides ?? []).filter((ride) => ride.status === 'COMPLETED');
+  const saved = completed.reduce((sum, ride) => sum + ride.discountMinor, 0);
+  const stats = [
+    { icon: 'car' as const, tone: '#E0785A', value: String(completed.length), label: 'Total Trips' },
+    { icon: 'wallet' as const, tone: '#E0B252', value: money(saved, completed[0]?.currency ?? 'INR'), label: 'Saved' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -38,11 +44,7 @@ export function ProfileScreen({ navigation }: Props) {
             <Text style={styles.name}>{fullName}</Text>
             <Text style={styles.email}>{profile?.email ?? ""}</Text>
             <View style={styles.ratingRow}>
-              <View style={styles.ratingPill}>
-                <Ionicons name="star" size={11} color={colors.amber} />
-                <Text style={styles.ratingText}>4.87</Text>
-              </View>
-              <Text style={styles.trips}>· 47 trips</Text>
+              <Text style={styles.trips}>{completed.length} trips</Text>
             </View>
           </View>
 
@@ -57,7 +59,7 @@ export function ProfileScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.statsRow}>
-          {STATS.map((stat) => (
+          {stats.map((stat) => (
             <View key={stat.label} style={styles.statTile}>
               <Ionicons name={stat.icon} size={18} color={stat.tone} />
               <Text style={styles.statValue}>{stat.value}</Text>

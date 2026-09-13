@@ -30,6 +30,38 @@ const PARAMS: Record<string, object> = {
   RideCompleted: { destination: 'Midtown Tower' },
   TripDetails: { rideId: '3841', tripId: '9241' },
   TripReceipt: { rideId: '3841', tripId: '9241' },
+  ShuttlePasses: { routeId: 'route-1', routeName: 'Salt Lake to Howrah' },
+  ShuttleSeats: {
+    routeId: 'route-1',
+    scheduleId: 'schedule-1',
+    serviceDate: '2026-09-14',
+    boardingStopId: 'stop-1',
+    alightingStopId: 'stop-4',
+  },
+  ShuttleBooked: {
+    booking: {
+      id: 'booking-1',
+      routeName: 'Salt Lake to Howrah',
+      seatLabel: '3A',
+      boardingStopName: 'Salt Lake Sector V',
+      alightingStopName: 'Howrah Station',
+      boardingLat: 22.57,
+      boardingLng: 88.43,
+      alightingLat: 22.58,
+      alightingLng: 88.34,
+      departsAt: '2026-09-14T08:15:00Z',
+      currency: 'INR',
+      fareMinor: 6000,
+      redeemedPoints: 0,
+      discountMinor: 0,
+      passId: null,
+      paymentMethod: 'CASH',
+      paymentStatus: 'SUCCEEDED',
+      status: 'CONFIRMED',
+      boardingCode: '482913',
+      gatewayOrderId: null,
+    },
+  },
 };
 
 function makeNavigation() {

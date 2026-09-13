@@ -1,0 +1,4 @@
+# GitHub's language bar should describe the backend; the three clients are counted out of it.
+ridex-rider-app/** linguist-vendored
+ridex-partner-app/** linguist-vendored
+ridex-admin-web/** linguist-vendored

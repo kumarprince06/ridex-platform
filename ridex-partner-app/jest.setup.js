@@ -26,6 +26,7 @@ jest.mock('expo-location', () => ({
   getCurrentPositionAsync: jest.fn(async () => ({
     coords: { latitude: 12.9716, longitude: 77.5946 },
   })),
+  watchPositionAsync: jest.fn(async () => ({ remove: jest.fn() })),
 }));
 
 // Secure storage is native. Screens only need it to resolve, and null is the signed-out case.
@@ -39,8 +40,21 @@ jest.mock('expo-secure-store', () => ({
 // Shaped by URL, because the two callers want different things: the RideX API returns lists,
 // the map providers return a features/routes object. One shape for both makes a screen fail on
 // `.find is not a function`, which reads like a screen bug and is not one.
+// Most RideX endpoints return lists; these return one object whose arrays a screen maps over.
+const OBJECT_BODIES = [
+  [/\/driver\/earnings$/, { recent: [] }],
+  [/\/shuttle\/departures\/[^/]+\/manifest$/, { stops: [] }],
+  [/\/support\/tickets\/(?!categories)[^/]+(\/messages)?$/, { messages: [] }],
+];
+
+function bodyFor(url) {
+  if (!url.includes('/api/v1/')) return { features: [], routes: [] };
+  const match = OBJECT_BODIES.find(([pattern]) => pattern.test(url));
+  return match ? match[1] : [];
+}
+
 global.fetch = jest.fn(async (url) => {
-  const body = String(url).includes('/api/v1/') ? [] : { features: [], routes: [] };
+  const body = bodyFor(String(url));
   return {
     ok: true,
     status: 200,

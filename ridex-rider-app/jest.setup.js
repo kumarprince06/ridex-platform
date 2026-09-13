@@ -40,8 +40,32 @@ jest.mock('expo-secure-store', () => ({
 // Shaped by URL, because the two callers want different things: the RideX API returns lists,
 // the map providers return a features/routes object. One shape for both makes a screen fail on
 // `.find is not a function`, which reads like a screen bug and is not one.
+// Most RideX endpoints return lists; these return one object whose arrays a screen maps over.
+const OBJECT_BODIES = [
+  [/\/support\/tickets\/(?!categories)[^/]+(\/messages)?$/, { messages: [] }],
+  [/\/rides\/[^/]+\/receipt$/, { quotedLines: [], chargedLines: [], differenceMinor: 0 }],
+  // One ride by id - not the two list endpoints that sit at the same depth.
+  [/\/rides\/(?!estimate$|cancellation-reasons$)[^/?]+$/, {
+    id: 'ride-00000001', status: 'COMPLETED', rideTypeCode: 'MINI', currency: 'INR',
+    pickupAddress: '', destinationAddress: '', pickupLat: 12.97, pickupLng: 77.59,
+    destinationLat: 12.98, destinationLng: 77.64, quotedFareMinor: 0, fareLines: [],
+    redeemedPoints: 0, discountMinor: 0, cancellationFeeMinor: null, cancellationReason: null,
+    pickupCode: null, driver: null, requestedAt: '2026-09-14T08:00:00Z',
+  }],
+  [/\/shuttle\/departures\/[^/]+\/seats(\?|$)/, {
+    shuttleTripId: 'trip-1', routeName: '', departsAt: '2026-09-14T08:00:00Z',
+    seatCapacity: 0, seatsPerRow: 4, seatsBeforeAisle: 2, seats: [],
+  }],
+];
+
+function bodyFor(url) {
+  if (!url.includes('/api/v1/')) return { features: [], routes: [] };
+  const match = OBJECT_BODIES.find(([pattern]) => pattern.test(url));
+  return match ? match[1] : [];
+}
+
 global.fetch = jest.fn(async (url) => {
-  const body = String(url).includes('/api/v1/') ? [] : { features: [], routes: [] };
+  const body = bodyFor(String(url));
   return {
     ok: true,
     status: 200,
@@ -51,3 +75,19 @@ global.fetch = jest.fn(async (url) => {
     json: async () => body,
   };
 });
+
+// Screens render here without a NavigationContainer, and useFocusEffect throws outside one. Focus
+// is the navigator's concern: in a render test it runs once, like a mount.
+jest.mock('@react-navigation/native', () => {
+  const React = require('react');
+  return {
+    ...jest.requireActual('@react-navigation/native'),
+    useFocusEffect: (effect) => React.useEffect(effect, [effect]),
+  };
+});
+
+// Checkout is a native module; importing it outside a device throws before the screen renders.
+jest.mock('react-native-razorpay', () => ({
+  __esModule: true,
+  default: { open: jest.fn(async () => ({})) },
+}));

@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MapCanvas } from '../components/MapCanvas';
 import { PickupPass } from '../components/PickupPass';
 import { Sheet } from '../components/Sheet';
-import { driverCoordOf, useJourney } from '../lib/journey';
+import { dial, driverCoordOf, useJourney } from '../lib/journey';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -19,6 +19,8 @@ export function DriverArrivedScreen({ navigation, route }: Props) {
   // moves this screen on when the driver checks that code and the trip starts.
   const { ride } = useJourney(rideId, 'DriverArrived', navigation, destination);
   const driverAt = driverCoordOf(ride);
+  const driver = ride?.driver;
+  const phone = driver?.phone;
 
   return (
     <View style={styles.root}>
@@ -42,23 +44,27 @@ export function DriverArrivedScreen({ navigation, route }: Props) {
         <View style={styles.vehicle}>
           <Ionicons name="car" size={22} color="#E0785A" />
           <View style={styles.flex}>
-            <Text style={styles.vehicleName}>Toyota Camry 2022</Text>
-            <Text style={styles.vehicleMeta}>Pearl White · Marcus Rivera</Text>
+            <Text style={styles.vehicleName}>{driver?.vehicle ?? 'Your ride'}</Text>
+            <Text style={styles.vehicleMeta}>{driver?.name ?? ''}</Text>
           </View>
           <View style={styles.right}>
-            <View style={styles.plate}>
-              <Text style={styles.plateText}>RX · 4821</Text>
-            </View>
-            <Text style={styles.rating}>★ 4.92</Text>
+            {driver ? (
+              <View style={styles.plate}>
+                <Text style={styles.plateText}>{driver.registrationNumber}</Text>
+              </View>
+            ) : null}
+            {driver?.rating ? <Text style={styles.rating}>★ {driver.rating}</Text> : null}
           </View>
         </View>
 
-        <View style={styles.actions}>
-          <Pressable accessibilityRole="button" style={styles.call}>
-            <Ionicons name="call" size={15} color={colors.primary} />
-            <Text style={styles.callText}>Call Driver</Text>
-          </Pressable>
-        </View>
+        {phone ? (
+          <View style={styles.actions}>
+            <Pressable onPress={() => dial(phone)} accessibilityRole="button" style={styles.call}>
+              <Ionicons name="call" size={15} color={colors.primary} />
+              <Text style={styles.callText}>Call Driver</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <Text style={styles.waiting}>
           The trip starts once your driver scans the code above.

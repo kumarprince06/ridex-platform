@@ -1,6 +1,6 @@
 # RideX — API Contract
 
-Every endpoint the backend serves: **137** across 26 controllers.
+Every endpoint the backend serves: **142** across 28 controllers.
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java api > docs/10-API-Contract.md
 ```
 
-Generated on 2026-09-13 from `62d2678`.
+Generated on 2026-09-19 from `88b8a0e`.
 
 ## Conventions
 
@@ -38,6 +38,13 @@ Generated on 2026-09-13 from `62d2678`.
 | GET | `/api/v1/admin/drivers/{driverId}/vehicles` | OPS_ADMIN, SUPER_ADMIN | Vehicles |
 | POST | `/api/v1/admin/drivers/vehicles/{vehicleId}/approve` | OPS_ADMIN, SUPER_ADMIN | Approve vehicle |
 | POST | `/api/v1/admin/drivers/vehicles/{vehicleId}/reject` | OPS_ADMIN, SUPER_ADMIN | Reject vehicle |
+
+## AdminLegal
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/api/v1/admin/legal` | OPS_ADMIN, SUPER_ADMIN | Every document with its current text, for the console editor |
+| PUT | `/api/v1/admin/legal/{slug}` | OPS_ADMIN, SUPER_ADMIN | Replaces a document's title and text; live on the next open in the apps |
 
 ## AdminPayout
 
@@ -84,7 +91,7 @@ Generated on 2026-09-13 from `62d2678`.
 | POST | `/api/v1/admin/shuttle/routes/{routeId}/stops` | OPS_ADMIN, SUPER_ADMIN | Add stop |
 | DELETE | `/api/v1/admin/shuttle/routes/{routeId}/stops/last` | OPS_ADMIN, SUPER_ADMIN | Only the last one |
 | PUT | `/api/v1/admin/shuttle/routes/{routeId}/fares` | OPS_ADMIN, SUPER_ADMIN | Set fare |
-| PUT | `/api/v1/admin/shuttle/routes/{routeId}/fares/matrix` | OPS_ADMIN, SUPER_ADMIN | Only the last one |
+| PUT | `/api/v1/admin/shuttle/routes/{routeId}/fares/matrix` | OPS_ADMIN, SUPER_ADMIN | The whole table in one save |
 | DELETE | `/api/v1/admin/shuttle/routes/{routeId}/fares/{fareId}` | OPS_ADMIN, SUPER_ADMIN | Remove fare |
 | POST | `/api/v1/admin/shuttle/routes/{routeId}/schedules` | OPS_ADMIN, SUPER_ADMIN | Add schedule |
 | PUT | `/api/v1/admin/shuttle/routes/{routeId}/schedules/{scheduleId}` | OPS_ADMIN, SUPER_ADMIN | Update schedule |
@@ -118,7 +125,7 @@ Generated on 2026-09-13 from `62d2678`.
 | POST | `/api/v1/auth/forgot-password` | public | Forgot password |
 | POST | `/api/v1/auth/reset-password` | public | Reset password |
 | POST | `/api/v1/auth/change-password` | public | Changing a password from inside the app |
-| GET | `/api/v1/auth/login-history` | public | Changing a password from inside the app |
+| GET | `/api/v1/auth/login-history` | public | This account's own login history - what happened, from where, and when |
 | GET | `/api/v1/auth/sessions` | public | Sessions |
 | DELETE | `/api/v1/auth/sessions/{sessionId}` | public | Revoke session |
 
@@ -140,9 +147,9 @@ Generated on 2026-09-13 from `62d2678`.
 | GET | `/api/v1/driver/onboarding` | DRIVER | Onboarding |
 | POST | `/api/v1/driver/onboarding/submit` | DRIVER | Submit for review |
 | GET | `/api/v1/driver/ratings` | DRIVER | The stars riders have given this driver, with whatever they wrote |
-| GET | `/api/v1/driver/cancellation-reasons` | DRIVER | The stars riders have given this driver, with whatever they wrote |
-| POST | `/api/v1/driver/rides/{rideId}/cancel` | DRIVER | The reasons a driver may give, from the server, so the app cannot invent one |
-| POST | `/api/v1/driver/rides/{rideId}/rate-rider` | DRIVER | Ends the rider's ride with a stated reason, rather than leaving them watching the map |
+| GET | `/api/v1/driver/cancellation-reasons` | DRIVER | The reasons a driver may give, from the server, so the app cannot invent one |
+| POST | `/api/v1/driver/rides/{rideId}/cancel` | DRIVER | Ends the rider's ride with a stated reason, rather than leaving them watching the map |
+| POST | `/api/v1/driver/rides/{rideId}/rate-rider` | DRIVER | What the rider was like to carry |
 | GET | `/api/v1/driver/payout-account` | DRIVER | Payout account |
 | PUT | `/api/v1/driver/payout-account` | DRIVER | Set payout account |
 | PUT | `/api/v1/driver/profile` | DRIVER | Update profile |
@@ -154,13 +161,19 @@ Generated on 2026-09-13 from `62d2678`.
 | GET | `/api/v1/driver/documents` | DRIVER | Mine |
 | POST | `/api/v1/driver/documents` | DRIVER | Multipart, because the file is the point |
 
+## Legal
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/api/v1/legal/{slug}` | public | One document by its slug: partner-terms, rider-terms or privacy-policy |
+
 ## Maps
 
 | Method | Path | Who | What |
 |---|---|---|---|
 | GET | `/api/v1/maps/geocode` | public | Geocode |
 | GET | `/api/v1/maps/search` | public | Candidates for a partial query, for a picker rather than a lookup |
-| GET | `/api/v1/maps/reverse` | public | Candidates for a partial query, for a picker rather than a lookup |
+| GET | `/api/v1/maps/reverse` | public | The address at a point the rider pinned on the map |
 | GET | `/api/v1/maps/route` | public | Route |
 
 ## Notification
@@ -222,10 +235,10 @@ Generated on 2026-09-13 from `62d2678`.
 | GET | `/api/v1/rides` | RIDER | List |
 | GET | `/api/v1/rides/{rideId}` | RIDER | Get |
 | GET | `/api/v1/rides/{rideId}/payment` | RIDER | What is owed on a finished ride, and how to pay it |
-| GET | `/api/v1/rides/cancellation-reasons` | RIDER | What is owed on a finished ride, and how to pay it |
-| GET | `/api/v1/rides/dues` | RIDER | The cancel screen's reason list, so the app never invents a code the server refuses |
-| POST | `/api/v1/rides/{rideId}/payment/confirm` | RIDER | What an earlier cancellation left owing, added to the next fare |
-| POST | `/api/v1/rides/{rideId}/rating` | RIDER | Called after checkout closes |
+| GET | `/api/v1/rides/cancellation-reasons` | RIDER | The cancel screen's reason list, so the app never invents a code the server refuses |
+| GET | `/api/v1/rides/dues` | RIDER | What an earlier cancellation left owing, added to the next fare |
+| POST | `/api/v1/rides/{rideId}/payment/confirm` | RIDER | Called after checkout closes |
+| POST | `/api/v1/rides/{rideId}/rating` | RIDER | One rating per ride, and only after it completed |
 | GET | `/api/v1/rides/{rideId}/cancellation-quote` | RIDER | Cancellation quote |
 | GET | `/api/v1/rides/{rideId}/receipt` | RIDER | The rider's receipt: what was quoted against what was charged, line for line |
 | POST | `/api/v1/rides/{rideId}/cancel` | RIDER | Cancel |
@@ -252,8 +265,8 @@ Generated on 2026-09-13 from `62d2678`.
 | GET | `/api/v1/shuttle/routes` | RIDER | Routes |
 | GET | `/api/v1/shuttle/routes/{routeId}/departures` | RIDER | Departures |
 | GET | `/api/v1/shuttle/departures/{scheduleId}/seats` | RIDER | The seat picker |
-| POST | `/api/v1/shuttle/bookings/{bookingId}/payment/confirm` | RIDER | The seat picker |
-| GET | `/api/v1/shuttle/bookings` | RIDER | Called after checkout closes |
+| POST | `/api/v1/shuttle/bookings/{bookingId}/payment/confirm` | RIDER | Called after checkout closes |
+| GET | `/api/v1/shuttle/bookings` | RIDER | The rider's own seats |
 | POST | `/api/v1/shuttle/bookings` | RIDER | Book |
 | POST | `/api/v1/shuttle/bookings/{bookingId}/cancel` | RIDER | Cancel |
 | GET | `/api/v1/shuttle/passes/products` | RIDER | Products |
@@ -276,7 +289,8 @@ Generated on 2026-09-13 from `62d2678`.
 | Method | Path | Who | What |
 |---|---|---|---|
 | GET | `/api/v1/trips` | DRIVER | This driver's own trips, newest first |
-| GET | `/api/v1/trips/{tripId}` | DRIVER | This driver's own trips, newest first |
+| GET | `/api/v1/trips/current` | DRIVER | The unfinished trip, or 204 when the driver has none |
+| GET | `/api/v1/trips/{tripId}` | DRIVER | Everything the trip screens show: who the rider is, where they are going, what it costs |
 | POST | `/api/v1/trips/{tripId}/arrive` | DRIVER | Arrive |
 | POST | `/api/v1/trips/{tripId}/start` | DRIVER | Start |
 | POST | `/api/v1/trips/{tripId}/complete` | DRIVER | Complete |
@@ -288,4 +302,5 @@ Generated on 2026-09-13 from `62d2678`.
 | GET | `/api/v1/driver/vehicles` | DRIVER | Mine |
 | POST | `/api/v1/driver/vehicles` | DRIVER | Added as PENDING_REVIEW. Operations decides whether it may carry passengers |
 | POST | `/api/v1/driver/vehicles/{vehicleId}/deactivate` | DRIVER | Deactivate |
+| POST | `/api/v1/driver/vehicles/{vehicleId}/reactivate` | DRIVER | Puts a car the driver took off the road back on it, without a second review |
 

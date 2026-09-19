@@ -15,6 +15,7 @@ public class LegalController {
 
     private final LegalDocumentService legalDocumentService;
 
+    /** One document by its slug: partner-terms, rider-terms or privacy-policy. */
     @GetMapping("/{slug}")
     @ResponseStatus(HttpStatus.OK)
     public LegalDocumentResponse get(@PathVariable String slug) {

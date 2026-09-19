@@ -24,12 +24,14 @@ public class AdminLegalController {
 
     private final LegalDocumentService legalDocumentService;
 
+    /** Every document with its current text, for the console editor. */
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<LegalDocumentResponse> all() {
         return legalDocumentService.all();
     }
 
+    /** Replaces a document's title and text; live on the next open in the apps. */
     @Audited(action = "LEGAL_DOCUMENT_CHANGED", targetType = "LEGAL_DOCUMENT")
     @PutMapping("/{slug}")
     @ResponseStatus(HttpStatus.OK)

@@ -1,6 +1,6 @@
 # RideX — ERD
 
-**47 tables**, one platform database, no organisation column anywhere (ADR-001).
+**48 tables**, one platform database, no organisation column anywhere (ADR-001).
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java erd > docs/09-Project-ERD.md
 ```
 
-Generated on 2026-09-13 from `62d2678`.
+Generated on 2026-09-19 from `88b8a0e`.
 
 ## How to read it
 
@@ -695,6 +695,19 @@ erDiagram
     }
 ```
 
+## Other
+
+```mermaid
+erDiagram
+    LEGAL_DOCUMENTS {
+      varchar_40 slug
+      varchar_120 title
+      text body
+      varchar_26 updated_by
+      timestamptz updated_at
+    }
+```
+
 ## Across modules
 
 Relationships whose two ends live in different sections above:
@@ -720,6 +733,7 @@ Relationships whose two ends live in different sections above:
 - `device_tokens` → `users` (Support and comms → Identity and access)
 - `driver_documents` → `users` (Riders and drivers → Identity and access)
 - `driver_profiles` → `users` (Riders and drivers → Identity and access)
+- `legal_documents` → `users` (Other → Identity and access)
 - `notification_preferences` → `users` (Support and comms → Identity and access)
 - `platform_settings` → `users` (Platform → Identity and access)
 - `point_entries` → `users` (Loyalty → Identity and access)

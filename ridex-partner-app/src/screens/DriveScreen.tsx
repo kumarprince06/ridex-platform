@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { expiringSoon, expiryTitle, listDocuments } from '../api/documents';
 import { reportLocation, setDuty } from '../api/driver';
 import { useSession } from '../auth/session';
+import { countLabel, unreadCount } from '../api/notifications';
 import { getWallet } from '../api/wallet';
 import { WalletDueCard } from '../components/WalletDueCard';
 import { ApiError } from '../api/problem';
@@ -38,12 +39,15 @@ export function DriveScreen({ navigation }: Props) {
   // target the app invented.
   const { data: earnings, refetch: refetchEarnings } = useQuery(getEarnings);
   const { data: wallet, refetch: refetchWallet } = useQuery(getWallet);
+  const { data: unreadData, refetch: refetchUnread } = useQuery(unreadCount);
+  const unread = unreadData?.unread ?? 0;
   // This tab stays mounted under a trip, so a cash ride's fee would otherwise show up only on relaunch.
   useFocusEffect(
     useCallback(() => {
       refetchEarnings();
       refetchWallet();
-    }, [refetchEarnings, refetchWallet]),
+      refetchUnread();
+    }, [refetchEarnings, refetchWallet, refetchUnread]),
   );
   const currency = earnings?.currency ?? 'INR';
   const owed = earnings ? balance(earnings.ledgerBalanceMinor, currency) : null;
@@ -55,6 +59,7 @@ export function DriveScreen({ navigation }: Props) {
   const { data: documents } = useQuery(listDocuments);
   const expiring = expiringSoon(documents ?? []);
 
+  const [locationLost, setLocationLost] = useState(false);
   const { offer } = useOffers(online);
 
   useEffect(() => {
@@ -70,11 +75,18 @@ export function DriveScreen({ navigation }: Props) {
     // A driver who stops reporting drops out of the pool after two minutes, so this has to keep
     // running for as long as they are on duty.
     const timer = setInterval(() => {
-      void currentPosition().then((position) =>
-        reportLocation(position.latitude, position.longitude).catch(() => undefined),
-      );
+      // Permission revoked or no fix: skip this ping and say so, the next one may succeed.
+      currentPosition()
+        .then((position) => {
+          setLocationLost(false);
+          return reportLocation(position.latitude, position.longitude).catch(() => undefined);
+        })
+        .catch(() => setLocationLost(true));
     }, LOCATION_PING_MS);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      setLocationLost(false);
+    };
   }, [online]);
 
   async function toggleDuty(next: boolean) {
@@ -125,11 +137,15 @@ export function DriveScreen({ navigation }: Props) {
             <Pressable
               onPress={() => navigation.navigate('Notifications')}
               accessibilityRole="button"
-              accessibilityLabel="Notifications"
+              accessibilityLabel={unread ? `Notifications, ${unread} unread` : 'Notifications'}
               style={styles.bell}
             >
               <Ionicons name="notifications-outline" size={19} color={colors.text} />
-              <View style={styles.bellDot} />
+              {unread > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{countLabel(unread)}</Text>
+                </View>
+              ) : null}
             </Pressable>
           </View>
         </View>
@@ -149,7 +165,11 @@ export function DriveScreen({ navigation }: Props) {
 
               <View style={styles.searchingText}>
                 <Text style={styles.searchingTitle}>Looking for rides nearby</Text>
-                <Text style={styles.searchingNote}>Keep the app open - offers appear here</Text>
+                <Text style={[styles.searchingNote, locationLost && styles.locationLost]}>
+                  {locationLost
+                    ? 'Location unavailable - turn on GPS to keep getting offers'
+                    : 'Keep the app open - offers appear here'}
+                </Text>
               </View>
             </View>
 
@@ -272,14 +292,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bellDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: colors.danger,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    ...type.caption,
+    fontSize: 10,
+    lineHeight: 12,
+    color: colors.text,
   },
   sheet: {
     marginTop: 'auto',
@@ -328,6 +359,9 @@ const styles = StyleSheet.create({
   searchingNote: {
     ...type.caption,
     color: colors.textMuted,
+  },
+  locationLost: {
+    color: colors.warning,
   },
   shiftRow: {
     flexDirection: 'row',

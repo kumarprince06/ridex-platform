@@ -19,6 +19,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { PaymentDetailPage } from './pages/PaymentDetailPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { PayoutsPage } from './pages/PayoutsPage';
+import { WalletsPage } from './pages/WalletsPage';
 import { LegalPage } from './pages/LegalPage';
 import { PricingPage } from './pages/PricingPage';
 import { RiderDetailPage } from './pages/RiderDetailPage';
@@ -68,6 +69,7 @@ function Routed() {
         <Route path="payments" element={<Require permission="FINANCE"><PaymentsPage /></Require>} />
         <Route path="payments/:paymentId" element={<Require permission="FINANCE"><PaymentDetailPage /></Require>} />
         <Route path="payouts" element={<Require permission="FINANCE"><PayoutsPage /></Require>} />
+        <Route path="wallets" element={<Require permission="OPERATIONS"><WalletsPage /></Require>} />
 
         <Route path="pricing" element={<Require permission="OPERATIONS"><PricingPage /></Require>} />
         <Route path="legal" element={<Require permission="OPERATIONS"><LegalPage /></Require>} />

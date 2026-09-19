@@ -300,6 +300,35 @@ export function cancelDeparture(shuttleTripId: string, reason: string) {
   });
 }
 
+export type DriverWallet = {
+  driverId: string;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  balanceMinor: number;
+  blocked: boolean;
+  onDuty: boolean;
+  lastTopUpAt: string | null;
+};
+
+export type WalletEntry = {
+  entryType: string;
+  direction: 'CREDIT' | 'DEBIT';
+  amountMinor: number;
+  referenceType: string | null;
+  referenceId: string | null;
+  createdAt: string;
+};
+
+export function listWallets(filter: 'ALL' | 'OWING' | 'BLOCKED', q = '', page = 0, size = DEFAULT_PAGE_SIZE) {
+  const query = new URLSearchParams({ filter, q, page: String(page), size: String(size) });
+  return request<Page<DriverWallet>>(`/api/v1/admin/wallets?${query}`);
+}
+
+export function walletEntries(driverId: string) {
+  return request<WalletEntry[]>(`/api/v1/admin/wallets/${driverId}/entries`);
+}
+
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_REPLY' | 'RESOLVED' | 'CLOSED';
 
 export type TicketMessage = {

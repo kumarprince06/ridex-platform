@@ -57,6 +57,7 @@ const SECTIONS: Section[] = [
     tabs: [
       { to: '/payments', label: 'Payments', permission: 'FINANCE' },
       { to: '/payouts', label: 'Payouts', permission: 'FINANCE' },
+      { to: '/wallets', label: 'Driver wallets', permission: 'OPERATIONS' },
     ],
   },
   { label: 'Support', icon: 'cases', tabs: [{ to: '/cases', label: 'Support', permission: 'SUPPORT_CASE' }] },

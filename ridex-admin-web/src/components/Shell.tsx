@@ -61,6 +61,7 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/pricing', label: 'Pricing and ride types', icon: 'pricing', permission: 'OPERATIONS' },
       { to: '/promotions', label: 'Promotions', icon: 'promotions', permission: 'OPERATIONS' },
+      { to: '/legal', label: 'Legal documents', icon: 'audit', permission: 'OPERATIONS' },
       { to: '/templates', label: 'Notification templates', icon: 'templates', permission: 'SUPER_ADMIN' },
       { to: '/flags', label: 'Feature flags', icon: 'flags', permission: 'SUPER_ADMIN' },
     ],

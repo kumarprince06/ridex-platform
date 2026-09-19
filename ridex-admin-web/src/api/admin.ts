@@ -273,6 +273,16 @@ export function updateSetting(key: string, value: string) {
   return request<Setting>(`/api/v1/admin/settings/${key}`, { method: 'PUT', body: { value } });
 }
 
+export type LegalDocument = { slug: string; title: string; body: string; updatedAt: string };
+
+export function listLegalDocuments() {
+  return request<LegalDocument[]>('/api/v1/admin/legal');
+}
+
+export function updateLegalDocument(slug: string, title: string, body: string) {
+  return request<LegalDocument>(`/api/v1/admin/legal/${slug}`, { method: 'PUT', body: { title, body } });
+}
+
 export function listTickets(status?: TicketStatus, page = 0, size = DEFAULT_PAGE_SIZE) {
   const query = new URLSearchParams({ page: String(page), size: String(size) });
   if (status) query.set('status', status);

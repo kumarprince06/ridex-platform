@@ -80,6 +80,7 @@ export type RootStackParamList = {
   /** A ride id turns a report into that ride's report: support opens the trip beside the thread. */
   ReportIssue: { rideId?: string } | undefined;
   SupportTicket: { ticketId: string };
+  Legal: { slug: 'partner-terms' | 'privacy-policy' };
 };
 
 export type RootScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<

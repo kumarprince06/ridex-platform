@@ -1,22 +1,13 @@
 package com.ridex.platform.security;
 
 import java.io.IOException;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.ridex.auth.domain.AppContext;
-import com.ridex.auth.domain.UserRole;
-
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,31 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            Claims claims = jwtService.parseClaims(token);
-
-            // A refresh token is long-lived and only ever meant for /auth/refresh. Without this
-            // check it would be accepted here as a week-long access token.
-            if (!JwtService.TOKEN_TYPE_ACCESS.equals(claims.get(JwtService.CLAIM_TOKEN_TYPE, String.class))) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Not an access token.");
-                return;
-            }
-
-            String userId = claims.getSubject();
-            String email = claims.get(JwtService.CLAIM_EMAIL, String.class);
-            String app = claims.get(JwtService.CLAIM_APP, String.class);
-            Set<UserRole> roles = readRoles(claims);
-
-            if (userId == null || email == null || app == null || roles.isEmpty()) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "JWT claims are incomplete.");
-                return;
-            }
-
-            Authentication authentication = new UsernamePasswordAuthenticationToken(
-                    new JwtPrincipal(userId, email, roles, AppContext.valueOf(app)),
-                    null,
-                    roles.stream()
-                            .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
-                            .toList());
+            Authentication authentication = jwtService.accessPrincipal(token).toAuthentication();
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (Exception ex) {
             // Only token problems land here. The chain call is deliberately outside this block:
@@ -99,16 +66,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * token minted by an older or tampered-with issuer cannot quietly authenticate with fewer
      * authorities than it claims.
      */
-    private Set<UserRole> readRoles(Claims claims) {
-        Object raw = claims.get(JwtService.CLAIM_ROLES);
-        if (!(raw instanceof List<?> values)) {
-            return Set.of();
-        }
-
-        Set<UserRole> roles = EnumSet.noneOf(UserRole.class);
-        for (Object value : values) {
-            roles.add(UserRole.valueOf(String.valueOf(value)));
-        }
-        return roles;
-    }
 }

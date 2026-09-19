@@ -95,6 +95,7 @@ public class DriverProfileService {
                 profile.getProfileImageKey(),
                 profile.getOnboardingStatus(),
                 profile.getRating(),
-                profile.getRatingCount());
+                profile.getRatingCount(),
+                profile.isOnDuty());
     }
 }

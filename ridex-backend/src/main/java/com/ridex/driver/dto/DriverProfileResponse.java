@@ -15,5 +15,7 @@ public record DriverProfileResponse(
         // profile edit, or a driver could approve themselves.
         DriverOnboardingStatus onboardingStatus,
         BigDecimal rating,
-        int ratingCount) {
+        int ratingCount,
+        // So a relaunched app shows the duty state the server holds, not a default of offline.
+        boolean onDuty) {
 }

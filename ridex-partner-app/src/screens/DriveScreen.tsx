@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { reportLocation, setDuty } from '../api/driver';
 import { ApiError } from '../api/problem';
+import { useSession } from '../auth/session';
 import { useOffers } from '../api/useOffers';
 import { currentPosition } from '../lib/location';
 import { DutyPill, DutyToggle } from '../components/DutyToggle';
@@ -24,7 +25,9 @@ type Props = TabScreenProps<'Drive'>;
 const LOCATION_PING_MS = 15000;
 
 export function DriveScreen({ navigation }: Props) {
-  const [online, setOnline] = useState(false);
+  // Start from the server's duty flag: a relaunch must not show offline while dispatch has them on.
+  const { profile } = useSession();
+  const [online, setOnline] = useState(profile?.onDuty ?? false);
   const [error, setError] = useState<string | null>(null);
   // What the ledger says is owed right now, and what has been earned in all. Nothing here is a
   // target the app invented.

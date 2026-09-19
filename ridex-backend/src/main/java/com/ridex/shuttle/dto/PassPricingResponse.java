@@ -3,7 +3,8 @@ package com.ridex.shuttle.dto;
 import java.util.List;
 
 /** What a route sells: one row per plan, null prices until operations sets them. */
-public record PassPricingResponse(Long monthlyPriceMinor, boolean onSale, List<Plan> plans) {
+public record PassPricingResponse(Long monthlyPriceMinor, boolean onSale, Integer ridesPerMonth,
+        Integer maxActivePasses, long activePasses, List<Plan> plans) {
 
     public record Plan(
             String plan,

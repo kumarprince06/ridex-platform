@@ -72,7 +72,7 @@ class RefundsTest {
         var paid = shuttleService.book(payer, seat("1A"));
         shuttleService.confirmPayment(payer, paid.id(), "pay_" + paid.id());
 
-        admin.setPassPricing(route.id(), new PassPricingRequest(100_000, 0, 0, 0, true));
+        admin.setPassPricing(route.id(), new PassPricingRequest(100_000, 0, 0, 0, true, 26, null));
         String holder = rider();
         var pass = passService.buy(holder, passService.productsFor(route.id()).get(0).id(), null, PaymentMethod.UPI, null);
         passService.confirmPayment(holder, pass.id(), "pay_" + pass.id());

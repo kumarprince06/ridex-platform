@@ -1,6 +1,7 @@
 package com.ridex.shuttle;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -55,7 +56,7 @@ class PassPlansTest {
 
     @Test
     void longerPlansArePricedFromTheMonthlyOneWithTheirDiscount() {
-        var pricing = admin.setPassPricing(passRoute.id(), new PassPricingRequest(150_000, 10, 15, 20, true));
+        var pricing = admin.setPassPricing(passRoute.id(), new PassPricingRequest(150_000, 10, 15, 20, true, 26, null));
 
         assertThat(pricing.plans()).extracting(plan -> plan.priceMinor())
                 // Rs 1,500 a month; a quarter at 10% off, half a year at 15%, a year at 20%.
@@ -67,7 +68,7 @@ class PassPlansTest {
 
     @Test
     void aPassMakesSeatsFreeOnItsOwnRouteOnlyAndStillConfirmsTheBooking() {
-        admin.setPassPricing(passRoute.id(), new PassPricingRequest(150_000, 10, 15, 20, true));
+        admin.setPassPricing(passRoute.id(), new PassPricingRequest(150_000, 10, 15, 20, true, 26, null));
         var monthly = passService.productsFor(passRoute.id()).get(0);
         var pass = passService.buy(rider, monthly.id(), null, PaymentMethod.UPI, null);
         passService.confirmPayment(rider, pass.id(), "pay_" + pass.id());
@@ -89,6 +90,34 @@ class PassPlansTest {
         assertThat(elsewhere.paymentStatus()).isEqualTo("PENDING");
         assertThat(shuttleService.seatMap(otherRoute.schedules().get(0).id(), LocalDate.parse(date),
                 otherRoute.stops().get(0).id(), otherRoute.stops().get(1).id(), rider).coveredByPassUntil()).isNull();
+    }
+
+    @Test
+    void aPassCoversOnlyAsManyRidesAsItIncludesThenSeatsArePaid() {
+        admin.setPassPricing(passRoute.id(), new PassPricingRequest(150_000, 0, 0, 0, true, 1, null));
+        var monthly = passService.productsFor(passRoute.id()).get(0);
+        assertThat(monthly.rideLimit()).isEqualTo(1);
+        var pass = passService.buy(rider, monthly.id(), null, PaymentMethod.UPI, null);
+        passService.confirmPayment(rider, pass.id(), "pay_" + pass.id());
+
+        String today = LocalDate.now().plusDays(1).toString();
+        String later = LocalDate.now().plusDays(2).toString();
+        assertThat(shuttleService.book(rider, request(passRoute, today)).passId()).isEqualTo(pass.id());
+        // The one ride is used, so the next seat is paid for.
+        assertThat(shuttleService.book(rider, request(passRoute, later)).passId()).isNull();
+    }
+
+    @Test
+    void aRouteSellsNoMorePassesThanItsLimit() {
+        admin.setPassPricing(passRoute.id(), new PassPricingRequest(150_000, 0, 0, 0, true, 26, 1));
+        var monthly = passService.productsFor(passRoute.id()).get(0);
+        var first = passService.buy(rider, monthly.id(), null, PaymentMethod.UPI, null);
+        passService.confirmPayment(rider, first.id(), "pay_" + first.id());
+
+        assertThat(passService.productsFor(passRoute.id()).get(0).soldOut()).isTrue();
+        String second = newRider();
+        assertThatThrownBy(() -> passService.buy(second, monthly.id(), null, PaymentMethod.UPI, null))
+                .isInstanceOf(com.ridex.shared.exception.ConflictException.class);
     }
 
     private AdminRouteResponse route(String prefix) {

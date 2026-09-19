@@ -28,6 +28,10 @@ public interface PassRepository extends JpaRepository<Pass, String> {
     /** Every pass sold, newest first - the admin list. Unpaid attempts included, marked as such. */
     Page<Pass> findAllByOrderByCreatedAtDesc(Pageable page);
 
+    /** Passes running on a route today - what its pass limit is counted against. */
+    @Query("SELECT COUNT(p) FROM Pass p WHERE p.routeId = :routeId AND p.status = 'ACTIVE' AND p.endsOn >= :today")
+    long countRunningOnRoute(@Param("routeId") String routeId, @Param("today") LocalDate today);
+
     /** Passes of one product still running - what repricing or withdrawing it would affect. */
     @Query(
             "SELECT COUNT(p) FROM Pass p WHERE p.product.id = :productId AND p.status = 'ACTIVE' AND p.endsOn >= :today")

@@ -124,6 +124,8 @@ export type PassProduct = {
   months: number;
   perMonthMinor: number;
   savePercent: number;
+  /** The route has as many passes running as it allows; none can be bought right now. */
+  soldOut: boolean;
 };
 
 export type Pass = {

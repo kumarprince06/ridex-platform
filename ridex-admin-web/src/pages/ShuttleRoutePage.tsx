@@ -592,6 +592,15 @@ function Passes({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act:
   const { data: pricing, refetch } = useQuery(() => getPassPricing(route.id), [route.id]);
   const [monthly, setMonthly] = useState<string | null>(null);
   const [discounts, setDiscounts] = useState<Record<string, string> | null>(null);
+  const [rides, setRides] = useState<string | null>(null);
+  const [limit, setLimit] = useState<string | null>(null);
+
+  // Pass holders ride about once a day, so the cap is a share of the seats this route runs daily -
+  // 60%, leaving the rest for riders who pay per seat.
+  const dailySeats = route.schedules.filter((schedule) => schedule.active).reduce((sum, schedule) => sum + schedule.seatCapacity, 0);
+  const suggestedLimit = Math.floor(dailySeats * 0.6);
+  const ridesValue = rides ?? String(pricing?.ridesPerMonth ?? 26);
+  const limitValue = limit ?? (pricing?.maxActivePasses != null ? String(pricing.maxActivePasses) : suggestedLimit ? String(suggestedLimit) : '');
 
   // A starting point: one full-route trip every working day, less 15% for committing to the month.
   const longestFare = Math.max(0, ...route.fares.map((fare) => fare.fareMinor));
@@ -606,7 +615,7 @@ function Passes({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act:
   const rows = (pricing?.plans ?? []).map((plan) => {
     const discount = plan.plan === 'MONTHLY' ? 0 : Number(values[plan.plan as keyof typeof values] || 0);
     const price = Math.round((Number(monthlyValue || 0) * plan.months * (100 - discount)) / 100);
-    return { ...plan, discount, price, perMonth: Math.round(price / plan.months) };
+    return { ...plan, discount, price, perMonth: Math.round(price / plan.months), rides: Number(ridesValue || 0) * plan.months };
   });
 
   if (route.fares.length === 0) {
@@ -621,8 +630,12 @@ function Passes({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act:
         halfYearlyDiscountPercent: Number(values.HALF_YEARLY || 0),
         yearlyDiscountPercent: Number(values.YEARLY || 0),
         onSale,
+        ridesPerMonth: Number(ridesValue || 26),
+        maxActivePasses: limitValue ? Number(limitValue) : null,
       });
       setMonthly(null);
+      setRides(null);
+      setLimit(null);
       setDiscounts(null);
       await refetch();
     }, onSale ? 'Passes are on sale for this route.' : 'Passes saved, not on sale.');
@@ -658,6 +671,27 @@ function Passes({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act:
             </label>
           ))}
         </div>
+        <div className="rule-row">
+          <label className="field">
+            <span className="field-label">Rides per month</span>
+            <input className="input" type="number" min={1} max={62} value={ridesValue} onChange={(event) => setRides(event.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">Maximum passes on this route</span>
+            <input className="input" type="number" min={1} value={limitValue} placeholder="No limit" onChange={(event) => setLimit(event.target.value)} />
+          </label>
+          <span className="cell-muted" style={{ paddingBottom: 12 }}>
+            {pricing?.activePasses ?? 0} running now
+            {limitValue ? ` of ${limitValue}` : ''}
+          </span>
+        </div>
+        <p className="cell-muted">
+          26 rides a month is one ride every day, Monday to Saturday. A pass stops covering seats when its rides run out,
+          and a seat cancelled 30 minutes or more before it leaves gives the ride back.
+          {suggestedLimit
+            ? ` Suggested limit: ${suggestedLimit} - 60% of the ${dailySeats} seats this route runs a day, leaving the rest for riders who pay per seat.`
+            : ''}
+        </p>
         {suggested ? (
           <p className="cell-muted">
             Suggested monthly price: ₹{suggested} - the whole route (₹{longestFare / 100}) every working day, 15% off.
@@ -670,6 +704,7 @@ function Passes({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act:
           columns={[
             { key: 'label', header: 'Plan', render: (row: (typeof rows)[number]) => <span className="cell-strong">{row.label}</span> },
             { key: 'days', header: 'Valid for', render: (row) => `${row.durationDays} days` },
+            { key: 'rides', header: 'Rides', align: 'right', render: (row) => row.rides },
             { key: 'price', header: 'Price', align: 'right', render: (row) => <span className="cell-strong">₹{row.price.toLocaleString('en-IN')}</span> },
             { key: 'perMonth', header: 'Per month', align: 'right', render: (row) => `₹${row.perMonth.toLocaleString('en-IN')}` },
             { key: 'save', header: 'Saving', align: 'right', render: (row) => (row.discount ? <Pill tone="success">{row.discount}% off</Pill> : '—') },

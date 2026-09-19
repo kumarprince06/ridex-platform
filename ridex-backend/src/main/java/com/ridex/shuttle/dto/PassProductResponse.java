@@ -5,5 +5,7 @@ public record PassProductResponse(
         int durationDays, int rideLimit, String currency, long priceMinor,
         // For comparing plans: how many months it covers, what that is per month, and how much
         // less than buying the monthly pass that many times.
-        int months, long perMonthMinor, int savePercent) {
+        int months, long perMonthMinor, int savePercent,
+        // The route has as many passes running as it allows; none can be bought until one ends.
+        boolean soldOut) {
 }

@@ -581,6 +581,9 @@ export function updateStop(routeId: string, stopId: string, stop: StopInput) {
 export type PassPricing = {
   monthlyPriceMinor: number | null;
   onSale: boolean;
+  ridesPerMonth: number | null;
+  maxActivePasses: number | null;
+  activePasses: number;
   plans: {
     plan: 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY';
     label: string;
@@ -635,6 +638,8 @@ export function setPassPricing(
     halfYearlyDiscountPercent: number;
     yearlyDiscountPercent: number;
     onSale: boolean;
+    ridesPerMonth: number;
+    maxActivePasses: number | null;
   },
 ) {
   return request<PassPricing>(`${SHUTTLE}/${routeId}/passes`, { method: 'PUT', body: pricing });

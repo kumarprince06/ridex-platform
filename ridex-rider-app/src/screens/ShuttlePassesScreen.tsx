@@ -73,6 +73,7 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
   const plans = products ?? [];
   const chosen = plans.find((product) => product.id === picked) ?? plans[0];
   const bestSaving = Math.max(0, ...plans.map((product) => product.savePercent));
+  const soldOut = plans.some((product) => product.soldOut);
 
   return (
     <Screen
@@ -80,7 +81,7 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
       title="Passes"
       onRefresh={() => Promise.all([refetch(), refetchProducts()])}
       footer={
-        chosen ? (
+        chosen && !soldOut ? (
           <Button
             label={busy === chosen.id ? 'Opening...' : `Buy ${chosen.name} · ${money(chosen.priceMinor, chosen.currency)}`}
             disabled={busy !== null}
@@ -93,8 +94,8 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
       <View style={styles.rule}>
         <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
         <Text style={styles.ruleText}>
-          A pass covers every seat on this route for its whole period - book without paying. Seats on other routes
-          are paid as usual.
+          A pass includes a set number of rides on this route - book those seats without paying. Cancel 30 minutes
+          or more before departure and the ride comes back. Seats on other routes are paid as usual.
         </Text>
       </View>
 
@@ -106,7 +107,7 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
             <Text style={styles.heldName}>{pass.productName}</Text>
             <Text style={styles.heldMeta}>
               {pass.status === 'ACTIVE'
-                ? `Valid till ${shortDate(pass.endsOn)} · ${daysLeft(pass.endsOn)}`
+                ? `${ridesLeft(pass)} · valid till ${shortDate(pass.endsOn)} · ${daysLeft(pass.endsOn)}`
                 : 'Waiting for payment'}
             </Text>
           </View>
@@ -126,6 +127,10 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
       <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {soldOut ? (
+        <Text style={styles.error}>Passes on this route are sold out right now. You can still book seats one at a time.</Text>
+      ) : null}
 
       {products?.length === 0 ? (
         <Text style={styles.muted}>No passes are on sale for this route yet.</Text>
@@ -154,7 +159,7 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
                 ) : null}
               </View>
               <Text style={styles.planMeta}>
-                {product.durationDays} days · {money(product.perMonthMinor, product.currency)} / month
+                {product.rideLimit} rides · {product.durationDays} days · {money(product.perMonthMinor, product.currency)} / month
               </Text>
             </View>
             <View style={styles.priceCol}>
@@ -185,6 +190,12 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
       ) : null}
     </Screen>
   );
+}
+
+function ridesLeft(pass: Pass) {
+  if (pass.rideLimit === 0) return 'Unlimited rides';
+  const left = Math.max(0, pass.rideLimit - pass.ridesUsed);
+  return left === 1 ? '1 ride left' : `${left} rides left`;
 }
 
 function daysLeft(endsOn: string) {

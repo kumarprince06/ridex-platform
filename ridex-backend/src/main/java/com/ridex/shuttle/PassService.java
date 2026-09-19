@@ -46,6 +46,7 @@ public class PassService {
 
     private final PassRepository passRepository;
     private final PassProductRepository passProductRepository;
+    private final RouteRepository routeRepository;
     private final RiderProfileRepository riderProfileRepository;
     private final ShuttlePaymentService shuttlePayments;
     private final PointsService pointsService;
@@ -54,6 +55,7 @@ public class PassService {
     @Transactional(readOnly = true)
     public List<PassProductResponse> productsFor(String routeId) {
         List<PassProduct> onSale = passProductRepository.findByRouteIdAndActiveTrueOrderByPriceMinorAsc(routeId);
+        boolean soldOut = !onSale.isEmpty() && soldOut(onSale.get(0).getRoute());
         Long monthly = onSale.stream()
                 .filter(product -> product.getDurationDays() == PassPlan.MONTHLY.days())
                 .map(PassProduct::getPriceMinor)
@@ -65,7 +67,7 @@ public class PassService {
                     return new PassProductResponse(product.getId(), product.getName(), product.getDescription(),
                             product.getDurationDays(), product.getRideLimit(), product.getCurrency(),
                             product.getPriceMinor(), months, product.getPriceMinor() / months,
-                            monthly == null ? 0 : discountPercent(product.getPriceMinor(), monthly, months));
+                            monthly == null ? 0 : discountPercent(product.getPriceMinor(), monthly, months), soldOut);
                 })
                 .toList();
     }
@@ -117,8 +119,12 @@ public class PassService {
                             product == null ? 0 : passRepository.countRunning(product.getId(), today));
                 })
                 .toList();
+        Route route = products.isEmpty() ? null : products.get(0).getRoute();
         return new PassPricingResponse(monthly == null ? null : monthly.getPriceMinor(),
-                monthly != null && monthly.isActive(), plans);
+                monthly != null && monthly.isActive(),
+                monthly == null || monthly.getRideLimit() == 0 ? null : (int) monthly.getRideLimit(),
+                route == null ? null : route.getPassLimit(),
+                passRepository.countRunningOnRoute(routeId, today), plans);
     }
 
     /**
@@ -133,6 +139,8 @@ public class PassService {
                 PassPlan.QUARTERLY, request.quarterlyDiscountPercent(),
                 PassPlan.HALF_YEARLY, request.halfYearlyDiscountPercent(),
                 PassPlan.YEARLY, request.yearlyDiscountPercent());
+        route.setPassLimit(request.maxActivePasses());
+        routeRepository.save(route);
         for (PassPlan plan : PassPlan.values()) {
             PassProduct product = planOf(products, plan);
             if (product == null) {
@@ -140,12 +148,12 @@ public class PassService {
                 product.setRoute(route);
                 product.setDurationDays((short) plan.days());
                 product.setCurrency("INR");
-                // Unlimited within the period: one seat per departure is already the rule.
-                product.setRideLimit((short) 0);
             }
+            // A set number of rides, scaled by the months: a monthly pass of 26 is 78 for a quarter.
+            product.setRideLimit((short) (request.ridesPerMonth() * plan.months()));
             product.setName(plan.label());
-            product.setDescription("Every seat on %s for %d %s".formatted(route.getName(), plan.months(),
-                    plan.months() == 1 ? "month" : "months"));
+            product.setDescription("%d rides on %s over %d %s".formatted(request.ridesPerMonth() * plan.months(),
+                    route.getName(), plan.months(), plan.months() == 1 ? "month" : "months"));
             // Whole rupees: "Rs 4,275.50" reads like a mistake on a price list.
             long full = request.monthlyPriceMinor() * plan.months();
             product.setPriceMinor(Math.round(full * (100 - discounts.get(plan)) / 100.0 / 100.0) * 100);
@@ -153,6 +161,11 @@ public class PassService {
             passProductRepository.save(product);
         }
         return pricing(route.getId());
+    }
+
+    private boolean soldOut(Route route) {
+        return route.getPassLimit() != null
+                && passRepository.countRunningOnRoute(route.getId(), LocalDate.now()) >= route.getPassLimit();
     }
 
     private static PassProduct planOf(List<PassProduct> products, PassPlan plan) {
@@ -179,6 +192,10 @@ public class PassService {
         PassProduct product = passProductRepository.findById(productId)
                 .filter(PassProduct::isActive)
                 .orElseThrow(() -> new NotFoundException("That pass is not on sale."));
+
+        if (soldOut(product.getRoute())) {
+            throw new ConflictException("Passes on this route are sold out right now. Seats can still be booked one at a time.");
+        }
 
         LocalDate start = startsOn == null ? LocalDate.now() : startsOn;
         if (start.isBefore(LocalDate.now())) {

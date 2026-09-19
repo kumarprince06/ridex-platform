@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { getPoints, spendableNow } from '../api/points';
 import { ApiError } from '../api/problem';
 import { payForSeat } from '../api/shuttleCheckout';
-import { bookSeat, seatMap, type Seat, type ShuttlePaymentMethod } from '../api/shuttle';
+import { bookSeat, seatMap, type Seat } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { BrandLoader } from '../components/BrandLoader';
@@ -27,7 +27,6 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
   );
 
   const [chosen, setChosen] = useState<string | null>(null);
-  const [method, setMethod] = useState<ShuttlePaymentMethod>('UPI');
   const [usePoints, setUsePoints] = useState(false);
   const { data: points } = useQuery(getPoints, []);
   const [booking, setBooking] = useState(false);
@@ -54,7 +53,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         boardingStopId,
         alightingStopId,
         seatLabel: chosen,
-        paymentMethod: method,
+        paymentMethod: 'UPI',
         // The whole balance is offered; the server takes only what this fare can absorb.
         redeemPoints: usePoints && points ? spendableNow(points).points : undefined,
       });
@@ -114,10 +113,8 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
                 : !chosen
                   ? 'Choose a seat'
                   : payableMinor == null
-                    ? method === 'CASH'
-                      ? `Book seat ${chosen}`
-                      : `Pay & book seat ${chosen}`
-                    : `${method === 'CASH' ? 'Book' : 'Pay'} ${money(payableMinor, data?.currency ?? 'INR')} · seat ${chosen}`
+                    ? `Pay & book seat ${chosen}`
+                    : `Pay ${money(payableMinor, data?.currency ?? 'INR')} · seat ${chosen}`
             }
             disabled={!chosen || booking}
             onPress={confirm}
@@ -201,55 +198,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         </Pressable>
       ) : null}
 
-      <Text style={styles.payLabel}>PAY WITH</Text>
-      <View style={styles.methods}>
-        <MethodButton
-          icon="phone-portrait-outline"
-          label="Online"
-          note="Pay now"
-          selected={method === 'UPI'}
-          onPress={() => setMethod('UPI')}
-        />
-        <MethodButton
-          icon="cash-outline"
-          label="Cash"
-          note="Pay the driver"
-          selected={method === 'CASH'}
-          onPress={() => setMethod('CASH')}
-        />
-      </View>
     </Screen>
-  );
-}
-
-function MethodButton({
-  icon,
-  label,
-  note,
-  selected,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  note: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      style={({ pressed }) => [
-        styles.method,
-        selected && styles.methodSelected,
-        pressed && styles.pressed,
-      ]}
-    >
-      <Ionicons name={icon} size={18} color={selected ? colors.primary : colors.textMuted} />
-      <Text style={[styles.methodLabel, selected && styles.methodLabelSelected]}>{label}</Text>
-      <Text style={styles.methodNote}>{note}</Text>
-    </Pressable>
   );
 }
 
@@ -326,40 +275,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   pointsNote: {
-    ...type.caption,
-    color: colors.textMuted,
-  },
-  payLabel: {
-    ...type.eyebrow,
-    color: colors.textMuted,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  methods: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  method: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  methodSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.surfaceAlt,
-  },
-  methodLabel: {
-    ...type.button,
-    fontSize: 14,
-    color: colors.text,
-  },
-  methodLabelSelected: { color: colors.primary },
-  methodNote: {
     ...type.caption,
     color: colors.textMuted,
   },

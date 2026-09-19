@@ -18,15 +18,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.ridex.payment.PaymentProvider;
 import com.ridex.payment.PaymentProviders;
 
 import com.ridex.auth.UserRepository;
@@ -70,15 +65,7 @@ class ShuttleBookingTest {
 
     @BeforeEach
     void setUp() {
-        PaymentProvider gateway = mock(PaymentProvider.class);
-        when(gateway.name()).thenReturn("RAZORPAY");
-        when(gateway.createPaymentIntent(any(), anyString(), anyString()))
-                .thenAnswer(call -> new PaymentProvider.ProviderPayment(
-                        "order_" + call.getArgument(1), "REQUIRES_ACTION", null));
-        when(gateway.confirmPayment(anyString()))
-                .thenAnswer(call -> new PaymentProvider.ProviderPayment(
-                        call.getArgument(0), "SUCCEEDED", null));
-        when(paymentProviders.forMethod(any())).thenReturn(gateway);
+        FakeGateway.install(paymentProviders);
 
         route = new Route();
         // Wide enough not to collide: these tests commit, so yesterday's rows are still here.
@@ -236,7 +223,7 @@ class ShuttleBookingTest {
     void travellingBackwardsAlongTheRouteIsRefused() {
         assertThatThrownBy(() -> shuttleService.book(newRider(), new BookSeatRequest(
                 schedule.getId(), serviceDate.toString(), last.getId(), first.getId(), "1C",
-                PaymentMethod.CASH, null)))
+                PaymentMethod.UPI, null)))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -259,9 +246,9 @@ class ShuttleBookingTest {
     }
 
     private BookSeatRequest request(String seat) {
-        // Cash keeps these tests off the gateway: what they are about is seat inventory.
+        // What these tests are about is seat inventory, not payment.
         return new BookSeatRequest(schedule.getId(), serviceDate.toString(),
-                first.getId(), last.getId(), seat, PaymentMethod.CASH, null);
+                first.getId(), last.getId(), seat, PaymentMethod.UPI, null);
     }
 
     private String newRider() {

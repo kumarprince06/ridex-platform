@@ -27,14 +27,11 @@ public record ShuttleBookingResponse(
         String boardingCode,
         /** Null until the departure has a crew: who is driving, and the plate to look for. */
         CrewResponse crew,
-        /** PAID, CASH_DUE, or PENDING while the seat is held for a rider still in checkout. */
+        /** PAID, or PENDING while the seat is held for a rider still in checkout. */
         String paymentStatus,
         /** Cancellation closes here - half an hour before departure. */
-        java.time.Instant cancellableUntil,
-        /**
-         * What cancelling right now would credit back as points, in money terms. Zero for cash, a
-         * pass, or past the cutoff.
-         */
+        Instant cancellableUntil,
+        // What cancelling now would credit back as points; zero for a pass or past the cutoff.
         long creditIfCancelledMinor,
         /** Present only on a fresh booking that still has to be paid for. */
         Checkout checkout,

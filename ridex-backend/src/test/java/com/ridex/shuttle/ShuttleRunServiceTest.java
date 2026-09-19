@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.User;
@@ -20,6 +21,7 @@ import com.ridex.auth.domain.UserRole;
 import com.ridex.auth.domain.UserStatus;
 import com.ridex.driver.DriverProfileService;
 import com.ridex.notification.OutboxRepository;
+import com.ridex.payment.PaymentProviders;
 import com.ridex.payment.domain.PaymentMethod;
 import com.ridex.rider.RiderProfileService;
 import com.ridex.shared.exception.ConflictException;
@@ -43,6 +45,7 @@ class ShuttleRunServiceTest {
     @Autowired private DriverProfileService driverProfileService;
     @Autowired private UserRepository userRepository;
     @Autowired private OutboxRepository outboxRepository;
+    @MockitoBean private PaymentProviders paymentProviders;
 
     private Route route;
     private String tripId;
@@ -52,6 +55,7 @@ class ShuttleRunServiceTest {
 
     @BeforeEach
     void setUp() {
+        FakeGateway.install(paymentProviders);
         route = new Route();
         route.setCode("L" + System.nanoTime());
         route.setName("Salt Lake to Howrah");
@@ -87,7 +91,8 @@ class ShuttleRunServiceTest {
         riderProfileService.createFor(userRepository.findById(riderUserId).orElseThrow());
         // Boards at stop 3, so reaching stop 1 is "two away" and stop 2 is "arriving".
         bookingId = shuttleService.book(riderUserId, new BookSeatRequest(schedule.getId(), date.toString(),
-                stop(3).getId(), stop(4).getId(), "2A", PaymentMethod.CASH, null)).id();
+                stop(3).getId(), stop(4).getId(), "2A", PaymentMethod.UPI, null)).id();
+        shuttleService.confirmPayment(riderUserId, bookingId, "pay_" + bookingId);
 
         driverUserId = newUser(UserRole.DRIVER);
         var driver = driverProfileService.createFor(userRepository.findById(driverUserId).orElseThrow());

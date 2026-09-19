@@ -168,20 +168,6 @@ public class ShuttlePaymentService {
         });
     }
 
-    /** Records the fare a driver collected in cash for a seat, once the passenger is on board. */
-    @Transactional
-    public void settleShuttleCash(String bookingId) {
-        paymentRepository.findByShuttleBookingId(bookingId).ifPresent(payment -> {
-            if (payment.getMethod() != PaymentMethod.CASH
-                    || payment.getStatus() == PaymentStatus.SUCCEEDED) {
-                return;
-            }
-            payment.setStatus(PaymentStatus.SUCCEEDED);
-            payment.setPaidAt(Instant.now());
-            paymentRepository.save(payment);
-        });
-    }
-
     /**
      * The open checkout for a seat that has not been paid for.
      *

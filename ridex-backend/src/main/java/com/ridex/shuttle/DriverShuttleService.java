@@ -13,9 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.driver.DriverProfileRepository;
-import com.ridex.notification.DeliveryChannel;
 import com.ridex.notification.Notifier;
-import com.ridex.payment.ShuttlePaymentService;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.ForbiddenException;
 import com.ridex.shared.exception.NotFoundException;
@@ -39,7 +37,6 @@ import lombok.RequiredArgsConstructor;
 public class DriverShuttleService {
 
     private final ShuttleTripRepository shuttleTripRepository;
-    private final ShuttlePaymentService shuttlePayments;
     private final ShuttleBookingRepository bookingRepository;
     private final DriverProfileRepository driverProfileRepository;
     private final RouteStopRepository routeStopRepository;
@@ -79,6 +76,10 @@ public class DriverShuttleService {
         if ("CANCELLED".equals(booking.getStatus())) {
             throw new ConflictException("That seat was cancelled.");
         }
+        // Prepaid only: a seat still in checkout isn't a ticket yet.
+        if ("PENDING".equals(booking.getPaymentStatus())) {
+            throw new ConflictException("That seat hasn't been paid for yet.");
+        }
         if (booking.getBoardedAt() != null) {
             // Not an error worth blocking on, but worth saying: a second scan of the same ticket
             // is how one code gets used by two people.
@@ -89,12 +90,6 @@ public class DriverShuttleService {
         }
 
         booking.setBoardedAt(Instant.now());
-        // Cash is collected at the door, so this is the moment it is actually paid. Recorded here
-        // rather than at booking, or the books would show money the driver had not been handed.
-        if ("CASH_DUE".equals(booking.getPaymentStatus())) {
-            booking.setPaymentStatus("PAID");
-            shuttlePayments.settleShuttleCash(booking.getId());
-        }
         bookingRepository.save(booking);
 
         // Queued inside the transaction, so the passenger is only told they are on board if the

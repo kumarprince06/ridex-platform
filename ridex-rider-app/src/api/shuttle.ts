@@ -93,7 +93,7 @@ export type ShuttleBooking = {
   /** Cancellation closes here - half an hour before departure. */
   cancellableUntil: string;
   /**
-   * What cancelling right now would credit back as points, in money terms. Zero for cash, a pass,
+   * What cancelling right now would credit back as points, in money terms. Zero for a pass,
    * or once the cutoff has passed.
    */
   creditIfCancelledMinor: number;
@@ -169,8 +169,8 @@ export function seatMap(
   return request<SeatMap>(`/api/v1/shuttle/departures/${scheduleId}/seats?${query}`);
 }
 
-/** How the seat is paid for. Cash is handed to the driver; UPI opens checkout at booking. */
-export type ShuttlePaymentMethod = 'CASH' | 'UPI';
+/** Seats are prepaid online; checkout opens at booking. */
+export type ShuttlePaymentMethod = 'UPI';
 
 export function bookSeat(booking: {
   scheduleId: string;

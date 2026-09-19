@@ -173,6 +173,10 @@ public class ShuttleService {
     @Transactional
     public ShuttleBookingResponse book(String riderUserId, BookSeatRequest request) {
         RiderProfile rider = riderProfileRepository.findByUserId(riderUserId)
+        // Seats are prepaid: a no-show on a cash seat keeps somebody else off the bus for nothing.
+        if (request.methodOrDefault() == PaymentMethod.CASH) {
+            throw new ValidationException("Shuttle seats are paid for online when you book.");
+        }
                 .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
 
         // The same rule as an on-demand ride: settle the last fare before starting another
@@ -269,24 +273,14 @@ public class ShuttleService {
             Money gross = Money.of(booking.getFareMinor(), currency);
             Money discount = Money.of(booking.getDiscountMinor(), currency);
 
-            if (method == PaymentMethod.CASH) {
-                // Nothing to authorise - the money changes hands at the door. The seat is confirmed
-                // now, and the fare is settled when the driver checks the passenger in.
-                booking.setPaymentStatus("CASH_DUE");
-                bookingRepository.save(booking);
-                shuttlePayments.startShuttlePayment(booking.getId(), rider, gross, discount, method);
-                confirmBooking(booking);
-            } else {
-                // An online seat is held, not confirmed, until the money arrives. The row is
-                // already BOOKED so nobody else can take it - the constraints that stop a double
-                // sale are scoped to that status - and the hold releases it if checkout is
-                // abandoned.
-                booking.setPaymentStatus("PENDING");
-                booking.setHoldExpiresAt(Instant.now().plus(HOLD));
-                bookingRepository.save(booking);
-                checkout = shuttlePayments.startShuttlePayment(booking.getId(), rider, gross,
-                        discount, method);
-            }
+            // The seat is held, not confirmed, until the money arrives. The row is already BOOKED
+            // so nobody else can take it - the constraints that stop a double sale are scoped to
+            // that status - and the hold releases it if checkout is abandoned.
+            booking.setPaymentStatus("PENDING");
+            booking.setHoldExpiresAt(Instant.now().plus(HOLD));
+            bookingRepository.save(booking);
+            checkout = shuttlePayments.startShuttlePayment(booking.getId(), rider, gross,
+                    discount, method);
         } else {
             confirmBooking(booking);
         }
@@ -400,10 +394,7 @@ public class ShuttleService {
             return;
         }
 
-        // A cash seat is confirmed but not paid for; that stays true until the driver collects.
-        if (!"CASH_DUE".equals(booking.getPaymentStatus())) {
-            booking.setPaymentStatus("PAID");
-        }
+        booking.setPaymentStatus("PAID");
         booking.setHoldExpiresAt(null);
         bookingRepository.save(booking);
 
@@ -479,7 +470,6 @@ public class ShuttleService {
         boolean paid = "PAID".equals(booking.getPaymentStatus());
         String paymentStatus = booking.getPassId() != null ? "Covered by pass"
                 : paid ? "Paid"
-                : "CASH_DUE".equals(booking.getPaymentStatus()) ? "Pay on board"
                 : "Unpaid";
 
         StringBuilder payload = new StringBuilder(booking.getId())
@@ -502,9 +492,7 @@ public class ShuttleService {
 
         if (payment != null) {
             payload.append("Paid with|")
-                    .append(payment.method() == PaymentMethod.CASH
-                            ? "Cash to the driver"
-                            : payment.method() + " · " + payment.provider())
+                    .append(payment.method() + " · " + payment.provider())
                     .append('\n');
             // The gateway's own id. Without it a disputed charge is an amount and a date.
             if (payment.reference() != null) {

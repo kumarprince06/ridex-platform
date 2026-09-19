@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.User;
@@ -21,9 +22,8 @@ import com.ridex.driver.DriverProfileRepository;
 import com.ridex.driver.DriverProfileService;
 import com.ridex.driver.domain.DriverOnboardingStatus;
 import com.ridex.driver.domain.DriverProfile;
-import com.ridex.payment.PaymentRepository;
+import com.ridex.payment.PaymentProviders;
 import com.ridex.payment.domain.PaymentMethod;
-import com.ridex.payment.domain.PaymentStatus;
 import com.ridex.rider.RiderProfileService;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.ValidationException;
@@ -48,12 +48,12 @@ class DriverBoardingTest {
     @Autowired private RouteRepository routeRepository;
     @Autowired private RouteFareRepository routeFareRepository;
     @Autowired private ShuttleScheduleRepository scheduleRepository;
-    @Autowired private PaymentRepository paymentRepository;
     @Autowired private DriverProfileRepository driverProfileRepository;
     @Autowired private DriverProfileService driverProfileService;
     @Autowired private RiderProfileService riderProfileService;
     @Autowired private UserRepository userRepository;
     @Autowired private AdminShuttleService adminShuttleService;
+    @MockitoBean private PaymentProviders paymentProviders;
 
     private ShuttleSchedule schedule;
     private RouteStop first;
@@ -63,6 +63,7 @@ class DriverBoardingTest {
 
     @BeforeEach
     void setUp() {
+        FakeGateway.install(paymentProviders);
         Route route = new Route();
         // Wide enough not to collide: these tests commit, so yesterday's rows are still here.
         route.setCode("B" + System.nanoTime());
@@ -106,7 +107,7 @@ class DriverBoardingTest {
 
     @Test
     void aBookedSeatIsOnTheDriversManifestAndBoardsAgainstItsCode() {
-        var booking = bookCashSeat("2A");
+        var booking = bookPaidSeat("2A");
         rosterDriverOntoTheDeparture();
 
         var runs = driverShuttleService.departures(driverUserId, serviceDate);
@@ -123,15 +124,23 @@ class DriverBoardingTest {
                     assertThat(passenger.seatLabel()).isEqualTo("2A");
                     assertThat(passenger.boarded()).isTrue();
                 });
+    }
 
-        // Cash is collected at the door, so boarding is the moment it is actually paid.
-        assertThat(paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getStatus())
-                .isEqualTo(PaymentStatus.SUCCEEDED);
+    @Test
+    void aSeatStillInCheckoutCannotBoard() {
+        var booking = bookSeat("2D", false);
+        rosterDriverOntoTheDeparture();
+        String tripId = driverShuttleService.departures(driverUserId, serviceDate)
+                .get(0).shuttleTripId();
+
+        assertThatThrownBy(() ->
+                driverShuttleService.board(driverUserId, tripId, booking.id(), booking.boardingCode()))
+                .isInstanceOf(ConflictException.class);
     }
 
     @Test
     void aCodeThatDoesNotMatchTheSeatBoardsNobody() {
-        var booking = bookCashSeat("2B");
+        var booking = bookPaidSeat("2B");
         rosterDriverOntoTheDeparture();
         String tripId = driverShuttleService.departures(driverUserId, serviceDate)
                 .get(0).shuttleTripId();
@@ -139,15 +148,11 @@ class DriverBoardingTest {
         assertThatThrownBy(() ->
                 driverShuttleService.board(driverUserId, tripId, booking.id(), "000000"))
                 .isInstanceOf(ValidationException.class);
-
-        // And the cash stays uncollected, because nobody got on.
-        assertThat(paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getStatus())
-                .isNotEqualTo(PaymentStatus.SUCCEEDED);
     }
 
     @Test
     void oneTicketCannotBoardTwice() {
-        var booking = bookCashSeat("2C");
+        var booking = bookPaidSeat("2C");
         rosterDriverOntoTheDeparture();
         String tripId = driverShuttleService.departures(driverUserId, serviceDate)
                 .get(0).shuttleTripId();
@@ -161,8 +166,8 @@ class DriverBoardingTest {
 
     @Test
     void opsSeesTheRunWithItsCancelledSeatsStillOnIt() {
-        var kept = bookCashSeat("3A");
-        var dropped = bookCashSeat("3B");
+        var kept = bookPaidSeat("3A");
+        var dropped = bookPaidSeat("3B");
         shuttleService.cancel(riderOf(dropped), dropped.id());
         rosterDriverOntoTheDeparture();
 
@@ -192,15 +197,22 @@ class DriverBoardingTest {
         shuttleTripRepository.save(trip);
     }
 
-    private com.ridex.shuttle.dto.ShuttleBookingResponse bookCashSeat(String seat) {
+    private com.ridex.shuttle.dto.ShuttleBookingResponse bookPaidSeat(String seat) {
+        return bookSeat(seat, true);
+    }
+
+    private com.ridex.shuttle.dto.ShuttleBookingResponse bookSeat(String seat, boolean pay) {
         User user = newUser(UserRole.RIDER);
         riderProfileService.createFor(user);
         // The fresh response, because only it carries the raw boarding code - the stored row keeps
         // a hash, which is the whole point of the code.
         var booking = shuttleService.book(user.getId(), new BookSeatRequest(schedule.getId(),
-                serviceDate.toString(), first.getId(), last.getId(), seat, PaymentMethod.CASH,
+                serviceDate.toString(), first.getId(), last.getId(), seat, PaymentMethod.UPI,
                 null));
         riderOfBooking.put(booking.id(), user.getId());
+        if (pay) {
+            shuttleService.confirmPayment(user.getId(), booking.id(), "pay_" + booking.id());
+        }
         return booking;
     }
 

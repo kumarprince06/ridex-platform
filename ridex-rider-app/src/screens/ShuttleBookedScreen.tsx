@@ -31,7 +31,6 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   const [showingPass, setShowingPass] = useState(false);
 
   const pending = booking.paymentStatus === 'PENDING';
-  const cashDue = booking.paymentStatus === 'CASH_DUE';
   const cancelled = booking.status === 'CANCELLED';
   const departs = new Date(booking.departsAt);
   // The server enforces this too; this just keeps the button honest.
@@ -107,14 +106,6 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </Pressable>
       ) : null}
 
-      {cashDue && !cancelled ? (
-        <View style={styles.pending}>
-          <Ionicons name="cash-outline" size={16} color={colors.amber} />
-          <Text style={styles.pendingText}>
-            Pay {money(booking.fareMinor, booking.currency)} to the driver when you get on.
-          </Text>
-        </View>
-      ) : null}
 
       <View style={styles.pass}>
         {/* Stub: what the rider reads, and what a driver checks against. */}
@@ -195,7 +186,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         />
         <FareRow
           label="Payment"
-          value={booking.passId ? 'Pass' : cashDue ? 'Cash when you board' : pending ? 'Not paid yet' : 'Paid online'}
+          value={booking.passId ? 'Pass' : pending ? 'Not paid yet' : 'Paid online'}
           last
         />
       </View>

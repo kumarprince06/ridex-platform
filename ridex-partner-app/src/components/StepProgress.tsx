@@ -13,16 +13,27 @@ export function StepProgress({ current }: { current: SetupStep }) {
   return (
     <View style={styles.row}>
       {STEPS.map((step, index) => {
-        // Completed and current segments both read as active: "Profile" stays lit once the
-        // driver has moved on to "Vehicle".
-        const active = index <= currentIndex;
+        // Completed bars stay filled as progress, but only the current step's label is lit - two
+        // lit labels read as two selected tabs.
+        const done = index < currentIndex;
+        const current = index === currentIndex;
 
         return (
           <View key={step} style={styles.segment}>
-            <Text style={[styles.label, active ? styles.labelActive : styles.labelIdle]}>
-              {step}
+            <Text
+              style={[
+                styles.label,
+                current ? styles.labelActive : done ? styles.labelDone : styles.labelIdle,
+              ]}
+            >
+              {done ? `✓ ${step}` : step}
             </Text>
-            <View style={[styles.bar, active ? styles.barActive : styles.barIdle]} />
+            <View
+              style={[
+                styles.bar,
+                current ? styles.barActive : done ? styles.barDone : styles.barIdle,
+              ]}
+            />
           </View>
         );
       })}
@@ -46,8 +57,15 @@ const styles = StyleSheet.create({
   labelActive: {
     color: colors.primary,
   },
+  labelDone: {
+    color: colors.textMuted,
+  },
   labelIdle: {
     color: colors.textFaint,
+  },
+  barDone: {
+    backgroundColor: colors.primary,
+    opacity: 0.45,
   },
   bar: {
     height: 3,

@@ -44,18 +44,21 @@ public class AdminPayoutController {
     /** One payout per driver with money owed. Safe to run twice - the second run finds nothing. */
     @PostMapping("/run")
     @ResponseStatus(HttpStatus.CREATED)
+    @Audited(action = "PAYOUT_BATCH_RUN", targetType = "PAYOUT")
     public List<PayoutResponse> run() {
         return payoutService.runBatch();
     }
 
     @PostMapping("/{payoutId}/send")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "PAYOUT_SENT", targetType = "PAYOUT")
     public PayoutResponse send(@PathVariable String payoutId) {
         return payoutService.markProcessing(payoutId);
     }
 
     @PostMapping("/{payoutId}/settle")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "PAYOUT_SETTLED", targetType = "PAYOUT")
     public PayoutResponse settle(@PathVariable String payoutId,
             @Valid @RequestBody SettlePayoutRequest request) {
         return payoutService.markPaid(payoutId, request.reference());
@@ -63,6 +66,7 @@ public class AdminPayoutController {
 
     @PostMapping("/{payoutId}/fail")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "PAYOUT_FAILED", targetType = "PAYOUT")
     public PayoutResponse fail(@PathVariable String payoutId,
             @Valid @RequestBody ReviewDecisionRequest request) {
         return payoutService.markFailed(payoutId, request.reason());

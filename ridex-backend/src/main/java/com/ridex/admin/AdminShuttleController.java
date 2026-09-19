@@ -57,12 +57,14 @@ public class AdminShuttleController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Audited(action = "ROUTE_CREATED", targetType = "ROUTE")
     public AdminRouteResponse create(@Valid @RequestBody RouteRequest request) {
         return adminShuttleService.create(request);
     }
 
     @PutMapping("/{routeId}")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "ROUTE_UPDATED", targetType = "ROUTE")
     public AdminRouteResponse update(@PathVariable String routeId,
             @Valid @RequestBody RouteRequest request) {
         return adminShuttleService.update(routeId, request);
@@ -109,6 +111,7 @@ public class AdminShuttleController {
 
     @DeleteMapping("/{routeId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Audited(action = "ROUTE_DELETED", targetType = "ROUTE")
     public void deleteRoute(@PathVariable String routeId) {
         adminShuttleService.deleteRoute(routeId);
     }
@@ -116,6 +119,7 @@ public class AdminShuttleController {
     /** Appends, or inserts straight after the stop at position {@code after} (0 for the front). */
     @PostMapping("/{routeId}/stops")
     @ResponseStatus(HttpStatus.CREATED)
+    @Audited(action = "STOP_ADDED", targetType = "ROUTE")
     public AdminRouteResponse addStop(@PathVariable String routeId,
             @RequestParam(required = false) Integer after,
             @Valid @RequestBody StopRequest request) {
@@ -124,6 +128,7 @@ public class AdminShuttleController {
 
     @PutMapping("/{routeId}/stops/{stopId}")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "STOP_UPDATED", targetType = "ROUTE")
     public AdminRouteResponse updateStop(@PathVariable String routeId, @PathVariable String stopId,
             @Valid @RequestBody StopRequest request) {
         return adminShuttleService.updateStop(routeId, stopId, request);
@@ -131,12 +136,14 @@ public class AdminShuttleController {
 
     @DeleteMapping("/{routeId}/stops/{stopId}")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "STOP_DELETED", targetType = "ROUTE")
     public AdminRouteResponse removeStop(@PathVariable String routeId, @PathVariable String stopId) {
         return adminShuttleService.removeStop(routeId, stopId);
     }
 
     @PutMapping("/{routeId}/fares")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "FARE_SET", targetType = "ROUTE")
     public AdminRouteResponse setFare(@PathVariable String routeId,
             @Valid @RequestBody FareRequest request) {
         return adminShuttleService.setFare(routeId, request);
@@ -145,6 +152,7 @@ public class AdminShuttleController {
     /** The whole table in one save. What is sent is what the route charges afterwards. */
     @PutMapping("/{routeId}/fares/matrix")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "FARES_SET", targetType = "ROUTE")
     public AdminRouteResponse setFares(@PathVariable String routeId,
             @Valid @RequestBody FareMatrixRequest request) {
         return adminShuttleService.setFares(routeId, request);
@@ -152,12 +160,14 @@ public class AdminShuttleController {
 
     @DeleteMapping("/{routeId}/fares/{fareId}")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "FARE_REMOVED", targetType = "ROUTE")
     public AdminRouteResponse removeFare(@PathVariable String routeId, @PathVariable String fareId) {
         return adminShuttleService.removeFare(routeId, fareId);
     }
 
     @PostMapping("/{routeId}/schedules")
     @ResponseStatus(HttpStatus.CREATED)
+    @Audited(action = "DEPARTURE_ADDED", targetType = "ROUTE")
     public AdminRouteResponse addSchedule(@PathVariable String routeId,
             @Valid @RequestBody ScheduleRequest request) {
         return adminShuttleService.addSchedule(routeId, request);
@@ -165,6 +175,7 @@ public class AdminShuttleController {
 
     @PutMapping("/{routeId}/schedules/{scheduleId}")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "DEPARTURE_UPDATED", targetType = "ROUTE")
     public AdminRouteResponse updateSchedule(@PathVariable String routeId,
             @PathVariable String scheduleId, @Valid @RequestBody ScheduleRequest request) {
         return adminShuttleService.updateSchedule(routeId, scheduleId, request);
@@ -173,6 +184,7 @@ public class AdminShuttleController {
     /** Who is driving one dated departure. Until this runs, the seats are sold with no driver. */
     @PostMapping("/schedules/{scheduleId}/departures/{serviceDate}/assign")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Audited(action = "CREW_ASSIGNED", targetType = "SHUTTLE_SCHEDULE")
     public void assign(@PathVariable String scheduleId,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate serviceDate,
             @Valid @RequestBody AssignDepartureRequest request) {

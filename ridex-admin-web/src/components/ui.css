@@ -995,3 +995,60 @@ button.stat-tile:focus-visible {
   color: var(--primary);
   font-weight: 600;
 }
+
+/* Fare rule and wizard inputs side by side. */
+.rule-row {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.rule-row .field {
+  min-width: 160px;
+}
+
+/* New-route wizard progress. */
+.steps {
+  display: flex;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-5);
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.step.active {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  color: var(--text);
+  font-weight: 600;
+}
+.step.done {
+  color: var(--text);
+}
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.step.active .step-number,
+.step.done .step-number {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}

@@ -8,6 +8,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.ridex.payment.domain.Payment;
 import com.ridex.payment.domain.PaymentStatus;
+import java.time.Instant;
+import java.util.List;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface PaymentRepository extends JpaRepository<Payment, String> {
 
@@ -19,7 +23,7 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
 
     Optional<Payment> findByPassId(String passId);
 
-    long countByStatusAndCreatedAtAfter(com.ridex.payment.domain.PaymentStatus status, java.time.Instant since);
+    long countByStatusAndCreatedAtAfter(PaymentStatus status, Instant since);
 
     Page<Payment> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
@@ -39,19 +43,19 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
      * same: an abandoned purchase reserves nothing and carried nobody, so locking somebody out of
      * the platform over it is a punishment for browsing.
      */
-    @org.springframework.data.jpa.repository.Query("""
+    @Query("""
             SELECT p FROM Payment p
             WHERE p.rider.id = :riderId
               AND p.shuttleBookingId IS NULL
               AND p.passId IS NULL
               AND p.netAmountMinor > 0
               AND p.status IN (
-                  com.ridex.payment.domain.PaymentStatus.CREATED,
-                  com.ridex.payment.domain.PaymentStatus.REQUIRES_ACTION,
-                  com.ridex.payment.domain.PaymentStatus.PROCESSING,
-                  com.ridex.payment.domain.PaymentStatus.FAILED)
+                  PaymentStatus.CREATED,
+                  PaymentStatus.REQUIRES_ACTION,
+                  PaymentStatus.PROCESSING,
+                  PaymentStatus.FAILED)
             ORDER BY p.createdAt ASC
             """)
-    java.util.List<Payment> findOutstanding(
-            @org.springframework.data.repository.query.Param("riderId") String riderId);
+    List<Payment> findOutstanding(
+            @Param("riderId") String riderId);
 }

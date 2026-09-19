@@ -18,5 +18,9 @@ public enum PointReason {
     // Points spent on a ride that never happened. Its own reason, so the ledger a rider reads
     // back says "returned" rather than looking like a gift nobody explained.
     RIDE_CANCELLED,
-    ADMIN_ADJUSTMENT
+    ADMIN_ADJUSTMENT,
+    // A shuttle departure RideX cancelled: the whole fare comes back, and any points spent on it.
+    DEPARTURE_CANCELLED,
+    // A refund support approved, paid in points like every other refund.
+    REFUNDED
 }

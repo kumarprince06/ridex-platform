@@ -17,6 +17,7 @@ import com.ridex.wallet.DriverWalletService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import java.time.Instant;
 
 /**
  * What a gateway tells us after the fact.
@@ -135,7 +136,7 @@ public class PaymentWebhookService {
             if (providerPaymentId != null && !providerPaymentId.equals(payment.getProviderPaymentId())) {
                 payment.setProviderPaymentId(providerPaymentId);
             }
-            payment.setPaidAt(java.time.Instant.now());
+            payment.setPaidAt(Instant.now());
         }
         payment.setStatus(next);
         if (next == PaymentStatus.FAILED) {

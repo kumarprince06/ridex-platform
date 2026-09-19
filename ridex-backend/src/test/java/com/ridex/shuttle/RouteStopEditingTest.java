@@ -30,6 +30,7 @@ import com.ridex.shuttle.dto.FareMatrixRequest;
 import com.ridex.shuttle.dto.RouteRequest;
 import com.ridex.shuttle.dto.ScheduleRequest;
 import com.ridex.shuttle.dto.StopRequest;
+import com.ridex.shared.exception.NotFoundException;
 
 @SpringBootTest
 class RouteStopEditingTest {
@@ -102,10 +103,26 @@ class RouteStopEditingTest {
                 new FareMatrixRequest.Leg(built.stops().get(0).id(), built.stops().get(1).id(), 2000))));
         admin.addSchedule(empty.id(), new ScheduleRequest(LocalTime.of(10, 0), "1,2,3,4,5", 12, 3, true));
         admin.deleteRoute(empty.id());
-        assertThatThrownBy(() -> admin.route(empty.id())).isInstanceOf(com.ridex.shared.exception.NotFoundException.class);
+        assertThatThrownBy(() -> admin.route(empty.id())).isInstanceOf(NotFoundException.class);
 
         book(id("A"), id("B"));
         assertThatThrownBy(() -> admin.deleteRoute(route.id())).isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void aReturnRouteRunsTheStopsBackwardsWithTheSameGapsAndFares() {
+        var back = admin.createReturn(route.id(), new com.ridex.shuttle.dto.ReturnRouteRequest(
+                List.of(LocalTime.of(17, 30), LocalTime.of(18, 0))));
+
+        assertThat(back.stops()).extracting(AdminRouteResponse.Stop::name).containsExactly("C", "B", "A");
+        assertThat(back.stops()).extracting(AdminRouteResponse.Stop::offsetMinutes).containsExactly(0, 10, 20);
+        assertThat(back.fares()).hasSize(3);
+        String c = back.stops().get(0).id();
+        String a = back.stops().get(2).id();
+        assertThat(back.fares()).anyMatch(fare -> fare.fromStopId().equals(c) && fare.toStopId().equals(a) && fare.fareMinor() == 3000);
+        assertThat(back.schedules()).hasSize(2);
+        assertThat(back.active()).isFalse();
+        assertThat(back.code()).endsWith("_R");
     }
 
     private String book(String from, String to) {

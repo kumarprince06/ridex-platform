@@ -49,6 +49,7 @@ public class AdminSupportController {
 
     @PostMapping("/tickets/{ticketId}/messages")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "TICKET_REPLIED", targetType = "TICKET")
     public TicketResponse reply(@AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable String ticketId, @Valid @RequestBody PostMessageRequest request) {
         return supportService.agentReply(principal.userId(), ticketId, request);

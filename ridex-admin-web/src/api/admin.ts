@@ -191,6 +191,24 @@ export type StaffMember = {
   createdAt: string;
 };
 
+export type StaffRoleName = 'SUPPORT' | 'OPS_ADMIN' | 'SUPER_ADMIN';
+
+export function inviteStaff(invite: { email: string; firstName: string; lastName?: string; role: StaffRoleName }) {
+  return request<{ staff: StaffMember; temporaryPassword: string }>('/api/v1/admin/staff', { method: 'POST', body: invite });
+}
+
+export function changeStaffRole(userId: string, role: StaffRoleName) {
+  return request<StaffMember>(`/api/v1/admin/staff/${userId}/role`, { method: 'PUT', body: { role } });
+}
+
+export function setStaffEnabled(userId: string, enabled: boolean) {
+  return request<StaffMember>(`/api/v1/admin/staff/${userId}/enabled/${enabled}`, { method: 'PUT' });
+}
+
+export function changeOwnPassword(currentPassword: string, newPassword: string) {
+  return request<void>('/api/v1/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } });
+}
+
 export function listStaff() {
   return request<StaffMember[]>('/api/v1/admin/staff');
 }
@@ -248,6 +266,97 @@ export type Setting = {
   maxValue: number | null;
   updatedAt: string;
 };
+
+export type RideFare = {
+  rideTypeId: string;
+  code: string;
+  displayName: string;
+  seatCapacity: number;
+  active: boolean;
+  currency: string;
+  baseFareMinor: number | null;
+  perKmMinor: number | null;
+  perMinuteMinor: number | null;
+  minimumFareMinor: number | null;
+  freeWaitingSeconds: number | null;
+  perWaitingMinuteMinor: number | null;
+  validFrom: string | null;
+};
+
+export function listRideFares() {
+  return request<RideFare[]>('/api/v1/admin/ride-fares');
+}
+
+/** A new fare from now on. The old one is closed, not edited, so past quotes still add up. */
+export function changeRideFare(
+  rideTypeId: string,
+  fare: {
+    baseFareMinor: number;
+    perKmMinor: number;
+    perMinuteMinor: number;
+    minimumFareMinor: number;
+    freeWaitingSeconds: number;
+    perWaitingMinuteMinor: number;
+  },
+) {
+  return request<RideFare>(`/api/v1/admin/ride-fares/${rideTypeId}`, { method: 'PUT', body: fare });
+}
+
+/** A refund on a payment, paid to the rider as points. Never more in total than was paid. */
+export function refundAsPoints(paymentId: string, amountMinor: number, reason: string) {
+  return request<{ refundId: string; amountMinor: number }>(`/api/v1/admin/payments/${paymentId}/refund`, {
+    method: 'POST',
+    body: { amountMinor, reason },
+  });
+}
+
+/** Calls a departure off: every rider gets the whole fare back as points and is told. */
+export function cancelDeparture(shuttleTripId: string, reason: string) {
+  return request<{ seatsCancelled: number }>(`/api/v1/admin/shuttle/departures/${shuttleTripId}/cancel`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+export type DriverWallet = {
+  driverId: string;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  balanceMinor: number;
+  blocked: boolean;
+  onDuty: boolean;
+  lastTopUpAt: string | null;
+};
+
+export type WalletEntry = {
+  entryType: string;
+  direction: 'CREDIT' | 'DEBIT';
+  amountMinor: number;
+  referenceType: string | null;
+  referenceId: string | null;
+  createdAt: string;
+};
+
+export function listWallets(filter: 'ALL' | 'OWING' | 'BLOCKED', q = '', page = 0, size = DEFAULT_PAGE_SIZE) {
+  const query = new URLSearchParams({ filter, q, page: String(page), size: String(size) });
+  return request<Page<DriverWallet>>(`/api/v1/admin/wallets?${query}`);
+}
+
+export function walletEntries(driverId: string) {
+  return request<WalletEntry[]>(`/api/v1/admin/wallets/${driverId}/entries`);
+}
+
+export type SearchHit = {
+  kind: 'RIDER' | 'DRIVER' | 'RIDE' | 'PAYMENT' | 'ROUTE' | 'CASE';
+  id: string;
+  title: string;
+  detail: string | null;
+};
+
+export function searchConsole(q: string) {
+  return request<SearchHit[]>(`/api/v1/admin/search?q=${encodeURIComponent(q)}`);
+}
 
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_REPLY' | 'RESOLVED' | 'CLOSED';
 
@@ -422,6 +531,10 @@ export type RouteSchedule = {
   /** Seats abreast. Four is a minibus, three a 2+1 coach - it decides whether "4D" exists. */
   seatsPerRow: number;
   active: boolean;
+  /** The regular crew; null when each day is crewed on the Today board. */
+  driverId: string | null;
+  vehicleId: string | null;
+  crew: string | null;
 };
 
 export type ShuttleRoute = {
@@ -466,7 +579,7 @@ export type Departure = {
   driverName: string | null;
   vehicle: string | null;
   registrationNumber: string | null;
-  runStatus: 'SCHEDULED' | 'RUNNING' | 'COMPLETED';
+  runStatus: 'SCHEDULED' | 'RUNNING' | 'COMPLETED' | 'CANCELLED';
   currentStop: string | null;
   delayMinutes: number;
   seats: {
@@ -521,6 +634,93 @@ export function addStop(routeId: string, stop: StopInput, after?: number) {
 
 export function updateStop(routeId: string, stopId: string, stop: StopInput) {
   return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops/${stopId}`, { method: 'PUT', body: stop });
+}
+
+export type PassPricing = {
+  monthlyPriceMinor: number | null;
+  onSale: boolean;
+  ridesPerMonth: number | null;
+  maxActivePasses: number | null;
+  activePasses: number;
+  plans: {
+    plan: 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY';
+    label: string;
+    months: number;
+    durationDays: number;
+    priceMinor: number | null;
+    discountPercent: number;
+    activePasses: number;
+  }[];
+};
+
+export type RoutePassSummary = {
+  routeId: string;
+  routeName: string;
+  onSale: boolean;
+  monthlyPriceMinor: number | null;
+  activePasses: number;
+};
+
+export type SoldPass = {
+  id: string;
+  riderName: string;
+  riderEmail: string;
+  routeName: string;
+  plan: string;
+  startsOn: string;
+  endsOn: string;
+  ridesUsed: number;
+  currency: string;
+  pricePaidMinor: number;
+  status: 'PENDING_PAYMENT' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | string;
+  boughtAt: string;
+};
+
+export function passOverview() {
+  return request<RoutePassSummary[]>('/api/v1/admin/shuttle/passes/overview');
+}
+
+export function listSoldPasses(page = 0, size = DEFAULT_PAGE_SIZE) {
+  return request<Page<SoldPass>>(`/api/v1/admin/shuttle/passes?page=${page}&size=${size}`);
+}
+
+export function getPassPricing(routeId: string) {
+  return request<PassPricing>(`${SHUTTLE}/${routeId}/passes`);
+}
+
+export function setPassPricing(
+  routeId: string,
+  pricing: {
+    monthlyPriceMinor: number;
+    quarterlyDiscountPercent: number;
+    halfYearlyDiscountPercent: number;
+    yearlyDiscountPercent: number;
+    onSale: boolean;
+    ridesPerMonth: number;
+    maxActivePasses: number | null;
+  },
+) {
+  return request<PassPricing>(`${SHUTTLE}/${routeId}/passes`, { method: 'PUT', body: pricing });
+}
+
+/** The driver and vehicle a departure time normally runs with; upcoming uncrewed days get them too. */
+export function setRegularCrew(routeId: string, scheduleId: string, driverId: string, vehicleId: string) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/schedules/${scheduleId}/crew`, {
+    method: 'PUT',
+    body: { driverId, vehicleId },
+  });
+}
+
+export function clearRegularCrew(routeId: string, scheduleId: string) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/schedules/${scheduleId}/crew`, { method: 'DELETE' });
+}
+
+/** The same route the other way: stops reversed, fares mirrored, a departure at each time. */
+export function createReturnRoute(routeId: string, departureTimes: string[]) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/return`, {
+    method: 'POST',
+    body: { departureTimes: departureTimes.map((time) => (time.length === 5 ? `${time}:00` : time)) },
+  });
 }
 
 /** Only a route nobody has booked or bought a pass on. */

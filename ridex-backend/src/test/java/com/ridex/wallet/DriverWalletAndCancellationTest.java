@@ -51,6 +51,7 @@ import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.money.Money;
 import com.ridex.trip.TripRepository;
 import com.ridex.trip.TripService;
+import com.ridex.payment.PaymentWebhookService;
 
 // Not @Transactional: dispatch runs in REQUIRES_NEW and cannot see a ride the test never committed.
 @SpringBootTest
@@ -66,7 +67,8 @@ class DriverWalletAndCancellationTest {
 
     @Autowired private DriverWalletService walletService;
     @Autowired private LedgerService ledger;
-    @Autowired private com.ridex.payment.PaymentWebhookService webhooks;
+    @Autowired private AdminWalletQueries adminWallets;
+    @Autowired private PaymentWebhookService webhooks;
     @Autowired private TripService tripService;
     @Autowired private TripRepository tripRepository;
     @Autowired private DispatchService dispatchService;
@@ -224,6 +226,18 @@ class DriverWalletAndCancellationTest {
                 {"event":"payment.captured","payload":{"payment":{"entity":
                 {"id":"%s","order_id":"%s","amount":%d,"status":"captured"}}}}
                 """.formatted(paymentId, orderId, amount);
+    }
+
+    @Test
+    void aDriverOwingPastTheLimitIsListedAsBlocked() {
+        owe(8000);
+        var blocked = adminWallets.wallets("BLOCKED", "", 0, 100).items();
+        assertThat(blocked).anySatisfy(wallet -> {
+            assertThat(wallet.driverId()).isEqualTo(driverId);
+            assertThat(wallet.balanceMinor()).isEqualTo(-8000);
+            assertThat(wallet.blocked()).isTrue();
+        });
+        assertThat(adminWallets.entries(driverId)).isNotEmpty();
     }
 
     private long balance() {

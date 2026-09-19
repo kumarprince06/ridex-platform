@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.ridex.payment.domain.DriverPayout;
 import com.ridex.payment.domain.PayoutStatus;
-
 public interface DriverPayoutRepository extends JpaRepository<DriverPayout, String> {
 
     List<DriverPayout> findByDriverIdOrderByCreatedAtDesc(String driverId);
@@ -17,5 +16,5 @@ public interface DriverPayoutRepository extends JpaRepository<DriverPayout, Stri
 
     Page<DriverPayout> findByStatusOrderByCreatedAtDesc(PayoutStatus status, Pageable pageable);
 
-    long countByStatus(com.ridex.payment.domain.PayoutStatus status);
+    long countByStatus(PayoutStatus status);
 }

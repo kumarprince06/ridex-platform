@@ -25,6 +25,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # QEMU lets the x86 runner build the arm64 image too: Oracle's Always Free host is ARM.
+      - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Sign in to GHCR
@@ -39,6 +42,7 @@ jobs:
         with:
           context: ridex-backend
           push: true
+          platforms: linux/amd64,linux/arm64
           # Tagged with the commit as well as latest, so a bad deploy can be rolled back to a
           # specific build rather than to "whatever latest was yesterday".
           tags: |

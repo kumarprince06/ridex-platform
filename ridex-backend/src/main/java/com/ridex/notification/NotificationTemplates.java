@@ -132,6 +132,36 @@ public class NotificationTemplates {
                                             + "“Forgot password” if you cannot get in.")
                                     + layout.note("If it was not you, nothing has changed on your account.")));
 
+            // Payload: "<route> at <time>|<how the money came back>".
+            case "SHUTTLE_DEPARTURE_CANCELLED" -> {
+                String[] parts = payload.split("\\|", 2);
+                String refund = parts.length > 1 ? parts[1] : "";
+                yield new Rendered(
+                        "Your shuttle is cancelled",
+                        "The " + parts[0] + " shuttle is cancelled. " + refund,
+                        layout.wrap("Your shuttle is cancelled",
+                                "The " + parts[0] + " shuttle is cancelled.",
+                                layout.heading("We cancelled your shuttle")
+                                        + layout.paragraph("The " + parts[0] + " shuttle will not run. We are sorry "
+                                                + "for the trouble.")
+                                        + layout.paragraph(refund)));
+            }
+
+            // Payload: "<amount>|<reason>".
+            case "REFUNDED_AS_POINTS" -> {
+                String[] parts = payload.split("\\|", 2);
+                String reason = parts.length > 1 ? parts[1] : "";
+                yield new Rendered(
+                        "Refund added to your points",
+                        parts[0] + " is back in your RideX points. " + reason,
+                        layout.wrap("Refund added to your points",
+                                parts[0] + " is back in your points.",
+                                layout.heading(parts[0] + " refunded")
+                                        + layout.paragraph("We have added " + parts[0] + " to your RideX points. "
+                                                + "Use them on your next ride or shuttle seat.")
+                                        + layout.note(reason)));
+            }
+
             case "SHUTTLE_BOOKED" -> new Rendered(
                     "Your seat is booked",
                     "Seat " + payload + ". Show your boarding code to the driver when you get on.",

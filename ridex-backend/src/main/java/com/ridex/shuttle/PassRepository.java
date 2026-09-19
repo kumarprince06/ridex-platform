@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.ridex.shuttle.domain.Pass;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface PassRepository extends JpaRepository<Pass, String> {
 
@@ -22,4 +24,16 @@ public interface PassRepository extends JpaRepository<Pass, String> {
             @Param("on") LocalDate on);
 
     Optional<Pass> findByIdAndRiderId(String id, String riderId);
+
+    /** Every pass sold, newest first - the admin list. Unpaid attempts included, marked as such. */
+    Page<Pass> findAllByOrderByCreatedAtDesc(Pageable page);
+
+    /** Passes running on a route today - what its pass limit is counted against. */
+    @Query("SELECT COUNT(p) FROM Pass p WHERE p.routeId = :routeId AND p.status = 'ACTIVE' AND p.endsOn >= :today")
+    long countRunningOnRoute(@Param("routeId") String routeId, @Param("today") LocalDate today);
+
+    /** Passes of one product still running - what repricing or withdrawing it would affect. */
+    @Query(
+            "SELECT COUNT(p) FROM Pass p WHERE p.product.id = :productId AND p.status = 'ACTIVE' AND p.endsOn >= :today")
+    long countRunning(@Param("productId") String productId, @Param("today") LocalDate today);
 }

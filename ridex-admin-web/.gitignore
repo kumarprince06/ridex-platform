@@ -5,3 +5,6 @@ dist/
 
 # Build artifact, regenerated on every tsc -b.
 tsconfig.tsbuildinfo
+e2e/.logs
+e2e/.results
+e2e/.report

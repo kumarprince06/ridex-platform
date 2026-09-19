@@ -46,11 +46,12 @@ public class ShuttleController {
     /** The seat picker. Every seat, and which are already gone. */
     @GetMapping("/departures/{scheduleId}/seats")
     @ResponseStatus(HttpStatus.OK)
-    public SeatMapResponse seats(@PathVariable String scheduleId, @RequestParam String date,
+    public SeatMapResponse seats(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String scheduleId, @RequestParam String date,
             @RequestParam(required = false) String boardingStopId,
             @RequestParam(required = false) String alightingStopId) {
         return shuttleService.seatMap(scheduleId, LocalDate.parse(date),
-                boardingStopId, alightingStopId);
+                boardingStopId, alightingStopId, principal == null ? null : principal.userId());
     }
 
     /** Called after checkout closes. The gateway is asked; the app is not believed. */
@@ -95,12 +96,7 @@ public class ShuttleController {
     @GetMapping("/passes/products")
     @ResponseStatus(HttpStatus.OK)
     public List<PassProductResponse> products(@RequestParam String routeId) {
-        return passService.productsFor(routeId).stream()
-                .map(product -> new PassProductResponse(
-                        product.getId(), product.getName(), product.getDescription(),
-                        product.getDurationDays(), product.getRideLimit(),
-                        product.getCurrency(), product.getPriceMinor()))
-                .toList();
+        return passService.productsFor(routeId);
     }
 
     @PostMapping("/passes")

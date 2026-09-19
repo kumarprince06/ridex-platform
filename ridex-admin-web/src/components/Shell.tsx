@@ -1,8 +1,10 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 import { Permission } from '../auth/permissions';
 import { ROLE_LABELS } from '../auth/permissions';
 import { Logo } from './Logo';
+import { ChangePassword } from './ChangePassword';
+import { GlobalSearch } from './GlobalSearch';
 import { NavIcon } from './NavIcon';
 import { useSession } from '../auth/session';
 import './shell.css';
@@ -39,6 +41,7 @@ const SECTIONS: Section[] = [
     tabs: [
       { to: '/shuttle/departures', label: 'Today', permission: 'OPERATIONS' },
       { to: '/shuttle', label: 'Routes', permission: 'OPERATIONS' },
+      { to: '/shuttle/passes', label: 'Passes', permission: 'OPERATIONS' },
     ],
   },
   {
@@ -56,6 +59,7 @@ const SECTIONS: Section[] = [
     tabs: [
       { to: '/payments', label: 'Payments', permission: 'FINANCE' },
       { to: '/payouts', label: 'Payouts', permission: 'FINANCE' },
+      { to: '/wallets', label: 'Driver wallets', permission: 'OPERATIONS' },
     ],
   },
   { label: 'Support', icon: 'cases', tabs: [{ to: '/cases', label: 'Support', permission: 'SUPPORT_CASE' }] },
@@ -80,7 +84,6 @@ function tabFor(pathname: string, tabs: Tab[]): Tab | undefined {
 
 export function Shell() {
   const { session, can, signOut } = useSession();
-  const navigate = useNavigate();
   const { pathname } = useLocation();
 
   if (!session) {
@@ -119,18 +122,7 @@ export function Shell() {
 
       <div className="main">
         <header className="topbar">
-          <input
-            className="global-search"
-            type="search"
-            placeholder="Search a rider, driver, trip or case ID…"
-            aria-label="Global search"
-            onKeyDown={(event) => {
-              // Operations arrives knowing an ID, never a page number.
-              if (event.key === 'Enter') {
-                navigate('/trips');
-              }
-            }}
-          />
+          <GlobalSearch />
 
           <div className="identity">
             <span className="identity-avatar" aria-hidden="true">
@@ -142,6 +134,7 @@ export function Shell() {
                 {session.roles.map((role) => ROLE_LABELS[role]).join(' · ')}
               </span>
             </div>
+            <ChangePassword />
             <button className="signout" type="button" onClick={signOut}>
               Sign out
             </button>

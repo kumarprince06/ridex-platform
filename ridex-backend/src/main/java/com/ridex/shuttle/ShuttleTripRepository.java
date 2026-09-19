@@ -10,16 +10,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.ridex.shuttle.domain.ShuttleTrip;
+import java.util.List;
 
 public interface ShuttleTripRepository extends JpaRepository<ShuttleTrip, String> {
 
     Optional<ShuttleTrip> findByScheduleIdAndServiceDate(String scheduleId, LocalDate serviceDate);
 
     /** Every departure on one date, earliest first - the ops board for a day. */
-    java.util.List<ShuttleTrip> findByServiceDateOrderByDepartsAtAsc(LocalDate serviceDate);
+    List<ShuttleTrip> findByServiceDateOrderByDepartsAtAsc(LocalDate serviceDate);
 
     /** What this driver is running on one day, earliest first. */
-    java.util.List<ShuttleTrip> findByDriverIdAndServiceDateOrderByDepartsAtAsc(
+    List<ShuttleTrip> findByDriverIdAndServiceDateOrderByDepartsAtAsc(
             String driverId, LocalDate serviceDate);
 
     /**
@@ -49,7 +50,12 @@ public interface ShuttleTripRepository extends JpaRepository<ShuttleTrip, String
             @Param("vehicleId") String vehicleId);
 
     /** A run in progress on the route: its stops cannot be renumbered under the driver's feet. */
-    @org.springframework.data.jpa.repository.Query(
+    @Query(
             "SELECT COUNT(t) > 0 FROM ShuttleTrip t WHERE t.schedule.route.id = :routeId AND t.status = 'RUNNING'")
-    boolean anyRunningOnRoute(@org.springframework.data.repository.query.Param("routeId") String routeId);
+    boolean anyRunningOnRoute(@Param("routeId") String routeId);
+
+    /** Departures of a schedule still ahead with nobody rostered - what a regular crew fills in. */
+    @Query("SELECT t FROM ShuttleTrip t WHERE t.schedule.id = :scheduleId AND t.departsAt > :now "
+            + "AND t.status = 'SCHEDULED' AND t.driverId IS NULL")
+    List<ShuttleTrip> findUpcomingUncrewed(@Param("scheduleId") String scheduleId, @Param("now") Instant now);
 }

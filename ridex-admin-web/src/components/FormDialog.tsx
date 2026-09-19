@@ -8,7 +8,7 @@ export type Field = {
   label: string;
   /** Shown under the input. Say what the server will reject, not what the field is called. */
   hint?: string;
-  type?: 'text' | 'number' | 'time';
+  type?: 'text' | 'number' | 'time' | 'password';
   placeholder?: string;
   initial?: string;
   required?: boolean;

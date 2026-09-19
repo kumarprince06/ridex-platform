@@ -1,5 +1,9 @@
 package com.ridex.shuttle;
 
+import com.ridex.shuttle.dto.ReturnRouteRequest;
+import java.util.HashMap;
+import java.time.LocalTime;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +37,13 @@ import com.ridex.vehicle.DriverVehicleRepository;
 import com.ridex.vehicle.domain.DriverVehicle;
 
 import lombok.RequiredArgsConstructor;
+import com.ridex.admin.dto.PageResponse;
+import com.ridex.shuttle.dto.AdminPassResponse;
+import com.ridex.shuttle.dto.PassPricingRequest;
+import com.ridex.shuttle.dto.PassPricingResponse;
+import com.ridex.shuttle.dto.RoutePassSummary;
+import java.util.Comparator;
+import org.springframework.data.domain.Page;
 
 /**
  * Building a shuttle route, for operations.
@@ -56,10 +67,11 @@ public class AdminShuttleService {
     private final ShuttleCrew shuttleCrew;
     private final ShuttleRunService shuttleRunService;
     private final ShuttleService shuttleService;
+    private final PassService passService;
 
     /** The list. Counts only - the full route comes back when somebody opens one. */
     @Transactional(readOnly = true)
-    public org.springframework.data.domain.Page<AdminRouteSummary> routes(int page, int size) {
+    public Page<AdminRouteSummary> routes(int page, int size) {
         return routeRepository.summaries(
                 PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100)));
     }
@@ -83,6 +95,99 @@ public class AdminShuttleService {
         route.setActive(request.active());
 
         return toResponse(routeRepository.save(route));
+    }
+
+    /**
+     * The same route the other way: stops reversed with the same gaps between them, every fare
+     * priced the same in the opposite direction, and a departure at each time given. Created hidden,
+     * like any new route, so operations checks it before riders see it.
+     */
+    @Transactional
+    public AdminRouteResponse createReturn(String routeId, ReturnRouteRequest request) {
+        Route original = requireRoute(routeId);
+        List<RouteStop> stops = routeStopRepository.findByRouteIdOrderBySequenceAsc(routeId);
+        if (stops.size() < 2) {
+            throw new ValidationException("A route needs two stops before it has a way back.");
+        }
+
+        Route back = new Route();
+        back.setCode(uniqueCode(returnCode(original.getCode())));
+        back.setName(returnName(original.getName(), stops));
+        back.setDescription("Return of " + original.getCode());
+        back.setActive(false);
+        routeRepository.save(back);
+
+        int total = stops.get(stops.size() - 1).getOffsetMinutes();
+        Map<String, String> mirrored = new HashMap<>();
+        short sequence = 1;
+        for (int index = stops.size() - 1; index >= 0; index--) {
+            RouteStop from = stops.get(index);
+            RouteStop stop = new RouteStop();
+            stop.setRoute(back);
+            stop.setSequence(sequence++);
+            stop.setName(from.getName());
+            stop.setLatitude(from.getLatitude());
+            stop.setLongitude(from.getLongitude());
+            stop.setOffsetMinutes((short) (total - from.getOffsetMinutes()));
+            routeStopRepository.save(stop);
+            mirrored.put(from.getId(), stop.getId());
+        }
+
+        for (RouteFare fare : routeFareRepository.findByRouteId(routeId)) {
+            RouteFare reverse = new RouteFare();
+            reverse.setRouteId(back.getId());
+            reverse.setFromStopId(mirrored.get(fare.getToStopId()));
+            reverse.setToStopId(mirrored.get(fare.getFromStopId()));
+            reverse.setCurrency(fare.getCurrency());
+            reverse.setFareMinor(fare.getFareMinor());
+            routeFareRepository.save(reverse);
+        }
+
+        // The vehicle and running days of the original's first departure: the same bus goes home.
+        ShuttleSchedule template = shuttleScheduleRepository.findByRouteIdOrderByDepartureTimeAsc(routeId).stream()
+                .findFirst().orElse(null);
+        for (LocalTime time : request.departureTimes()) {
+            ShuttleSchedule schedule = new ShuttleSchedule();
+            schedule.setRoute(back);
+            schedule.setDepartureTime(time);
+            schedule.setDaysOfWeek(template == null ? "1,2,3,4,5,6" : template.getDaysOfWeek());
+            schedule.setSeatCapacity(template == null ? 40 : template.getSeatCapacity());
+            schedule.setSeatsPerRow(template == null ? SeatMap.DEFAULT_SEATS_PER_ROW : template.getSeatsPerRow());
+            shuttleScheduleRepository.save(schedule);
+        }
+        return toResponse(requireRoute(back.getId()));
+    }
+
+    /** BALLY_ECOSPACE comes back as ECOSPACE_BALLY; a one-word code gets _R. */
+    private static String returnCode(String code) {
+        String[] parts = code.split("_");
+        String flipped = parts.length == 2 ? parts[1] + "_" + parts[0] : code + "_R";
+        return flipped.length() > 20 ? flipped.substring(0, 20) : flipped;
+    }
+
+    private String uniqueCode(String base) {
+        String code = base;
+        for (int attempt = 2; routeRepository.existsByCode(code); attempt++) {
+            String suffix = "_" + attempt;
+            code = base.substring(0, Math.min(base.length(), 20 - suffix.length())) + suffix;
+        }
+        return code;
+    }
+
+    /** "Bally to Ecospace" becomes "Ecospace to Bally"; anything else is named by its end stops. */
+    private static String returnName(String name, List<RouteStop> stops) {
+        for (String joiner : List.of(" to ", " – ", " - ")) {
+            int at = name.indexOf(joiner);
+            if (at > 0) {
+                String rest = name.substring(at + joiner.length());
+                // "Bally – Ecospace (via Airport)" keeps its note on the end.
+                int note = rest.indexOf(" (");
+                String end = note > 0 ? rest.substring(0, note) : rest;
+                String tail = note > 0 ? rest.substring(note) : "";
+                return end + joiner + name.substring(0, at) + tail;
+            }
+        }
+        return stops.get(stops.size() - 1).getName() + " to " + stops.get(0).getName();
     }
 
     /** The code is not editable: it is printed on tickets and quoted in operations chatter. */
@@ -139,6 +244,28 @@ public class AdminShuttleService {
                     "Riders have booked %s, so it cannot be deleted. Hide it from riders instead.".formatted(route.getName()));
         }
         routeRepository.deleteWithEverything(routeId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoutePassSummary> passOverview() {
+        return passService.overview(routeRepository.findAllByOrderByNameAsc());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AdminPassResponse> soldPasses(int page, int size) {
+        return passService.sold(page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PassPricingResponse passPricing(String routeId) {
+        requireRoute(routeId);
+        return passService.pricing(routeId);
+    }
+
+    @Transactional
+    public PassPricingResponse setPassPricing(String routeId,
+            PassPricingRequest request) {
+        return passService.setPricing(requireRoute(routeId), request);
     }
 
     /** A stop's name, pin or timing. Its place in the order does not change. */
@@ -371,9 +498,9 @@ public class AdminShuttleService {
      * ones matter as much: they still need a driver.
      */
     @Transactional
-    public java.util.List<AdminDepartureResponse> departures(LocalDate serviceDate) {
+    public List<AdminDepartureResponse> departures(LocalDate serviceDate) {
         return shuttleService.departuresOn(serviceDate).stream()
-                .sorted(java.util.Comparator.comparing(ShuttleTrip::getDepartsAt))
+                .sorted(Comparator.comparing(ShuttleTrip::getDepartsAt))
                 .map(this::toDeparture)
                 .toList();
     }
@@ -387,7 +514,7 @@ public class AdminShuttleService {
     private AdminDepartureResponse toDeparture(ShuttleTrip trip) {
         var stops = routeStopRepository
                 .findByRouteIdOrderBySequenceAsc(trip.getSchedule().getRoute().getId()).stream()
-                .collect(java.util.stream.Collectors.toMap(RouteStop::getId, RouteStop::getName));
+                .collect(Collectors.toMap(RouteStop::getId, RouteStop::getName));
 
         var bookings = shuttleBookingRepository.everySeatOn(trip.getId());
         var crew = shuttleCrew.of(trip.getDriverId(), trip.getVehicleId());
@@ -432,32 +559,73 @@ public class AdminShuttleService {
     @Transactional
     public void assignDeparture(String scheduleId, LocalDate serviceDate,
             AssignDepartureRequest request) {
-        ShuttleTrip trip = shuttleTripRepository
-                .findByScheduleIdAndServiceDate(scheduleId, serviceDate)
-                .orElseThrow(() -> new NotFoundException(
-                        "That departure does not exist yet. It is created when the first seat sells."));
+        ShuttleTrip trip = shuttleService.departuresOn(serviceDate).stream()
+                .filter(candidate -> candidate.getSchedule().getId().equals(scheduleId))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("That departure does not run on that day."));
 
-        String blocked = driverEligibility.blockedReason(request.driverId());
-        if (blocked != null) {
-            throw new ConflictException(blocked);
-        }
-
-        DriverVehicle vehicle = driverVehicleRepository.findById(request.vehicleId())
-                .orElseThrow(() -> new NotFoundException("No such vehicle."));
-
-        if (!vehicle.getDriver().getId().equals(request.driverId())) {
-            throw new ValidationException("That vehicle belongs to another driver.");
-        }
-        // The seats were sold against the schedule's capacity. A smaller vehicle means somebody
-        // who paid does not get on.
-        if (vehicle.getSeatCapacity() < trip.getSeatCapacity()) {
-            throw new ValidationException("That vehicle seats %d, and %d seats are scheduled."
-                    .formatted(vehicle.getSeatCapacity(), trip.getSeatCapacity()));
-        }
-
+        DriverVehicle vehicle = checkCrew(request.driverId(), request.vehicleId(), trip.getSeatCapacity());
         trip.setDriverId(request.driverId());
         trip.setVehicleId(vehicle.getId());
         shuttleTripRepository.save(trip);
+    }
+
+    /**
+     * The driver and vehicle a departure time normally runs with, so operations is not picking the
+     * crew for the 08:00 every single day. Upcoming days that have nobody yet are filled in; a day
+     * already crewed on the Today board keeps its crew.
+     */
+    @Transactional
+    public AdminRouteResponse setRegularCrew(String routeId, String scheduleId, AssignDepartureRequest request) {
+        ShuttleSchedule schedule = requireScheduleOnRoute(routeId, scheduleId);
+        if (request == null) {
+            schedule.setDriverId(null);
+            schedule.setVehicleId(null);
+        } else {
+            DriverVehicle vehicle = checkCrew(request.driverId(), request.vehicleId(), schedule.getSeatCapacity());
+            schedule.setDriverId(request.driverId());
+            schedule.setVehicleId(vehicle.getId());
+            for (ShuttleTrip trip : shuttleTripRepository.findUpcomingUncrewed(scheduleId, Instant.now())) {
+                trip.setDriverId(request.driverId());
+                trip.setVehicleId(vehicle.getId());
+                shuttleTripRepository.save(trip);
+            }
+        }
+        shuttleScheduleRepository.save(schedule);
+        return toResponse(requireRoute(routeId));
+    }
+
+    /** An approved driver with valid papers, in their own vehicle, with a seat for everyone sold. */
+    private DriverVehicle checkCrew(String driverId, String vehicleId, int seatCapacity) {
+        String blocked = driverEligibility.blockedReason(driverId);
+        if (blocked != null) {
+            throw new ConflictException(blocked);
+        }
+        DriverVehicle vehicle = driverVehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new NotFoundException("No such vehicle."));
+        if (!vehicle.getDriver().getId().equals(driverId)) {
+            throw new ValidationException("That vehicle belongs to another driver.");
+        }
+        // Seats are sold against the schedule's capacity. A smaller vehicle means somebody who paid does not get on.
+        if (vehicle.getSeatCapacity() < seatCapacity) {
+            throw new ValidationException("That vehicle seats %d, and %d seats are scheduled."
+                    .formatted(vehicle.getSeatCapacity(), seatCapacity));
+        }
+        return vehicle;
+    }
+
+    private String crewLabel(ShuttleSchedule schedule) {
+        if (schedule.getDriverId() == null) {
+            return null;
+        }
+        var crew = shuttleCrew.of(schedule.getDriverId(), schedule.getVehicleId());
+        return crew == null ? null : crew.driverName() + " · " + crew.registrationNumber();
+    }
+
+    private ShuttleSchedule requireScheduleOnRoute(String routeId, String scheduleId) {
+        return shuttleScheduleRepository.findById(scheduleId)
+                .filter(schedule -> schedule.getRoute().getId().equals(routeId))
+                .orElseThrow(() -> new NotFoundException("That departure is not on this route."));
     }
 
     private Route requireRoute(String routeId) {
@@ -502,7 +670,10 @@ public class AdminShuttleService {
                                 schedule.getDaysOfWeek(),
                                 schedule.getSeatCapacity(),
                                 schedule.getSeatsPerRow(),
-                                schedule.isActive()))
+                                schedule.isActive(),
+                                schedule.getDriverId(),
+                                schedule.getVehicleId(),
+                                crewLabel(schedule)))
                         .toList();
 
         return new AdminRouteResponse(

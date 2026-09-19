@@ -34,6 +34,10 @@ public class Route {
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
+    /** Most passes running on this route at once; null for no cap. */
+    @Column(name = "pass_limit")
+    private Integer passLimit;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

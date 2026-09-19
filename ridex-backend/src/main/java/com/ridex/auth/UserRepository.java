@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 import com.ridex.auth.domain.User;
 import com.ridex.auth.domain.UserRole;
+import java.util.Collection;
+import java.util.List;
 
 public interface UserRepository extends JpaRepository<User, String> {
 
@@ -20,8 +22,8 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     /** Everyone holding any of these roles - the console's own accounts. */
     @Query("SELECT DISTINCT u FROM User u JOIN u.roles r WHERE r IN :roles ORDER BY u.email")
-    java.util.List<User> findByAnyRole(@org.springframework.data.repository.query.Param("roles")
-            java.util.Collection<com.ridex.auth.domain.UserRole> roles);
+    List<User> findByAnyRole(@Param("roles")
+            Collection<UserRole> roles);
 
     Optional<User> findByReferralCode(String referralCode);
 

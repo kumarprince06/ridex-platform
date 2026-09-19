@@ -103,6 +103,7 @@ public class AdminDriverController {
 
     @PostMapping("/documents/{documentId}/approve")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "DOCUMENT_APPROVED", targetType = "DRIVER")
     public DriverDocumentResponse approveDocument(@AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable String documentId) {
         return driverDocumentService.review(documentId, principal.userId(), true, null);
@@ -110,6 +111,7 @@ public class AdminDriverController {
 
     @PostMapping("/documents/{documentId}/reject")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "DOCUMENT_REJECTED", targetType = "DRIVER")
     public DriverDocumentResponse rejectDocument(@AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable String documentId, @Valid @RequestBody ReviewDecisionRequest request) {
         return driverDocumentService.review(documentId, principal.userId(), false, request.reason());
@@ -123,12 +125,14 @@ public class AdminDriverController {
 
     @PostMapping("/vehicles/{vehicleId}/approve")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "VEHICLE_APPROVED", targetType = "DRIVER")
     public VehicleResponse approveVehicle(@PathVariable String vehicleId) {
         return vehicleService.review(vehicleId, true);
     }
 
     @PostMapping("/vehicles/{vehicleId}/reject")
     @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "VEHICLE_REJECTED", targetType = "DRIVER")
     public VehicleResponse rejectVehicle(@PathVariable String vehicleId) {
         return vehicleService.review(vehicleId, false);
     }

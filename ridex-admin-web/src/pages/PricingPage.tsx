@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { date } from '../lib/format';
 
-import { listSettings, updateSetting, type Setting } from '../api/admin';
+import { changeRideFare, listRideFares, listSettings, updateSetting, type RideFare, type Setting } from '../api/admin';
+import { FormDialog } from '../components/FormDialog';
 import { ApiError } from '../api/problem';
 import { useQuery } from '../api/useQuery';
 import { Button, Card, PageHeader, Table } from '../components/ui';
@@ -75,6 +76,8 @@ export function PricingPage() {
 
       {saveError ? <p style={{ color: 'var(--danger)' }}>{saveError}</p> : null}
       {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
+
+      <CabFares />
       {loading && !data ? <p className="cell-muted">Loading...</p> : null}
 
       {GROUPS.map((group, index) => {
@@ -142,3 +145,81 @@ export function PricingPage() {
     </>
   );
 }
+
+const rupee = (minor: number | null) => (minor == null ? '—' : `₹${(minor / 100).toLocaleString('en-IN')}`);
+
+/** Go, Comfort and XL: what a cab ride costs. A change applies to every estimate from now on. */
+function CabFares() {
+  const { data, error, refetch } = useQuery(() => listRideFares(), []);
+  const [editing, setEditing] = useState<RideFare | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  return (
+    <Card title="Cab fares" actions={<span className="cell-muted">Every estimate from the moment you save uses the new fare.</span>}>
+      {notice ? <p className="cell-muted">{notice}</p> : null}
+      <Table<RideFare>
+        columns={[
+          { key: 'type', header: 'Ride type', render: (row) => <span className="cell-strong">{row.displayName}</span> },
+          { key: 'base', header: 'Base', align: 'right', render: (row) => rupee(row.baseFareMinor) },
+          { key: 'km', header: 'Per km', align: 'right', render: (row) => rupee(row.perKmMinor) },
+          { key: 'min', header: 'Per minute', align: 'right', render: (row) => rupee(row.perMinuteMinor) },
+          { key: 'minimum', header: 'Minimum', align: 'right', render: (row) => rupee(row.minimumFareMinor) },
+          {
+            key: 'wait',
+            header: 'Waiting',
+            align: 'right',
+            render: (row) =>
+              row.freeWaitingSeconds == null ? '—' : `${row.freeWaitingSeconds / 60} min free, then ${rupee(row.perWaitingMinuteMinor)}/min`,
+          },
+          { key: 'since', header: 'Since', render: (row) => <span className="cell-muted">{row.validFrom ? date(row.validFrom) : '—'}</span> },
+          { key: 'edit', header: '', align: 'right', render: (row) => <Button variant="ghost" onClick={() => setEditing(row)}>Change</Button> },
+        ]}
+        rows={data ?? []}
+        empty={error ?? 'Loading...'}
+      />
+      {editing ? (
+        <FormDialog
+          title={`${editing.displayName} fare`}
+          body="In rupees. A 10 km, 25 minute trip is shown below the fields as you type."
+          submitLabel="Save fare"
+          fields={[
+            { name: 'base', label: 'Base fare (₹)', type: 'number', initial: String((editing.baseFareMinor ?? 0) / 100) },
+            { name: 'km', label: 'Per km (₹)', type: 'number', initial: String((editing.perKmMinor ?? 0) / 100) },
+            { name: 'minute', label: 'Per minute (₹)', type: 'number', initial: String((editing.perMinuteMinor ?? 0) / 100) },
+            { name: 'minimum', label: 'Minimum fare (₹)', type: 'number', initial: String((editing.minimumFareMinor ?? 0) / 100) },
+            { name: 'freeWait', label: 'Free waiting (minutes)', type: 'number', initial: String((editing.freeWaitingSeconds ?? 300) / 60) },
+            { name: 'waitRate', label: 'Waiting after that, per minute (₹)', type: 'number', initial: String((editing.perWaitingMinuteMinor ?? 0) / 100) },
+          ]}
+          extra={(values) => {
+            const trip = Number(values.base) + 10 * Number(values.km) + 25 * Number(values.minute);
+            return (
+              <p className="cell-muted">
+                Example 10 km, 25 min trip: ₹{Math.max(trip, Number(values.minimum)).toFixed(2)}
+              </p>
+            );
+          }}
+          onCancel={() => setEditing(null)}
+          onSubmit={(values) => {
+            const type = editing;
+            setEditing(null);
+            const paise = (value: string) => Math.round(Number(value || 0) * 100);
+            changeRideFare(type.rideTypeId, {
+              baseFareMinor: paise(values.base),
+              perKmMinor: paise(values.km),
+              perMinuteMinor: paise(values.minute),
+              minimumFareMinor: paise(values.minimum),
+              freeWaitingSeconds: Math.round(Number(values.freeWait || 0) * 60),
+              perWaitingMinuteMinor: paise(values.waitRate),
+            })
+              .then(() => {
+                setNotice(`${type.displayName} fare updated.`);
+                refetch();
+              })
+              .catch((caught) => setNotice(caught instanceof Error ? caught.message : 'Could not save that fare.'));
+          }}
+        />
+      ) : null}
+    </Card>
+  );
+}
+

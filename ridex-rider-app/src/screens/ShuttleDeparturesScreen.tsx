@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { clockTime } from '../lib/format';
+import { clockTime, money, shortDate } from '../lib/format';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -9,6 +9,9 @@ import {
   runsOn,
   toServiceDate,
   type Departure,
+  type PassProduct,
+  listPassProducts,
+  listPasses,
 } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { Chip } from '../components/Chip';
@@ -30,6 +33,8 @@ export function ShuttleDeparturesScreen({ navigation, route }: Props) {
 
   const routes = useQuery(listRoutes, []);
   const departures = useQuery(() => listDepartures(routeId), [routeId]);
+  const passProducts = useQuery(() => listPassProducts(routeId), [routeId]);
+  const passes = useQuery(listPasses, []);
 
   const shuttleRoute = (routes.data ?? []).find((candidate) => candidate.id === routeId);
   const stops = shuttleRoute?.stops ?? [];
@@ -89,6 +94,20 @@ export function ShuttleDeparturesScreen({ navigation, route }: Props) {
         small
         title={shuttleRoute?.name ?? 'Departures'}
         subtitle="Pick where you get on and off, then a departure."
+      />
+
+      <PassBanner
+        routeName={shuttleRoute?.name}
+        activeUntil={
+          (passes.data ?? []).find((pass) => pass.status === 'ACTIVE' && pass.routeName === shuttleRoute?.name)?.endsOn ?? null
+        }
+        cheapest={(passProducts.data ?? [])[0] ?? null}
+        bestSaving={Math.max(0, ...(passProducts.data ?? []).map((product) => product.savePercent))}
+        onOpen={() =>
+          shuttleRoute
+            ? navigation.navigate('ShuttlePasses', { routeId: shuttleRoute.id, routeName: shuttleRoute.name })
+            : undefined
+        }
       />
 
       <Text style={styles.label}>DAY</Text>
@@ -228,7 +247,71 @@ function DepartureRow({
   );
 }
 
+/** A rider with a pass sees it is working; one without sees what a pass would save them. */
+function PassBanner({
+  routeName,
+  activeUntil,
+  cheapest,
+  bestSaving,
+  onOpen,
+}: {
+  routeName: string | undefined;
+  activeUntil: string | null;
+  cheapest: PassProduct | null;
+  bestSaving: number;
+  onOpen: () => void;
+}) {
+  if (!routeName || (!activeUntil && !cheapest)) {
+    return null;
+  }
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.passBanner, activeUntil && styles.passBannerActive, pressed && { opacity: 0.8 }]}
+    >
+      <Ionicons name={activeUntil ? 'checkmark-circle' : 'ticket-outline'} size={22} color={colors.primary} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.passTitle}>
+          {activeUntil ? `Your pass is active till ${shortDate(activeUntil)}` : 'Travel this route every day?'}
+        </Text>
+        <Text style={styles.passBody}>
+          {activeUntil
+            ? 'Seats on this route are free - just pick one and book.'
+            : `${cheapest!.name} ${money(cheapest!.priceMinor, cheapest!.currency)}${bestSaving ? ` · save up to ${bestSaving}% on longer plans` : ''}`}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  passBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    marginBottom: spacing.lg,
+  },
+  passBannerActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySurface,
+  },
+  passTitle: {
+    ...type.button,
+    fontSize: 14,
+    color: colors.text,
+  },
+  passBody: {
+    ...type.caption,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
   passesLink: {
     ...type.button,
     fontSize: 13,

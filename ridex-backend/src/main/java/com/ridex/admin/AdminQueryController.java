@@ -1,5 +1,11 @@
 package com.ridex.admin;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import jakarta.validation.Valid;
+import com.ridex.platform.security.JwtPrincipal;
+import com.ridex.admin.dto.StaffRoleRequest;
+import com.ridex.admin.dto.StaffInvitedResponse;
+import com.ridex.admin.dto.InviteStaffRequest;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -13,6 +19,8 @@ import com.ridex.payment.domain.PaymentStatus;
 import com.ridex.ride.domain.RideStatus;
 
 import lombok.RequiredArgsConstructor;
+import com.ridex.admin.dto.StaffResponse;
+import com.ridex.admin.dto.SearchHit;
 
 /**
  * Read-only operations views.
@@ -31,6 +39,8 @@ public class AdminQueryController {
     private final AdminPeopleQueries people;
     private final AdminRideQueries rides;
     private final AdminMoneyQueries money;
+    private final AdminSearch adminSearch;
+    private final StaffService staffService;
 
     @GetMapping("/dashboard")
     @ResponseStatus(HttpStatus.OK)
@@ -118,10 +128,42 @@ public class AdminQueryController {
         return money.payments(status, page, size);
     }
 
+    @PostMapping("/staff")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Audited(action = "STAFF_INVITED", targetType = "USER")
+    public StaffInvitedResponse inviteStaff(@Valid @RequestBody InviteStaffRequest request) {
+        return staffService.invite(request);
+    }
+
+    @PutMapping("/staff/{userId}/role")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "STAFF_ROLE_CHANGED", targetType = "USER")
+    public StaffResponse changeStaffRole(@PathVariable String userId, @AuthenticationPrincipal JwtPrincipal principal,
+            @Valid @RequestBody StaffRoleRequest request) {
+        return staffService.changeRole(principal.userId(), userId, request.role());
+    }
+
+    @PutMapping("/staff/{userId}/enabled/{enabled}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "STAFF_ACCESS_CHANGED", targetType = "USER")
+    public StaffResponse setStaffEnabled(@PathVariable String userId, @PathVariable boolean enabled,
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        return staffService.setEnabled(principal.userId(), userId, enabled);
+    }
+
+    @GetMapping("/search")
+    @ResponseStatus(HttpStatus.OK)
+    public List<SearchHit> search(@RequestParam(defaultValue = "") String q) {
+        return adminSearch.search(q);
+    }
+
     @GetMapping("/staff")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.OK)
-    public List<com.ridex.admin.dto.StaffResponse> staff() {
+    public List<StaffResponse> staff() {
         return people.staff();
     }
 

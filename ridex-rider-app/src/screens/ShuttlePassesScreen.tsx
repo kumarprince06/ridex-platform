@@ -69,9 +69,36 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
   }
 
   const mine = (held ?? []).filter((pass) => pass.routeName === routeName);
+  const [picked, setPicked] = useState<string | null>(null);
+  const plans = products ?? [];
+  const chosen = plans.find((product) => product.id === picked) ?? plans[0];
+  const bestSaving = Math.max(0, ...plans.map((product) => product.savePercent));
+  const soldOut = plans.some((product) => product.soldOut);
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Passes" onRefresh={() => Promise.all([refetch(), refetchProducts()])}>
+    <Screen
+      onBack={() => navigation.goBack()}
+      title="Passes"
+      onRefresh={() => Promise.all([refetch(), refetchProducts()])}
+      footer={
+        chosen && !soldOut ? (
+          <Button
+            label={busy === chosen.id ? 'Opening...' : `Buy ${chosen.name} · ${money(chosen.priceMinor, chosen.currency)}`}
+            disabled={busy !== null}
+            onPress={() => void buy(chosen)}
+          />
+        ) : undefined
+      }
+    >
+      <Text style={styles.routeName}>{routeName}</Text>
+      <View style={styles.rule}>
+        <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
+        <Text style={styles.ruleText}>
+          A pass includes a set number of rides on this route - book those seats without paying. Cancel 30 minutes
+          or more before departure and the ride comes back. Seats on other routes are paid as usual.
+        </Text>
+      </View>
+
       {mine.length ? <Text style={styles.sectionLabel}>YOUR PASSES</Text> : null}
 
       {mine.map((pass) => (
@@ -79,16 +106,14 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
           <View style={styles.flex}>
             <Text style={styles.heldName}>{pass.productName}</Text>
             <Text style={styles.heldMeta}>
-              {pass.rideLimit === 0
-                ? 'Unlimited rides'
-                : `${pass.rideLimit - pass.ridesUsed} of ${pass.rideLimit} rides left`}
-              {' · until '}
-              {shortDate(pass.endsOn)}
+              {pass.status === 'ACTIVE'
+                ? `${ridesLeft(pass)} · valid till ${shortDate(pass.endsOn)} · ${daysLeft(pass.endsOn)}`
+                : 'Waiting for payment'}
             </Text>
           </View>
 
           {pass.status === 'ACTIVE' ? (
-            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+            <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
           ) : (
             <Button
               label={busy === pass.id ? 'Paying...' : 'Pay'}
@@ -99,9 +124,53 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
         </View>
       ))}
 
-      <Text style={styles.sectionLabel}>ON SALE FOR {routeName.toUpperCase()}</Text>
+      <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
 
-      {points && spendableNow(points).points > 0 ? (
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {soldOut ? (
+        <Text style={styles.error}>Passes on this route are sold out right now. You can still book seats one at a time.</Text>
+      ) : null}
+
+      {products?.length === 0 ? (
+        <Text style={styles.muted}>No passes are on sale for this route yet.</Text>
+      ) : null}
+
+      {plans.map((product) => {
+        const selected = product.id === chosen?.id;
+        return (
+          <Pressable
+            key={product.id}
+            onPress={() => setPicked(product.id)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            style={[styles.plan, selected && styles.planSelected]}
+          >
+            <Ionicons
+              name={selected ? 'radio-button-on' : 'radio-button-off'}
+              size={22}
+              color={selected ? colors.primary : colors.textMuted}
+            />
+            <View style={styles.flex}>
+              <View style={styles.planTitleRow}>
+                <Text style={styles.planName}>{product.name}</Text>
+                {product.savePercent > 0 && product.savePercent === bestSaving ? (
+                  <Text style={styles.best}>BEST VALUE</Text>
+                ) : null}
+              </View>
+              <Text style={styles.planMeta}>
+                {product.rideLimit} rides · {product.durationDays} days · {money(product.perMonthMinor, product.currency)} / month
+              </Text>
+            </View>
+            <View style={styles.priceCol}>
+              <Text style={styles.planPrice}>{money(product.priceMinor, product.currency)}</Text>
+              {product.savePercent > 0 ? <Text style={styles.save}>Save {product.savePercent}%</Text> : null}
+            </View>
+          </Pressable>
+        );
+      })}
+
+      {points && spendableNow(points).points > 0 && plans.length ? (
         <Pressable
           onPress={() => setUsePoints((on) => !on)}
           accessibilityRole="switch"
@@ -119,40 +188,91 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
           </Text>
         </Pressable>
       ) : null}
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {products?.length === 0 ? (
-        <Text style={styles.muted}>No passes are on sale for this route yet.</Text>
-      ) : null}
-
-      {products?.map((product) => (
-        <View key={product.id} style={styles.product}>
-          <View style={styles.flex}>
-            <Text style={styles.productName}>{product.name}</Text>
-            <Text style={styles.productMeta}>
-              {product.rideLimit === 0 ? 'Unlimited rides' : `${product.rideLimit} rides`} ·{' '}
-              {product.durationDays} days
-            </Text>
-            {product.description ? (
-              <Text style={styles.productNote}>{product.description}</Text>
-            ) : null}
-          </View>
-
-          <Button
-            label={busy === product.id ? 'Opening...' : money(product.priceMinor, product.currency)}
-            disabled={busy !== null}
-            onPress={() => void buy(product)}
-          />
-        </View>
-      ))}
     </Screen>
   );
+}
+
+function ridesLeft(pass: Pass) {
+  if (pass.rideLimit === 0) return 'Unlimited rides';
+  const left = Math.max(0, pass.rideLimit - pass.ridesUsed);
+  return left === 1 ? '1 ride left' : `${left} rides left`;
+}
+
+function daysLeft(endsOn: string) {
+  const end = new Date(`${endsOn}T23:59:59`).getTime();
+  const days = Math.max(0, Math.ceil((end - Date.now()) / 86_400_000));
+  return days === 1 ? '1 day left' : `${days} days left`;
 }
 
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  routeName: {
+    ...type.title,
+    color: colors.text,
+  },
+  rule: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  ruleText: {
+    ...type.caption,
+    color: colors.textMuted,
+    flex: 1,
+  },
+  plan: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  planSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySurface,
+  },
+  planTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  planName: {
+    ...type.button,
+    fontSize: 15,
+    color: colors.text,
+  },
+  best: {
+    ...type.caption,
+    fontSize: 10,
+    color: colors.onPrimary,
+    backgroundColor: colors.amber,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+  planMeta: {
+    ...type.caption,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  priceCol: {
+    alignItems: 'flex-end',
+  },
+  planPrice: {
+    ...type.button,
+    fontSize: 16,
+    color: colors.text,
+  },
+  save: {
+    ...type.caption,
+    color: colors.primary,
   },
   muted: {
     ...type.body,

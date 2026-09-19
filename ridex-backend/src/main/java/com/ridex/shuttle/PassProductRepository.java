@@ -9,4 +9,6 @@ import com.ridex.shuttle.domain.PassProduct;
 public interface PassProductRepository extends JpaRepository<PassProduct, String> {
 
     List<PassProduct> findByRouteIdAndActiveTrueOrderByPriceMinorAsc(String routeId);
+
+    List<PassProduct> findByRouteId(String routeId);
 }

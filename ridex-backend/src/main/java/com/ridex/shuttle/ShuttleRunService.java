@@ -56,6 +56,9 @@ public class ShuttleRunService {
     @Transactional
     public ShuttleLiveResponse start(String driverUserId, String tripId) {
         ShuttleTrip trip = requireOwnTrip(driverUserId, tripId);
+        if ("CANCELLED".equals(trip.getStatus())) {
+            throw new ConflictException("This departure was cancelled by operations.");
+        }
         if (!"SCHEDULED".equals(trip.getStatus())) {
             throw new ConflictException("This run has already been started.");
         }

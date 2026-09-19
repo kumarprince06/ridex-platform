@@ -1,6 +1,6 @@
 # RideX — API Contract
 
-Every endpoint the backend serves: **155** across 29 controllers.
+Every endpoint the backend serves: **172** across 33 controllers.
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java api > docs/10-API-Contract.md
 ```
 
-Generated on 2026-09-19 from `340daec`.
+Generated on 2026-09-20 from `44d0bb5`.
 
 ## Conventions
 
@@ -46,6 +46,13 @@ Generated on 2026-09-19 from `340daec`.
 | GET | `/api/v1/admin/legal` | OPS_ADMIN, SUPER_ADMIN | Every document with its current text, for the console editor |
 | PUT | `/api/v1/admin/legal/{slug}` | OPS_ADMIN, SUPER_ADMIN | Replaces a document's title and text; live on the next open in the apps |
 
+## AdminPass
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/api/v1/admin/shuttle/passes/overview` | OPS_ADMIN, SUPER_ADMIN | Overview |
+| GET | `/api/v1/admin/shuttle/passes` | OPS_ADMIN, SUPER_ADMIN | Sold |
+
 ## AdminPayout
 
 | Method | Path | Who | What |
@@ -55,6 +62,13 @@ Generated on 2026-09-19 from `340daec`.
 | POST | `/api/v1/admin/payouts/{payoutId}/send` | FINANCE, SUPER_ADMIN | Send |
 | POST | `/api/v1/admin/payouts/{payoutId}/settle` | FINANCE, SUPER_ADMIN | Settle |
 | POST | `/api/v1/admin/payouts/{payoutId}/fail` | FINANCE, SUPER_ADMIN | Fail |
+
+## AdminPricing
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/api/v1/admin/ride-fares` | OPS_ADMIN, SUPER_ADMIN | All |
+| PUT | `/api/v1/admin/ride-fares/{rideTypeId}` | OPS_ADMIN, SUPER_ADMIN | Change |
 
 ## AdminQuery
 
@@ -71,8 +85,19 @@ Generated on 2026-09-19 from `340daec`.
 | GET | `/api/v1/admin/riders/{riderId}` | SUPPORT, OPS_ADMIN, SUPER_ADMIN | Rider |
 | GET | `/api/v1/admin/trips` | SUPPORT, OPS_ADMIN, SUPER_ADMIN | Trips |
 | GET | `/api/v1/admin/payments` | OPS_ADMIN, SUPER_ADMIN | Payments |
+| POST | `/api/v1/admin/staff` | SUPER_ADMIN | Invite staff |
+| PUT | `/api/v1/admin/staff/{userId}/role` | SUPER_ADMIN | Change staff role |
+| PUT | `/api/v1/admin/staff/{userId}/enabled/{enabled}` | SUPER_ADMIN | Set staff enabled |
+| GET | `/api/v1/admin/search` | SUPPORT, OPS_ADMIN, SUPER_ADMIN | Search |
 | GET | `/api/v1/admin/staff` | SUPER_ADMIN | Staff |
 | GET | `/api/v1/admin/audit` | SUPER_ADMIN | Audit log |
+
+## AdminRefund
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| POST | `/api/v1/admin/payments/{paymentId}/refund` | OPS_ADMIN, SUPER_ADMIN | Refund |
+| POST | `/api/v1/admin/shuttle/departures/{shuttleTripId}/cancel` | OPS_ADMIN, SUPER_ADMIN | Cancel departure |
 
 ## AdminSettings
 
@@ -89,6 +114,11 @@ Generated on 2026-09-19 from `340daec`.
 | GET | `/api/v1/admin/shuttle/routes/{routeId}` | OPS_ADMIN, SUPER_ADMIN | Route |
 | POST | `/api/v1/admin/shuttle/routes` | OPS_ADMIN, SUPER_ADMIN | Create |
 | PUT | `/api/v1/admin/shuttle/routes/{routeId}` | OPS_ADMIN, SUPER_ADMIN | Update |
+| GET | `/api/v1/admin/shuttle/routes/{routeId}/passes` | OPS_ADMIN, SUPER_ADMIN | Pass pricing |
+| PUT | `/api/v1/admin/shuttle/routes/{routeId}/passes` | OPS_ADMIN, SUPER_ADMIN | Set pass pricing |
+| PUT | `/api/v1/admin/shuttle/routes/{routeId}/schedules/{scheduleId}/crew` | OPS_ADMIN, SUPER_ADMIN | The driver and vehicle a departure time normally runs with |
+| DELETE | `/api/v1/admin/shuttle/routes/{routeId}/schedules/{scheduleId}/crew` | OPS_ADMIN, SUPER_ADMIN | Clear regular crew |
+| POST | `/api/v1/admin/shuttle/routes/{routeId}/return` | OPS_ADMIN, SUPER_ADMIN | The same route the other way, hidden until operations switches it on |
 | DELETE | `/api/v1/admin/shuttle/routes/{routeId}` | OPS_ADMIN, SUPER_ADMIN | Delete route |
 | POST | `/api/v1/admin/shuttle/routes/{routeId}/stops` | OPS_ADMIN, SUPER_ADMIN | Appends, or inserts straight after the stop at position {@code after} (0 for the front) |
 | PUT | `/api/v1/admin/shuttle/routes/{routeId}/stops/{stopId}` | OPS_ADMIN, SUPER_ADMIN | Update stop |
@@ -115,6 +145,13 @@ Generated on 2026-09-19 from `340daec`.
 | GET | `/api/v1/admin/support/tickets/{ticketId}` | SUPPORT, OPS_ADMIN, SUPER_ADMIN | Get |
 | POST | `/api/v1/admin/support/tickets/{ticketId}/messages` | SUPPORT, OPS_ADMIN, SUPER_ADMIN | Reply |
 | POST | `/api/v1/admin/support/tickets/{ticketId}/resolve` | SUPPORT, OPS_ADMIN, SUPER_ADMIN | Resolve |
+
+## AdminWallet
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/api/v1/admin/wallets` | OPS_ADMIN, SUPER_ADMIN | Wallets |
+| GET | `/api/v1/admin/wallets/{driverId}/entries` | OPS_ADMIN, SUPER_ADMIN | Entries |
 
 ## Auth
 

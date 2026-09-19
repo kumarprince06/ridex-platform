@@ -1,11 +1,18 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import {
   addSchedule,
   addStop,
+  clearRegularCrew,
+  driverVehicles,
+  listDrivers,
+  setRegularCrew,
+  createReturnRoute,
   deleteRoute,
+  getPassPricing,
   getRoute,
+  setPassPricing,
   removeStop,
   updateStop,
   setFareMatrix,
@@ -24,14 +31,15 @@ import { SeatLayout } from '../components/SeatLayout';
 import { Button, Card, DetailList, EmptyState, Grid, PageHeader, Pill, StatTile, Table } from '../components/ui';
 import { dayNames, legsFromRule } from '../lib/shuttle';
 
-const TABS = ['Overview', 'Stops', 'Fares', 'Timetable'] as const;
+const TABS = ['Overview', 'Stops', 'Fares', 'Timetable', 'Passes'] as const;
 type Tab = (typeof TABS)[number];
 
 /** One route, a tab per thing you change about it. */
 export function ShuttleRoutePage() {
   const { routeId = '' } = useParams();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('Overview');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>((TABS as readonly string[]).includes(params.get('tab') ?? '') ? (params.get('tab') as Tab) : 'Overview');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const { data: route, loading, error, refetch } = useQuery(() => getRoute(routeId), [routeId]);
@@ -105,6 +113,7 @@ export function ShuttleRoutePage() {
       {tab === 'Stops' ? <Stops route={route} busy={busy} act={act} /> : null}
       {tab === 'Fares' ? <Fares route={route} busy={busy} act={act} /> : null}
       {tab === 'Timetable' ? <Timetable route={route} busy={busy} act={act} /> : null}
+      {tab === 'Passes' ? <Passes route={route} busy={busy} act={act} /> : null}
     </>
   );
 }
@@ -122,6 +131,8 @@ function missing(route: ShuttleRoute): string | null {
 function Overview({ route, busy, act, onDeleted }: { route: ShuttleRoute; busy: boolean; act: Act; onDeleted: () => void }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const navigate = useNavigate();
   const todo = missing(route);
   const fares = route.fares.map((fare) => fare.fareMinor);
   const first = route.stops[0];
@@ -155,6 +166,9 @@ function Overview({ route, busy, act, onDeleted }: { route: ShuttleRoute; busy: 
         title="Details"
         actions={
           <span className="row-actions">
+            <Button disabled={busy || route.stops.length < 2} onClick={() => setReturning(true)}>
+              Create return route
+            </Button>
             <Button disabled={busy} onClick={() => setEditing(true)}>
               Edit details
             </Button>
@@ -172,6 +186,31 @@ function Overview({ route, busy, act, onDeleted }: { route: ShuttleRoute; busy: 
           ]}
         />
       </Card>
+
+      {returning ? (
+        <FormDialog
+          title="Create the return route"
+          body="The same stops in reverse, the same gaps between them and the same fares each way. It starts hidden from riders - check it, then show it."
+          submitLabel="Create return route"
+          fields={[
+            {
+              name: 'times',
+              label: 'Departure times, comma separated',
+              initial: '17:30, 18:00, 18:30, 19:00',
+              hint: 'Same days and vehicle size as this route.',
+            },
+          ]}
+          onCancel={() => setReturning(false)}
+          onSubmit={(values) => {
+            setReturning(false);
+            const times = values.times.split(',').map((time) => time.trim()).filter(Boolean);
+            act(async () => {
+              const back = await createReturnRoute(route.id, times);
+              navigate(`/shuttle/routes/${back.id}`);
+            }, 'Return route created.');
+          }}
+        />
+      ) : null}
 
       {deleting ? (
         <FormDialog
@@ -407,6 +446,7 @@ function Fares({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: 
 
 function Timetable({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: Act }) {
   const [adding, setAdding] = useState(false);
+  const [crewFor, setCrewFor] = useState<RouteSchedule | null>(null);
 
   const toggle = (schedule: RouteSchedule) =>
     act(
@@ -444,6 +484,22 @@ function Timetable({ route, busy, act }: { route: ShuttleRoute; busy: boolean; a
             ),
           },
           {
+            key: 'crew',
+            header: 'Regular crew',
+            render: (row) =>
+              row.crew ? (
+                <span className="row-actions">
+                  <span>{row.crew}</span>
+                  <Button variant="ghost" disabled={busy} onClick={() => setCrewFor(row)}>Change</Button>
+                  <Button variant="ghost" disabled={busy} onClick={() => act(() => clearRegularCrew(route.id, row.id), 'Regular crew removed.')}>
+                    Clear
+                  </Button>
+                </span>
+              ) : (
+                <Button variant="ghost" disabled={busy} onClick={() => setCrewFor(row)}>Set crew</Button>
+              ),
+          },
+          {
             key: 'state',
             header: 'State',
             render: (row) => <Pill tone={row.active ? 'success' : 'muted'}>{row.active ? 'Running' : 'Paused'}</Pill>,
@@ -460,13 +516,26 @@ function Timetable({ route, busy, act }: { route: ShuttleRoute; busy: boolean; a
           },
         ]}
         rows={route.schedules}
-        empty="No departures. Crew for each day is set on the Today board."
+        empty="No departures yet."
       />
+
+      {crewFor ? (
+        <CrewDialog
+          seats={crewFor.seatCapacity}
+          title={`Regular crew for the ${crewFor.departureTime.slice(0, 5)}`}
+          onCancel={() => setCrewFor(null)}
+          onPick={(driverId, vehicleId) => {
+            const schedule = crewFor;
+            setCrewFor(null);
+            act(() => setRegularCrew(route.id, schedule.id, driverId, vehicleId), 'Regular crew set. Upcoming days without a driver now have one.');
+          }}
+        />
+      ) : null}
 
       {adding ? (
         <FormDialog
           title={`Add a departure to ${route.name}`}
-          body="Crew is assigned per day on the Today board."
+          body="Set its regular crew afterwards, or crew each day on the Today board."
           submitLabel="Add departure"
           fields={[
             { name: 'departureTime', label: 'Leaves at', type: 'time', initial: '08:30' },
@@ -514,3 +583,204 @@ function Timetable({ route, busy, act }: { route: ShuttleRoute; busy: boolean; a
     </Card>
   );
 }
+
+/**
+ * Passes for this route: one monthly price, and a discount for each longer plan. A pass covers
+ * every seat on this route only - other routes are still paid for.
+ */
+function Passes({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: Act }) {
+  const { data: pricing, refetch } = useQuery(() => getPassPricing(route.id), [route.id]);
+  const [monthly, setMonthly] = useState<string | null>(null);
+  const [discounts, setDiscounts] = useState<Record<string, string> | null>(null);
+  const [rides, setRides] = useState<string | null>(null);
+  const [limit, setLimit] = useState<string | null>(null);
+
+  // Pass holders ride about once a day, so the cap is a share of the seats this route runs daily -
+  // 60%, leaving the rest for riders who pay per seat.
+  const dailySeats = route.schedules.filter((schedule) => schedule.active).reduce((sum, schedule) => sum + schedule.seatCapacity, 0);
+  const suggestedLimit = Math.floor(dailySeats * 0.6);
+  const ridesValue = rides ?? String(pricing?.ridesPerMonth ?? 26);
+  const limitValue = limit ?? (pricing?.maxActivePasses != null ? String(pricing.maxActivePasses) : suggestedLimit ? String(suggestedLimit) : '');
+
+  // A starting point: one full-route trip every working day, less 15% for committing to the month.
+  const longestFare = Math.max(0, ...route.fares.map((fare) => fare.fareMinor));
+  const suggested = Math.round((longestFare * 22 * 0.85) / 100 / 10) * 10;
+
+  const savedMonthly = pricing?.monthlyPriceMinor != null ? String(pricing.monthlyPriceMinor / 100) : '';
+  const monthlyValue = monthly ?? (savedMonthly || String(suggested || ''));
+  const discountOf = (plan: string, fallback: number) =>
+    discounts?.[plan] ?? String(pricing?.plans.find((row) => row.plan === plan && row.priceMinor != null)?.discountPercent ?? fallback);
+  const values = { QUARTERLY: discountOf('QUARTERLY', 5), HALF_YEARLY: discountOf('HALF_YEARLY', 10), YEARLY: discountOf('YEARLY', 15) };
+
+  const rows = (pricing?.plans ?? []).map((plan) => {
+    const discount = plan.plan === 'MONTHLY' ? 0 : Number(values[plan.plan as keyof typeof values] || 0);
+    const price = Math.round((Number(monthlyValue || 0) * plan.months * (100 - discount)) / 100);
+    return { ...plan, discount, price, perMonth: Math.round(price / plan.months), rides: Number(ridesValue || 0) * plan.months };
+  });
+
+  if (route.fares.length === 0) {
+    return <EmptyState title="Set the fares first">Pass prices are compared against what the trips cost.</EmptyState>;
+  }
+
+  const save = (onSale: boolean) =>
+    act(async () => {
+      await setPassPricing(route.id, {
+        monthlyPriceMinor: Number(monthlyValue) * 100,
+        quarterlyDiscountPercent: Number(values.QUARTERLY || 0),
+        halfYearlyDiscountPercent: Number(values.HALF_YEARLY || 0),
+        yearlyDiscountPercent: Number(values.YEARLY || 0),
+        onSale,
+        ridesPerMonth: Number(ridesValue || 26),
+        maxActivePasses: limitValue ? Number(limitValue) : null,
+      });
+      setMonthly(null);
+      setRides(null);
+      setLimit(null);
+      setDiscounts(null);
+      await refetch();
+    }, onSale ? 'Passes are on sale for this route.' : 'Passes saved, not on sale.');
+
+  return (
+    <>
+      <Card
+        title="Pass prices"
+        actions={
+          pricing?.onSale ? <Pill tone="success">On sale</Pill> : <Pill tone="muted">Not on sale</Pill>
+        }
+      >
+        <p className="cell-muted">
+          A pass covers every seat on {route.name} for its whole period, so riders book without paying. Other routes are
+          still paid. Longer plans cost less per month.
+        </p>
+        <div className="rule-row">
+          <label className="field">
+            <span className="field-label">Monthly price (₹)</span>
+            <input className="input" type="number" min={1} value={monthlyValue} onChange={(event) => setMonthly(event.target.value)} />
+          </label>
+          {(['QUARTERLY', 'HALF_YEARLY', 'YEARLY'] as const).map((plan) => (
+            <label className="field" key={plan}>
+              <span className="field-label">{plan === 'QUARTERLY' ? 'Quarterly' : plan === 'HALF_YEARLY' ? 'Half-yearly' : 'Yearly'} discount (%)</span>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                max={60}
+                value={values[plan]}
+                onChange={(event) => setDiscounts({ ...values, [plan]: event.target.value })}
+              />
+            </label>
+          ))}
+        </div>
+        <div className="rule-row">
+          <label className="field">
+            <span className="field-label">Rides per month</span>
+            <input className="input" type="number" min={1} max={62} value={ridesValue} onChange={(event) => setRides(event.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">Maximum passes on this route</span>
+            <input className="input" type="number" min={1} value={limitValue} placeholder="No limit" onChange={(event) => setLimit(event.target.value)} />
+          </label>
+          <span className="cell-muted" style={{ paddingBottom: 12 }}>
+            {pricing?.activePasses ?? 0} running now
+            {limitValue ? ` of ${limitValue}` : ''}
+          </span>
+        </div>
+        <p className="cell-muted">
+          26 rides a month is one ride every day, Monday to Saturday. A pass stops covering seats when its rides run out,
+          and a seat cancelled 30 minutes or more before it leaves gives the ride back.
+          {suggestedLimit
+            ? ` Suggested limit: ${suggestedLimit} - 60% of the ${dailySeats} seats this route runs a day, leaving the rest for riders who pay per seat.`
+            : ''}
+        </p>
+        {suggested ? (
+          <p className="cell-muted">
+            Suggested monthly price: ₹{suggested} - the whole route (₹{longestFare / 100}) every working day, 15% off.
+          </p>
+        ) : null}
+      </Card>
+
+      <Card title="What riders will see">
+        <Table
+          columns={[
+            { key: 'label', header: 'Plan', render: (row: (typeof rows)[number]) => <span className="cell-strong">{row.label}</span> },
+            { key: 'days', header: 'Valid for', render: (row) => `${row.durationDays} days` },
+            { key: 'rides', header: 'Rides', align: 'right', render: (row) => row.rides },
+            { key: 'price', header: 'Price', align: 'right', render: (row) => <span className="cell-strong">₹{row.price.toLocaleString('en-IN')}</span> },
+            { key: 'perMonth', header: 'Per month', align: 'right', render: (row) => `₹${row.perMonth.toLocaleString('en-IN')}` },
+            { key: 'save', header: 'Saving', align: 'right', render: (row) => (row.discount ? <Pill tone="success">{row.discount}% off</Pill> : '—') },
+            { key: 'active', header: 'Riders holding it', align: 'right', render: (row) => row.activePasses },
+          ]}
+          rows={rows}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+          {pricing?.onSale ? (
+            <Button disabled={busy} onClick={() => save(false)}>
+              Stop selling
+            </Button>
+          ) : null}
+          <Button variant="primary" disabled={busy || !Number(monthlyValue)} onClick={() => save(true)}>
+            {pricing?.onSale ? 'Save prices' : 'Put on sale'}
+          </Button>
+        </div>
+        <p className="cell-muted">Riders who already hold a pass keep the price they paid.</p>
+      </Card>
+    </>
+  );
+}
+
+/** Pick an approved driver, then one of their vehicles big enough for the seats sold. */
+function CrewDialog({
+  seats,
+  title,
+  onCancel,
+  onPick,
+}: {
+  seats: number;
+  title: string;
+  onCancel: () => void;
+  onPick: (driverId: string, vehicleId: string) => void;
+}) {
+  const [driverId, setDriverId] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const { data: drivers } = useQuery(() => listDrivers('APPROVED', '', 0, 100), []);
+  const { data: vehicles } = useQuery(() => (driverId ? driverVehicles(driverId) : Promise.resolve([])), [driverId]);
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="modal">
+        <h2 className="modal-title">{title}</h2>
+        <p className="modal-body">This driver and vehicle run it every day, unless a day is changed on the Today board.</p>
+        <label className="field">
+          <span className="field-label">Driver</span>
+          <select className="input" value={driverId} onChange={(event) => { setDriverId(event.target.value); setVehicleId(''); }}>
+            <option value="">Choose an approved driver</option>
+            {drivers?.items.map((driver) => (
+              <option key={driver.driverId} value={driver.driverId}>
+                {[driver.firstName, driver.lastName].filter(Boolean).join(' ') || driver.email}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Vehicle</span>
+          <select className="input" value={vehicleId} disabled={!driverId} onChange={(event) => setVehicleId(event.target.value)}>
+            <option value="">{driverId ? 'Choose one of their vehicles' : 'Pick a driver first'}</option>
+            {vehicles?.map((vehicle) => (
+              <option key={vehicle.id} value={vehicle.id} disabled={vehicle.seatCapacity < seats}>
+                {vehicle.make} {vehicle.model} · {vehicle.registrationNumber} · {vehicle.seatCapacity} seats
+                {vehicle.seatCapacity < seats ? ' (too small)' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="modal-actions">
+          <Button onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" disabled={!driverId || !vehicleId} onClick={() => onPick(driverId, vehicleId)}>
+            Set crew
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

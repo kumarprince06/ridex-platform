@@ -19,6 +19,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { PaymentDetailPage } from './pages/PaymentDetailPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { PayoutsPage } from './pages/PayoutsPage';
+import { WalletsPage } from './pages/WalletsPage';
 import { LegalPage } from './pages/LegalPage';
 import { PricingPage } from './pages/PricingPage';
 import { RiderDetailPage } from './pages/RiderDetailPage';
@@ -26,6 +27,7 @@ import { RidersPage } from './pages/RidersPage';
 import { ShuttleOpsPage } from './pages/ShuttleOpsPage';
 import { ShuttleNewRoutePage } from './pages/ShuttleNewRoutePage';
 import { ShuttlePage } from './pages/ShuttlePage';
+import { ShuttlePassesPage } from './pages/ShuttlePassesPage';
 import { ShuttleRoutePage } from './pages/ShuttleRoutePage';
 import { StaffPage } from './pages/StaffPage';
 import { TripDetailPage } from './pages/TripDetailPage';
@@ -67,10 +69,12 @@ function Routed() {
         <Route path="payments" element={<Require permission="FINANCE"><PaymentsPage /></Require>} />
         <Route path="payments/:paymentId" element={<Require permission="FINANCE"><PaymentDetailPage /></Require>} />
         <Route path="payouts" element={<Require permission="FINANCE"><PayoutsPage /></Require>} />
+        <Route path="wallets" element={<Require permission="OPERATIONS"><WalletsPage /></Require>} />
 
         <Route path="pricing" element={<Require permission="OPERATIONS"><PricingPage /></Require>} />
         <Route path="legal" element={<Require permission="OPERATIONS"><LegalPage /></Require>} />
         <Route path="shuttle" element={<Require permission="OPERATIONS"><ShuttlePage /></Require>} />
+        <Route path="shuttle/passes" element={<Require permission="OPERATIONS"><ShuttlePassesPage /></Require>} />
         <Route path="shuttle/routes/new" element={<Require permission="OPERATIONS"><ShuttleNewRoutePage /></Require>} />
         <Route path="shuttle/routes/:routeId" element={<Require permission="OPERATIONS"><ShuttleRoutePage /></Require>} />
         <Route path="shuttle/departures" element={<Require permission="OPERATIONS"><ShuttleOpsPage /></Require>} />

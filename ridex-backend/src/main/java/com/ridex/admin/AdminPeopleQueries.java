@@ -132,16 +132,7 @@ public class AdminPeopleQueries {
     public List<StaffResponse> staff() {
         return userRepository.findByAnyRole(List.of(UserRole.SUPPORT, UserRole.OPS_ADMIN, UserRole.SUPER_ADMIN))
                 .stream()
-                .map(user -> new StaffResponse(
-                        user.getId(),
-                        user.getEmail(),
-                        java.util.stream.Stream.of(user.getFirstName(), user.getLastName())
-                                .filter(part -> part != null && !part.isBlank())
-                                .collect(Collectors.joining(" ")),
-                        user.getRoles().stream().map(Enum::name).sorted().toList(),
-                        user.getStatus().name(),
-                        user.getLastLoginAt(),
-                        user.getCreatedAt()))
+                .map(StaffService::toResponse)
                 .toList();
     }
 }

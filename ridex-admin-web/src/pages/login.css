@@ -1,44 +1,252 @@
 .login {
   min-height: 100%;
   display: grid;
-  place-items: center;
-  padding: var(--space-5);
-  /* A quiet brand wash rather than a flat grey: this is the only screen with nothing else on it. */
-  background:
-    radial-gradient(1100px 520px at 12% -10%, rgba(46, 231, 199, 0.16), transparent 60%),
-    radial-gradient(900px 460px at 95% 105%, rgba(37, 99, 201, 0.1), transparent 60%),
-    var(--bg);
+  grid-template-columns: minmax(420px, 11fr) 9fr;
+  background: var(--bg);
 }
 
+/* The brand panel: a street map with one live route, so the half-screen says what the product does. */
+.login-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 40px 48px 44px;
+  color: #e6edf6;
+  background:
+    radial-gradient(900px 520px at 85% 15%, rgba(46, 231, 199, 0.16), transparent 60%),
+    radial-gradient(700px 480px at 0% 100%, rgba(37, 99, 201, 0.22), transparent 60%),
+    linear-gradient(165deg, #0a1120 0%, #0e1a2c 55%, #0b1424 100%);
+}
+.login-hero > :not(.login-map) {
+  position: relative;
+  z-index: 1;
+}
+/* Darkens the bottom so the headline never sits on the bright route line. */
+.login-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 48%;
+  background: linear-gradient(to top, #0a1120 20%, rgba(10, 17, 32, 0.85) 55%, transparent);
+  pointer-events: none;
+}
+.login-hero .logo-name {
+  color: #fff;
+}
+
+.login-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.map-streets path {
+  fill: none;
+  stroke: rgba(148, 170, 200, 0.09);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.map-streets path.minor {
+  stroke: rgba(148, 170, 200, 0.07);
+  stroke-width: 4;
+}
+.map-river {
+  fill: none;
+  stroke: rgba(37, 99, 201, 0.28);
+  stroke-width: 26;
+  stroke-linecap: round;
+}
+.map-route,
+.map-route-glow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.map-route {
+  stroke: #2ee7c7;
+  stroke-width: 5;
+}
+.map-route-glow {
+  stroke: rgba(46, 231, 199, 0.22);
+  stroke-width: 18;
+  filter: blur(6px);
+}
+.map-stop circle:first-child {
+  fill: #0e1a2c;
+  stroke: #2ee7c7;
+  stroke-width: 3;
+}
+.map-stop circle:last-child {
+  fill: #2ee7c7;
+}
+.map-shuttle circle {
+  fill: #fff;
+}
+.map-shuttle .halo {
+  fill: rgba(255, 255, 255, 0.18);
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-shuttle {
+    display: none;
+  }
+}
+
+.login-chip {
+  position: absolute !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(15, 27, 45, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.7);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.login-chip strong {
+  display: block;
+  color: #fff;
+  font-weight: 600;
+}
+.login-chip em {
+  display: block;
+  font-style: normal;
+  color: #93a3ba;
+  font-size: 12px;
+}
+.chip-a {
+  top: 14%;
+  right: 8%;
+}
+.chip-b {
+  top: 49%;
+  left: 7%;
+}
+.chip-c {
+  top: 58%;
+  right: 14%;
+}
+.chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #7aa7ff;
+  box-shadow: 0 0 0 4px rgba(122, 167, 255, 0.18);
+  flex: none;
+}
+.chip-dot.live {
+  background: #2ee7c7;
+  box-shadow: 0 0 0 4px rgba(46, 231, 199, 0.18);
+  animation: login-pulse 2s ease-in-out infinite;
+}
+.chip-figure {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2ee7c7;
+  letter-spacing: -0.02em;
+}
+@keyframes login-pulse {
+  50% {
+    box-shadow: 0 0 0 8px rgba(46, 231, 199, 0.05);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip-dot.live {
+    animation: none;
+  }
+}
+
+.login-hero-bottom {
+  max-width: 520px;
+}
+.login-hero-title {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.18;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #fff;
+}
+.login-hero-text {
+  margin: 14px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #a9b7cb;
+}
+.login-hero-foot {
+  margin: 28px 0 0;
+  font-size: 12px;
+  color: #66768d;
+}
+
+.login-side {
+  display: grid;
+  place-items: center;
+  padding: 48px 32px;
+  background: var(--surface);
+}
+
+/* No box: the whole right side is the form, so it is not a small card lost in a big page. */
 .login-card {
   width: 100%;
-  max-width: 400px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-6);
+  max-width: 380px;
 }
 
 .login-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: var(--space-5);
+  display: none;
+  margin-bottom: 32px;
+}
+
+.login-eyebrow {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary-strong);
 }
 
 .login-title {
-  font-size: 21px;
+  margin: 8px 0 0;
+  font-size: 32px;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 0;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
 .login-sub {
-  margin: 6px 0 var(--space-4);
-  font-size: 13px;
-  line-height: 1.5;
+  margin: 10px 0 12px;
+  font-size: 14px;
+  line-height: 1.55;
   color: var(--text-muted);
+}
+
+.password-wrap {
+  position: relative;
+  display: block;
+}
+.password-wrap .field-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 64px;
+}
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--primary-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
 }
 
 .field {
@@ -56,7 +264,7 @@
 }
 
 .field-input {
-  height: 42px;
+  height: 46px;
   padding: 0 12px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -85,30 +293,102 @@
   line-height: 1.4;
 }
 
+
+/* Browsers paint autofilled fields yellow; keep them on-theme. */
+.field-input:-webkit-autofill,
+.field-input:-webkit-autofill:hover,
+.field-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-alt) inset;
+  caret-color: var(--text);
+  transition: background-color 9999s;
+}
+
 .login-submit {
   width: 100%;
-  height: 44px;
-  margin-top: var(--space-5);
+  height: 48px;
+  margin-top: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: none;
   border-radius: var(--radius);
-  background: var(--primary-strong);
+  background: linear-gradient(135deg, #0f766e 0%, #0b3b3a 100%);
   color: #ffffff;
   font: inherit;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
-  transition: background 140ms var(--ease), transform 140ms var(--ease);
+  box-shadow: 0 12px 24px -12px rgba(15, 118, 110, 0.7);
+  transition: filter 140ms var(--ease), transform 140ms var(--ease), box-shadow 140ms var(--ease);
 }
-
+.login-submit span {
+  transition: transform 140ms var(--ease);
+}
 .login-submit:hover:not(:disabled) {
-  background: var(--on-primary);
+  filter: brightness(1.08);
+  box-shadow: 0 16px 28px -12px rgba(15, 118, 110, 0.8);
 }
-
+.login-submit:hover:not(:disabled) span {
+  transform: translateX(3px);
+}
 .login-submit:active:not(:disabled) {
   transform: translateY(1px);
 }
-
 .login-submit:disabled {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: default;
+}
+.login-submit:focus-visible {
+  outline: 3px solid var(--primary-surface);
+  outline-offset: 2px;
+}
+
+.login-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.login-lock {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--primary-strong);
+  flex: none;
+}
+
+@media (max-width: 1100px) {
+  .login {
+    grid-template-columns: 1fr 1fr;
+  }
+  .chip-c {
+    display: none;
+  }
+  .login-hero-title {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 860px) {
+  .login {
+    grid-template-columns: 1fr;
+  }
+  .login-hero {
+    display: none;
+  }
+  .login-side {
+    padding: 40px 16px;
+  }
+  .login-brand {
+    display: flex;
+  }
+  .login-title {
+    font-size: 28px;
+  }
 }

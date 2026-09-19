@@ -154,21 +154,17 @@ the backend needs a real certificate. Android blocks plaintext HTTP by default.
 
 ---
 
-## Demo data and accounts
+## Seed data
 
-A demo lives or dies on what is in the database when somebody opens it. Prepare, and script:
+Nothing but the admin. On first boot the backend creates one super admin from
+`RIDEX_BOOTSTRAP_ADMIN_EMAIL` / `RIDEX_BOOTSTRAP_ADMIN_PASSWORD`; everything else - shuttle routes,
+fares, timetables, legal text - is created from the admin console, and riders and drivers sign up
+through the apps. Migrations add only configuration the code needs (ride types, fare settings,
+empty legal pages).
 
-- **Seeded, re-runnable data.** `ridex-backend/src/main/resources/seed/kolkata-shuttle.sql` already
-  does this for the shuttle: real Kolkata corridors, 16 stops, drivers, a 40-seat bus and a 22-seat
-  Traveller, a timetable. Do the same for riders, drivers and a few completed trips so Trips,
-  Earnings and Analytics are not empty.
-- **Fixed demo logins** for rider, driver and admin, written on the project page.
-- **A reset script** that puts the database back to the seeded state, so a walkthrough is
-  repeatable after somebody has cancelled half of it.
-- **Test payments only.** Razorpay test key, card `4111 1111 1111 1111`. Say so on screen or in the
-  notes, so nobody thinks they are being asked for money.
-- **Clean out the test pollution** first: integration tests have been run against the dev database
-  and left ~35 duplicate "Whitefield to Electronic City" routes. They are deactivated, not deleted.
+- **Test payments only.** Razorpay test key, card `4111 1111 1111 1111`.
+- **Tests never touch this database.** The backend test suite runs against its own
+  `ridex_platform_test` database (`src/test/resources/application.properties`).
 
 ## A walkthrough worth watching
 

@@ -3,6 +3,7 @@ package com.ridex.shuttle;
 import com.ridex.shuttle.dto.ReturnRouteRequest;
 import java.util.HashMap;
 import java.time.LocalTime;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
@@ -558,32 +559,73 @@ public class AdminShuttleService {
     @Transactional
     public void assignDeparture(String scheduleId, LocalDate serviceDate,
             AssignDepartureRequest request) {
-        ShuttleTrip trip = shuttleTripRepository
-                .findByScheduleIdAndServiceDate(scheduleId, serviceDate)
-                .orElseThrow(() -> new NotFoundException(
-                        "That departure does not exist yet. It is created when the first seat sells."));
+        ShuttleTrip trip = shuttleService.departuresOn(serviceDate).stream()
+                .filter(candidate -> candidate.getSchedule().getId().equals(scheduleId))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("That departure does not run on that day."));
 
-        String blocked = driverEligibility.blockedReason(request.driverId());
-        if (blocked != null) {
-            throw new ConflictException(blocked);
-        }
-
-        DriverVehicle vehicle = driverVehicleRepository.findById(request.vehicleId())
-                .orElseThrow(() -> new NotFoundException("No such vehicle."));
-
-        if (!vehicle.getDriver().getId().equals(request.driverId())) {
-            throw new ValidationException("That vehicle belongs to another driver.");
-        }
-        // The seats were sold against the schedule's capacity. A smaller vehicle means somebody
-        // who paid does not get on.
-        if (vehicle.getSeatCapacity() < trip.getSeatCapacity()) {
-            throw new ValidationException("That vehicle seats %d, and %d seats are scheduled."
-                    .formatted(vehicle.getSeatCapacity(), trip.getSeatCapacity()));
-        }
-
+        DriverVehicle vehicle = checkCrew(request.driverId(), request.vehicleId(), trip.getSeatCapacity());
         trip.setDriverId(request.driverId());
         trip.setVehicleId(vehicle.getId());
         shuttleTripRepository.save(trip);
+    }
+
+    /**
+     * The driver and vehicle a departure time normally runs with, so operations is not picking the
+     * crew for the 08:00 every single day. Upcoming days that have nobody yet are filled in; a day
+     * already crewed on the Today board keeps its crew.
+     */
+    @Transactional
+    public AdminRouteResponse setRegularCrew(String routeId, String scheduleId, AssignDepartureRequest request) {
+        ShuttleSchedule schedule = requireScheduleOnRoute(routeId, scheduleId);
+        if (request == null) {
+            schedule.setDriverId(null);
+            schedule.setVehicleId(null);
+        } else {
+            DriverVehicle vehicle = checkCrew(request.driverId(), request.vehicleId(), schedule.getSeatCapacity());
+            schedule.setDriverId(request.driverId());
+            schedule.setVehicleId(vehicle.getId());
+            for (ShuttleTrip trip : shuttleTripRepository.findUpcomingUncrewed(scheduleId, Instant.now())) {
+                trip.setDriverId(request.driverId());
+                trip.setVehicleId(vehicle.getId());
+                shuttleTripRepository.save(trip);
+            }
+        }
+        shuttleScheduleRepository.save(schedule);
+        return toResponse(requireRoute(routeId));
+    }
+
+    /** An approved driver with valid papers, in their own vehicle, with a seat for everyone sold. */
+    private DriverVehicle checkCrew(String driverId, String vehicleId, int seatCapacity) {
+        String blocked = driverEligibility.blockedReason(driverId);
+        if (blocked != null) {
+            throw new ConflictException(blocked);
+        }
+        DriverVehicle vehicle = driverVehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new NotFoundException("No such vehicle."));
+        if (!vehicle.getDriver().getId().equals(driverId)) {
+            throw new ValidationException("That vehicle belongs to another driver.");
+        }
+        // Seats are sold against the schedule's capacity. A smaller vehicle means somebody who paid does not get on.
+        if (vehicle.getSeatCapacity() < seatCapacity) {
+            throw new ValidationException("That vehicle seats %d, and %d seats are scheduled."
+                    .formatted(vehicle.getSeatCapacity(), seatCapacity));
+        }
+        return vehicle;
+    }
+
+    private String crewLabel(ShuttleSchedule schedule) {
+        if (schedule.getDriverId() == null) {
+            return null;
+        }
+        var crew = shuttleCrew.of(schedule.getDriverId(), schedule.getVehicleId());
+        return crew == null ? null : crew.driverName() + " · " + crew.registrationNumber();
+    }
+
+    private ShuttleSchedule requireScheduleOnRoute(String routeId, String scheduleId) {
+        return shuttleScheduleRepository.findById(scheduleId)
+                .filter(schedule -> schedule.getRoute().getId().equals(routeId))
+                .orElseThrow(() -> new NotFoundException("That departure is not on this route."));
     }
 
     private Route requireRoute(String routeId) {
@@ -628,7 +670,10 @@ public class AdminShuttleService {
                                 schedule.getDaysOfWeek(),
                                 schedule.getSeatCapacity(),
                                 schedule.getSeatsPerRow(),
-                                schedule.isActive()))
+                                schedule.isActive(),
+                                schedule.getDriverId(),
+                                schedule.getVehicleId(),
+                                crewLabel(schedule)))
                         .toList();
 
         return new AdminRouteResponse(

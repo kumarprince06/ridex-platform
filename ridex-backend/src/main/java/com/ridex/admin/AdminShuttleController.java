@@ -82,6 +82,22 @@ public class AdminShuttleController {
         return adminShuttleService.setPassPricing(routeId, request);
     }
 
+    /** The driver and vehicle a departure time normally runs with. */
+    @PutMapping("/{routeId}/schedules/{scheduleId}/crew")
+    @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "REGULAR_CREW_SET", targetType = "ROUTE")
+    public AdminRouteResponse setRegularCrew(@PathVariable String routeId, @PathVariable String scheduleId,
+            @Valid @RequestBody AssignDepartureRequest request) {
+        return adminShuttleService.setRegularCrew(routeId, scheduleId, request);
+    }
+
+    @DeleteMapping("/{routeId}/schedules/{scheduleId}/crew")
+    @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "REGULAR_CREW_CLEARED", targetType = "ROUTE")
+    public AdminRouteResponse clearRegularCrew(@PathVariable String routeId, @PathVariable String scheduleId) {
+        return adminShuttleService.setRegularCrew(routeId, scheduleId, null);
+    }
+
     /** The same route the other way, hidden until operations switches it on. */
     @PostMapping("/{routeId}/return")
     @ResponseStatus(HttpStatus.CREATED)

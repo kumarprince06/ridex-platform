@@ -53,4 +53,9 @@ public interface ShuttleTripRepository extends JpaRepository<ShuttleTrip, String
     @Query(
             "SELECT COUNT(t) > 0 FROM ShuttleTrip t WHERE t.schedule.route.id = :routeId AND t.status = 'RUNNING'")
     boolean anyRunningOnRoute(@Param("routeId") String routeId);
+
+    /** Departures of a schedule still ahead with nobody rostered - what a regular crew fills in. */
+    @Query("SELECT t FROM ShuttleTrip t WHERE t.schedule.id = :scheduleId AND t.departsAt > :now "
+            + "AND t.status = 'SCHEDULED' AND t.driverId IS NULL")
+    List<ShuttleTrip> findUpcomingUncrewed(@Param("scheduleId") String scheduleId, @Param("now") Instant now);
 }

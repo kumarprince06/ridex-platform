@@ -457,6 +457,10 @@ export type RouteSchedule = {
   /** Seats abreast. Four is a minibus, three a 2+1 coach - it decides whether "4D" exists. */
   seatsPerRow: number;
   active: boolean;
+  /** The regular crew; null when each day is crewed on the Today board. */
+  driverId: string | null;
+  vehicleId: string | null;
+  crew: string | null;
 };
 
 export type ShuttleRoute = {
@@ -618,6 +622,18 @@ export function setPassPricing(
   },
 ) {
   return request<PassPricing>(`${SHUTTLE}/${routeId}/passes`, { method: 'PUT', body: pricing });
+}
+
+/** The driver and vehicle a departure time normally runs with; upcoming uncrewed days get them too. */
+export function setRegularCrew(routeId: string, scheduleId: string, driverId: string, vehicleId: string) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/schedules/${scheduleId}/crew`, {
+    method: 'PUT',
+    body: { driverId, vehicleId },
+  });
+}
+
+export function clearRegularCrew(routeId: string, scheduleId: string) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/schedules/${scheduleId}/crew`, { method: 'DELETE' });
 }
 
 /** The same route the other way: stops reversed, fares mirrored, a departure at each time. */

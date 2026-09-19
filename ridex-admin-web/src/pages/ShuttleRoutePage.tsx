@@ -4,6 +4,10 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   addSchedule,
   addStop,
+  clearRegularCrew,
+  driverVehicles,
+  listDrivers,
+  setRegularCrew,
   createReturnRoute,
   deleteRoute,
   getPassPricing,
@@ -442,6 +446,7 @@ function Fares({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: 
 
 function Timetable({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: Act }) {
   const [adding, setAdding] = useState(false);
+  const [crewFor, setCrewFor] = useState<RouteSchedule | null>(null);
 
   const toggle = (schedule: RouteSchedule) =>
     act(
@@ -479,6 +484,22 @@ function Timetable({ route, busy, act }: { route: ShuttleRoute; busy: boolean; a
             ),
           },
           {
+            key: 'crew',
+            header: 'Regular crew',
+            render: (row) =>
+              row.crew ? (
+                <span className="row-actions">
+                  <span>{row.crew}</span>
+                  <Button variant="ghost" disabled={busy} onClick={() => setCrewFor(row)}>Change</Button>
+                  <Button variant="ghost" disabled={busy} onClick={() => act(() => clearRegularCrew(route.id, row.id), 'Regular crew removed.')}>
+                    Clear
+                  </Button>
+                </span>
+              ) : (
+                <Button variant="ghost" disabled={busy} onClick={() => setCrewFor(row)}>Set crew</Button>
+              ),
+          },
+          {
             key: 'state',
             header: 'State',
             render: (row) => <Pill tone={row.active ? 'success' : 'muted'}>{row.active ? 'Running' : 'Paused'}</Pill>,
@@ -495,13 +516,26 @@ function Timetable({ route, busy, act }: { route: ShuttleRoute; busy: boolean; a
           },
         ]}
         rows={route.schedules}
-        empty="No departures. Crew for each day is set on the Today board."
+        empty="No departures yet."
       />
+
+      {crewFor ? (
+        <CrewDialog
+          seats={crewFor.seatCapacity}
+          title={`Regular crew for the ${crewFor.departureTime.slice(0, 5)}`}
+          onCancel={() => setCrewFor(null)}
+          onPick={(driverId, vehicleId) => {
+            const schedule = crewFor;
+            setCrewFor(null);
+            act(() => setRegularCrew(route.id, schedule.id, driverId, vehicleId), 'Regular crew set. Upcoming days without a driver now have one.');
+          }}
+        />
+      ) : null}
 
       {adding ? (
         <FormDialog
           title={`Add a departure to ${route.name}`}
-          body="Crew is assigned per day on the Today board."
+          body="Set its regular crew afterwards, or crew each day on the Today board."
           submitLabel="Add departure"
           fields={[
             { name: 'departureTime', label: 'Leaves at', type: 'time', initial: '08:30' },
@@ -656,6 +690,62 @@ function Passes({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act:
         <p className="cell-muted">Riders who already hold a pass keep the price they paid.</p>
       </Card>
     </>
+  );
+}
+
+/** Pick an approved driver, then one of their vehicles big enough for the seats sold. */
+function CrewDialog({
+  seats,
+  title,
+  onCancel,
+  onPick,
+}: {
+  seats: number;
+  title: string;
+  onCancel: () => void;
+  onPick: (driverId: string, vehicleId: string) => void;
+}) {
+  const [driverId, setDriverId] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const { data: drivers } = useQuery(() => listDrivers('APPROVED', '', 0, 100), []);
+  const { data: vehicles } = useQuery(() => (driverId ? driverVehicles(driverId) : Promise.resolve([])), [driverId]);
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="modal">
+        <h2 className="modal-title">{title}</h2>
+        <p className="modal-body">This driver and vehicle run it every day, unless a day is changed on the Today board.</p>
+        <label className="field">
+          <span className="field-label">Driver</span>
+          <select className="input" value={driverId} onChange={(event) => { setDriverId(event.target.value); setVehicleId(''); }}>
+            <option value="">Choose an approved driver</option>
+            {drivers?.items.map((driver) => (
+              <option key={driver.driverId} value={driver.driverId}>
+                {[driver.firstName, driver.lastName].filter(Boolean).join(' ') || driver.email}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Vehicle</span>
+          <select className="input" value={vehicleId} disabled={!driverId} onChange={(event) => setVehicleId(event.target.value)}>
+            <option value="">{driverId ? 'Choose one of their vehicles' : 'Pick a driver first'}</option>
+            {vehicles?.map((vehicle) => (
+              <option key={vehicle.id} value={vehicle.id} disabled={vehicle.seatCapacity < seats}>
+                {vehicle.make} {vehicle.model} · {vehicle.registrationNumber} · {vehicle.seatCapacity} seats
+                {vehicle.seatCapacity < seats ? ' (too small)' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="modal-actions">
+          <Button onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" disabled={!driverId || !vehicleId} onClick={() => onPick(driverId, vehicleId)}>
+            Set crew
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

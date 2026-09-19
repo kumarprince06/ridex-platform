@@ -30,6 +30,8 @@ public record AdminRouteResponse(
 
     public record Schedule(
             String id, LocalTime departureTime, String daysOfWeek,
-            int seatCapacity, int seatsPerRow, boolean active) {
+            int seatCapacity, int seatsPerRow, boolean active,
+            // The regular crew, null when every day is crewed by hand on the Today board.
+            String driverId, String vehicleId, String crew) {
     }
 }

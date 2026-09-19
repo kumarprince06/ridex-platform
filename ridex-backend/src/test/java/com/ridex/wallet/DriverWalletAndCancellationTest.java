@@ -51,6 +51,7 @@ import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.money.Money;
 import com.ridex.trip.TripRepository;
 import com.ridex.trip.TripService;
+import com.ridex.payment.PaymentWebhookService;
 
 // Not @Transactional: dispatch runs in REQUIRES_NEW and cannot see a ride the test never committed.
 @SpringBootTest
@@ -66,7 +67,7 @@ class DriverWalletAndCancellationTest {
 
     @Autowired private DriverWalletService walletService;
     @Autowired private LedgerService ledger;
-    @Autowired private com.ridex.payment.PaymentWebhookService webhooks;
+    @Autowired private PaymentWebhookService webhooks;
     @Autowired private TripService tripService;
     @Autowired private TripRepository tripRepository;
     @Autowired private DispatchService dispatchService;

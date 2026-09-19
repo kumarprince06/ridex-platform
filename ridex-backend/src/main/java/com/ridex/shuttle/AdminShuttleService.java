@@ -33,6 +33,13 @@ import com.ridex.vehicle.DriverVehicleRepository;
 import com.ridex.vehicle.domain.DriverVehicle;
 
 import lombok.RequiredArgsConstructor;
+import com.ridex.admin.dto.PageResponse;
+import com.ridex.shuttle.dto.AdminPassResponse;
+import com.ridex.shuttle.dto.PassPricingRequest;
+import com.ridex.shuttle.dto.PassPricingResponse;
+import com.ridex.shuttle.dto.RoutePassSummary;
+import java.util.Comparator;
+import org.springframework.data.domain.Page;
 
 /**
  * Building a shuttle route, for operations.
@@ -60,7 +67,7 @@ public class AdminShuttleService {
 
     /** The list. Counts only - the full route comes back when somebody opens one. */
     @Transactional(readOnly = true)
-    public org.springframework.data.domain.Page<AdminRouteSummary> routes(int page, int size) {
+    public Page<AdminRouteSummary> routes(int page, int size) {
         return routeRepository.summaries(
                 PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100)));
     }
@@ -159,8 +166,8 @@ public class AdminShuttleService {
     }
 
     @Transactional
-    public com.ridex.shuttle.dto.PassPricingResponse setPassPricing(String routeId,
-            com.ridex.shuttle.dto.PassPricingRequest request) {
+    public PassPricingResponse setPassPricing(String routeId,
+            PassPricingRequest request) {
         return passService.setPricing(requireRoute(routeId), request);
     }
 
@@ -394,9 +401,9 @@ public class AdminShuttleService {
      * ones matter as much: they still need a driver.
      */
     @Transactional
-    public java.util.List<AdminDepartureResponse> departures(LocalDate serviceDate) {
+    public List<AdminDepartureResponse> departures(LocalDate serviceDate) {
         return shuttleService.departuresOn(serviceDate).stream()
-                .sorted(java.util.Comparator.comparing(ShuttleTrip::getDepartsAt))
+                .sorted(Comparator.comparing(ShuttleTrip::getDepartsAt))
                 .map(this::toDeparture)
                 .toList();
     }
@@ -410,7 +417,7 @@ public class AdminShuttleService {
     private AdminDepartureResponse toDeparture(ShuttleTrip trip) {
         var stops = routeStopRepository
                 .findByRouteIdOrderBySequenceAsc(trip.getSchedule().getRoute().getId()).stream()
-                .collect(java.util.stream.Collectors.toMap(RouteStop::getId, RouteStop::getName));
+                .collect(Collectors.toMap(RouteStop::getId, RouteStop::getName));
 
         var bookings = shuttleBookingRepository.everySeatOn(trip.getId());
         var crew = shuttleCrew.of(trip.getDriverId(), trip.getVehicleId());

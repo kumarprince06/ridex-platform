@@ -1,6 +1,6 @@
 # RideX — API Contract
 
-Every endpoint the backend serves: **155** across 29 controllers.
+Every endpoint the backend serves: **161** across 31 controllers.
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java api > docs/10-API-Contract.md
 ```
 
-Generated on 2026-09-19 from `340daec`.
+Generated on 2026-09-20 from `7a648fc`.
 
 ## Conventions
 
@@ -46,6 +46,13 @@ Generated on 2026-09-19 from `340daec`.
 | GET | `/api/v1/admin/legal` | OPS_ADMIN, SUPER_ADMIN | Every document with its current text, for the console editor |
 | PUT | `/api/v1/admin/legal/{slug}` | OPS_ADMIN, SUPER_ADMIN | Replaces a document's title and text; live on the next open in the apps |
 
+## AdminPass
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/api/v1/admin/shuttle/passes/overview` | OPS_ADMIN, SUPER_ADMIN | Overview |
+| GET | `/api/v1/admin/shuttle/passes` | OPS_ADMIN, SUPER_ADMIN | Sold |
+
 ## AdminPayout
 
 | Method | Path | Who | What |
@@ -55,6 +62,13 @@ Generated on 2026-09-19 from `340daec`.
 | POST | `/api/v1/admin/payouts/{payoutId}/send` | FINANCE, SUPER_ADMIN | Send |
 | POST | `/api/v1/admin/payouts/{payoutId}/settle` | FINANCE, SUPER_ADMIN | Settle |
 | POST | `/api/v1/admin/payouts/{payoutId}/fail` | FINANCE, SUPER_ADMIN | Fail |
+
+## AdminPricing
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/api/v1/admin/ride-fares` | OPS_ADMIN, SUPER_ADMIN | All |
+| PUT | `/api/v1/admin/ride-fares/{rideTypeId}` | OPS_ADMIN, SUPER_ADMIN | Change |
 
 ## AdminQuery
 
@@ -89,6 +103,8 @@ Generated on 2026-09-19 from `340daec`.
 | GET | `/api/v1/admin/shuttle/routes/{routeId}` | OPS_ADMIN, SUPER_ADMIN | Route |
 | POST | `/api/v1/admin/shuttle/routes` | OPS_ADMIN, SUPER_ADMIN | Create |
 | PUT | `/api/v1/admin/shuttle/routes/{routeId}` | OPS_ADMIN, SUPER_ADMIN | Update |
+| GET | `/api/v1/admin/shuttle/routes/{routeId}/passes` | OPS_ADMIN, SUPER_ADMIN | Pass pricing |
+| PUT | `/api/v1/admin/shuttle/routes/{routeId}/passes` | OPS_ADMIN, SUPER_ADMIN | Set pass pricing |
 | DELETE | `/api/v1/admin/shuttle/routes/{routeId}` | OPS_ADMIN, SUPER_ADMIN | Delete route |
 | POST | `/api/v1/admin/shuttle/routes/{routeId}/stops` | OPS_ADMIN, SUPER_ADMIN | Appends, or inserts straight after the stop at position {@code after} (0 for the front) |
 | PUT | `/api/v1/admin/shuttle/routes/{routeId}/stops/{stopId}` | OPS_ADMIN, SUPER_ADMIN | Update stop |

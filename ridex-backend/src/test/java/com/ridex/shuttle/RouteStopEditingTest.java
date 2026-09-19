@@ -30,6 +30,7 @@ import com.ridex.shuttle.dto.FareMatrixRequest;
 import com.ridex.shuttle.dto.RouteRequest;
 import com.ridex.shuttle.dto.ScheduleRequest;
 import com.ridex.shuttle.dto.StopRequest;
+import com.ridex.shared.exception.NotFoundException;
 
 @SpringBootTest
 class RouteStopEditingTest {
@@ -102,7 +103,7 @@ class RouteStopEditingTest {
                 new FareMatrixRequest.Leg(built.stops().get(0).id(), built.stops().get(1).id(), 2000))));
         admin.addSchedule(empty.id(), new ScheduleRequest(LocalTime.of(10, 0), "1,2,3,4,5", 12, 3, true));
         admin.deleteRoute(empty.id());
-        assertThatThrownBy(() -> admin.route(empty.id())).isInstanceOf(com.ridex.shared.exception.NotFoundException.class);
+        assertThatThrownBy(() -> admin.route(empty.id())).isInstanceOf(NotFoundException.class);
 
         book(id("A"), id("B"));
         assertThatThrownBy(() -> admin.deleteRoute(route.id())).isInstanceOf(ConflictException.class);

@@ -22,6 +22,8 @@ import com.ridex.shuttle.dto.StopRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.ridex.shuttle.dto.PassPricingRequest;
+import com.ridex.shuttle.dto.PassPricingResponse;
 
 /**
  * Shuttle routes, for operations.
@@ -67,15 +69,15 @@ public class AdminShuttleController {
 
     @GetMapping("/{routeId}/passes")
     @ResponseStatus(HttpStatus.OK)
-    public com.ridex.shuttle.dto.PassPricingResponse passPricing(@PathVariable String routeId) {
+    public PassPricingResponse passPricing(@PathVariable String routeId) {
         return adminShuttleService.passPricing(routeId);
     }
 
     @PutMapping("/{routeId}/passes")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "PASS_PRICING_CHANGED", targetType = "ROUTE")
-    public com.ridex.shuttle.dto.PassPricingResponse setPassPricing(@PathVariable String routeId,
-            @Valid @RequestBody com.ridex.shuttle.dto.PassPricingRequest request) {
+    public PassPricingResponse setPassPricing(@PathVariable String routeId,
+            @Valid @RequestBody PassPricingRequest request) {
         return adminShuttleService.setPassPricing(routeId, request);
     }
 

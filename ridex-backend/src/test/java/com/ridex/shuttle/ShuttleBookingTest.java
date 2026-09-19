@@ -34,6 +34,12 @@ import com.ridex.shared.exception.ValidationException;
 import com.ridex.shuttle.domain.*;
 import com.ridex.payment.domain.PaymentMethod;
 import com.ridex.shuttle.dto.BookSeatRequest;
+import com.ridex.payment.PaymentRepository;
+import com.ridex.payment.PaymentWebhookService;
+import com.ridex.points.PointsService;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 
 /** Seat inventory, and the race that decides who actually gets 4A. */
 @SpringBootTest
@@ -49,7 +55,7 @@ class ShuttleBookingTest {
 
     @Autowired private ShuttleService shuttleService;
     @Autowired private PassService passService;
-    @Autowired private com.ridex.points.PointsService pointsService;
+    @Autowired private PointsService pointsService;
     @Autowired private RouteRepository routeRepository;
     @Autowired private RouteFareRepository routeFareRepository;
     @Autowired private ShuttleScheduleRepository scheduleRepository;
@@ -57,8 +63,8 @@ class ShuttleBookingTest {
     @Autowired private RiderProfileService riderProfileService;
     @Autowired private UserRepository userRepository;
     @Autowired private ShuttleBookingRepository bookingRepository;
-    @Autowired private com.ridex.payment.PaymentRepository paymentRepository;
-    @Autowired private com.ridex.payment.PaymentWebhookService webhooks;
+    @Autowired private PaymentRepository paymentRepository;
+    @Autowired private PaymentWebhookService webhooks;
 
     private Route route;
     private ShuttleSchedule schedule;
@@ -126,7 +132,7 @@ class ShuttleBookingTest {
 
         AtomicInteger booked = new AtomicInteger();
         AtomicInteger refused = new AtomicInteger();
-        List<Throwable> unexpected = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        List<Throwable> unexpected = Collections.synchronizedList(new ArrayList<>());
         CountDownLatch startTogether = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(2);
 
@@ -253,7 +259,7 @@ class ShuttleBookingTest {
         var booking = shuttleService.book(rider, request("3B"));
         String order = paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getProviderPaymentId();
         var held = bookingRepository.findById(booking.id()).orElseThrow();
-        held.setHoldExpiresAt(java.time.Instant.now().minusSeconds(1));
+        held.setHoldExpiresAt(Instant.now().minusSeconds(1));
         bookingRepository.save(held);
         shuttleService.releaseExpiredHolds();
 

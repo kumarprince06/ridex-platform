@@ -1,5 +1,7 @@
 package com.ridex.admin.dto;
 
+import java.util.Map;
+
 /** The counts the dashboard leads with. Deliberately small: every number here is a query. */
 public record DashboardResponse(
         long ridersTotal,
@@ -13,7 +15,7 @@ public record DashboardResponse(
         long grossFaresTodayMinor,
         // Every status with at least one ride, so the console shows the real spread rather than a
         // fixed list of states that may not exist yet.
-        java.util.Map<String, Long> ridesByStatus,
+        Map<String, Long> ridesByStatus,
         // What the platform kept today: commission on completed trips.
         long platformFeeTodayMinor,
         long openSupportCases,

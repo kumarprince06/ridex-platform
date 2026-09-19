@@ -31,6 +31,14 @@ import com.ridex.shuttle.domain.*;
 import com.ridex.shuttle.dto.*;
 
 import lombok.RequiredArgsConstructor;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Currency;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Shuttle booking: a chosen seat on a scheduled departure.
@@ -59,21 +67,21 @@ public class ShuttleService {
     private final ShuttleStopEventRepository stopEventRepository;
 
     /** How long a picked seat is held while the rider pays for it. */
-    private static final java.time.Duration HOLD = java.time.Duration.ofMinutes(10);
+    private static final Duration HOLD = Duration.ofMinutes(10);
 
     /**
      * Cancellation closes half an hour before the shuttle leaves, and what comes back is 80% of
      * the fare as points. The seat cannot be resold at that point - the vehicle is already on its
      * way to the first stop - so the fifth is what the empty seat costs the operator.
      */
-    private static final java.time.Duration CANCEL_CUTOFF = java.time.Duration.ofMinutes(30);
-    private static final java.math.BigDecimal REFUND_RATE = new java.math.BigDecimal("0.80");
+    private static final Duration CANCEL_CUTOFF = Duration.ofMinutes(30);
+    private static final BigDecimal REFUND_RATE = new BigDecimal("0.80");
 
     /**
      * The zone the timetable is written in. A departure time is a wall clock at a bus stop, so
      * reading 08:15 as UTC put every Kolkata departure on the app at 13:45.
      */
-    @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
+    @Value("${app.reporting.zone:Asia/Kolkata}")
     private String serviceZone;
 
     /**
@@ -278,7 +286,7 @@ public class ShuttleService {
         ShuttlePaymentService.ShuttleCheckout checkout = null;
         if (fare > 0) {
             var method = request.methodOrDefault();
-            java.util.Currency currency = java.util.Currency.getInstance(booking.getCurrency());
+            Currency currency = Currency.getInstance(booking.getCurrency());
             // Gross and discount both go on the payment, not just the net: "why was I charged
             // this" is answered by the two numbers, and the admin payments table shows both.
             Money gross = Money.of(booking.getFareMinor(), currency);
@@ -337,7 +345,7 @@ public class ShuttleService {
             String driverId = booking.getShuttleTrip().getDriverId();
             if (forfeited > 0 && driverId != null) {
                 cancellationSettlement.shareWithDriver(driverId,
-                        Money.of(forfeited, java.util.Currency.getInstance(booking.getCurrency())),
+                        Money.of(forfeited, Currency.getInstance(booking.getCurrency())),
                         "SHUTTLE_BOOKING", booking.getId());
             }
         } else {
@@ -486,9 +494,9 @@ public class ShuttleService {
         }
         // On what was actually charged: points already spent are not money, and crediting the
         // published fare would mint value out of a discount.
-        return java.math.BigDecimal.valueOf(booking.getFareMinor() - booking.getDiscountMinor())
+        return BigDecimal.valueOf(booking.getFareMinor() - booking.getDiscountMinor())
                 .multiply(REFUND_RATE)
-                .setScale(0, java.math.RoundingMode.DOWN)
+                .setScale(0, RoundingMode.DOWN)
                 .longValue();
     }
 
@@ -502,8 +510,8 @@ public class ShuttleService {
     private void emailInvoice(ShuttleBooking booking, ShuttleTrip trip, RouteStop boarding,
             RouteStop alighting, RiderProfile rider) {
         String currency = booking.getCurrency();
-        java.time.ZonedDateTime departs =
-                trip.getDepartsAt().atZone(java.time.ZoneId.of(serviceZone));
+        ZonedDateTime departs =
+                trip.getDepartsAt().atZone(ZoneId.of(serviceZone));
 
         var payment = shuttlePayments.shuttlePaymentSummary(booking.getId());
         boolean paid = "PAID".equals(booking.getPaymentStatus());
@@ -520,7 +528,7 @@ public class ShuttleService {
                 .append("Get on at|").append(boarding.getName()).append('\n')
                 .append("Get off at|").append(alighting.getName()).append('\n')
                 .append("Departs|").append(departs.format(
-                        java.time.format.DateTimeFormatter.ofPattern("EEE d MMM, HH:mm"))).append('\n');
+                        DateTimeFormatter.ofPattern("EEE d MMM, HH:mm"))).append('\n');
 
         CrewResponse crew = shuttleCrew.of(trip.getDriverId(), trip.getVehicleId());
         if (crew != null) {
@@ -558,7 +566,7 @@ public class ShuttleService {
     /** Minor units to a display string. The currency is on the booking, never assumed. */
     private static String money(long amountMinor, String currency) {
         return "%s %s".formatted(currency,
-                java.math.BigDecimal.valueOf(amountMinor, 2).toPlainString());
+                BigDecimal.valueOf(amountMinor, 2).toPlainString());
     }
 
     /** Materialised on first use, so an unbooked route does not fill the table with empty days. */
@@ -597,7 +605,7 @@ public class ShuttleService {
                 schedule.getId(),
                 serviceDate,
                 serviceDate.atTime(schedule.getDepartureTime())
-                        .atZone(java.time.ZoneId.of(serviceZone)).toInstant(),
+                        .atZone(ZoneId.of(serviceZone)).toInstant(),
                 schedule.getSeatCapacity(),
                 schedule.getSeatsPerRow(),
                 // The timetable's regular crew, frozen onto this departure. A per-date swap is

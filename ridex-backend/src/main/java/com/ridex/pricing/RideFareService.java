@@ -13,6 +13,7 @@ import com.ridex.pricing.dto.RideTypeFareResponse;
 import com.ridex.shared.exception.NotFoundException;
 
 import lombok.RequiredArgsConstructor;
+import java.util.Comparator;
 
 /**
  * Cab fares as operations changes them. A change never edits the rule in force: it closes it and
@@ -29,7 +30,7 @@ public class RideFareService {
     public List<RideTypeFareResponse> all() {
         Instant now = Instant.now();
         return rideTypeRepository.findAll().stream()
-                .sorted(java.util.Comparator.comparingInt(RideType::getSortOrder))
+                .sorted(Comparator.comparingInt(RideType::getSortOrder))
                 .map(type -> toResponse(type, pricingRuleRepository.findInForce(type.getId(), now).orElse(null)))
                 .toList();
     }

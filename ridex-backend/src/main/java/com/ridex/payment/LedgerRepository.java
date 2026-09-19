@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.ridex.payment.domain.LedgerAccountType;
 import com.ridex.payment.domain.LedgerEntry;
+import java.time.Instant;
 
 public interface LedgerRepository extends JpaRepository<LedgerEntry, String> {
 
@@ -21,5 +22,5 @@ public interface LedgerRepository extends JpaRepository<LedgerEntry, String> {
     @Query("SELECT COALESCE(SUM(e.amountMinor), 0) FROM LedgerEntry e WHERE e.accountType = :type "
             + "AND e.entryType = :entryType AND e.direction = 'CREDIT' AND e.createdAt >= :since")
     long creditsSince(@Param("type") LedgerAccountType type, @Param("entryType") String entryType,
-            @Param("since") java.time.Instant since);
+            @Param("since") Instant since);
 }

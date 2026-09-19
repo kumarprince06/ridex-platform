@@ -32,6 +32,12 @@ import com.ridex.shuttle.domain.RouteFare;
 import com.ridex.shuttle.domain.RouteStop;
 import com.ridex.shuttle.domain.ShuttleSchedule;
 import com.ridex.shuttle.dto.BookSeatRequest;
+import com.ridex.payment.LedgerService;
+import com.ridex.payment.domain.LedgerAccountType;
+import com.ridex.shuttle.dto.ShuttleBookingResponse;
+import java.util.Currency;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * The driver's half of a shuttle seat: the manifest, and the code at the door.
@@ -54,7 +60,7 @@ class DriverBoardingTest {
     @Autowired private UserRepository userRepository;
     @Autowired private AdminShuttleService adminShuttleService;
     @MockitoBean private PaymentProviders paymentProviders;
-    @Autowired private com.ridex.payment.LedgerService ledger;
+    @Autowired private LedgerService ledger;
 
     private ShuttleSchedule schedule;
     private RouteStop first;
@@ -132,13 +138,13 @@ class DriverBoardingTest {
         var booking = bookPaidSeat("1A");
         rosterDriverOntoTheDeparture();
         String driverId = driverProfileRepository.findByUserId(driverUserId).orElseThrow().getId();
-        java.util.Currency inr = java.util.Currency.getInstance("INR");
-        long before = ledger.balanceOf(com.ridex.payment.domain.LedgerAccountType.DRIVER, driverId, inr).amountMinor();
+        Currency inr = Currency.getInstance("INR");
+        long before = ledger.balanceOf(LedgerAccountType.DRIVER, driverId, inr).amountMinor();
 
         shuttleService.cancel(riderOf(booking), booking.id());
 
         // Rs 60 paid, Rs 48 back to the rider as points, Rs 12 forfeited - 80% of that to the driver.
-        long after = ledger.balanceOf(com.ridex.payment.domain.LedgerAccountType.DRIVER, driverId, inr).amountMinor();
+        long after = ledger.balanceOf(LedgerAccountType.DRIVER, driverId, inr).amountMinor();
         assertThat(after - before).isEqualTo(960);
     }
 
@@ -213,11 +219,11 @@ class DriverBoardingTest {
         shuttleTripRepository.save(trip);
     }
 
-    private com.ridex.shuttle.dto.ShuttleBookingResponse bookPaidSeat(String seat) {
+    private ShuttleBookingResponse bookPaidSeat(String seat) {
         return bookSeat(seat, true);
     }
 
-    private com.ridex.shuttle.dto.ShuttleBookingResponse bookSeat(String seat, boolean pay) {
+    private ShuttleBookingResponse bookSeat(String seat, boolean pay) {
         User user = newUser(UserRole.RIDER);
         riderProfileService.createFor(user);
         // The fresh response, because only it carries the raw boarding code - the stored row keeps
@@ -233,9 +239,9 @@ class DriverBoardingTest {
     }
 
     /** Who booked which seat, so a test can cancel one as its own rider. */
-    private final java.util.Map<String, String> riderOfBooking = new java.util.HashMap<>();
+    private final Map<String, String> riderOfBooking = new HashMap<>();
 
-    private String riderOf(com.ridex.shuttle.dto.ShuttleBookingResponse booking) {
+    private String riderOf(ShuttleBookingResponse booking) {
         return riderOfBooking.get(booking.id());
     }
 

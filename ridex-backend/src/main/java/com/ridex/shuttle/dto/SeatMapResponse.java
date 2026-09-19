@@ -2,6 +2,7 @@ package com.ridex.shuttle.dto;
 
 import java.time.Instant;
 import java.util.List;
+import java.time.LocalDate;
 
 /** The seat picker: every seat on the departure, and which are gone. */
 public record SeatMapResponse(
@@ -29,7 +30,7 @@ public record SeatMapResponse(
         Long fareMinor,
         String currency,
         // Set when the rider asking holds a pass valid on this route that day: the seat costs nothing.
-        java.time.LocalDate coveredByPassUntil) {
+        LocalDate coveredByPassUntil) {
 
     public record SeatResponse(String label, boolean available) {
     }

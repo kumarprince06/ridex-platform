@@ -45,6 +45,8 @@ import com.ridex.trip.TripRepository;
 import com.ridex.trip.domain.Trip;
 
 import lombok.RequiredArgsConstructor;
+import java.time.format.DateTimeFormatter;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 @RequiredArgsConstructor
@@ -67,7 +69,7 @@ public class RideRequestService {
     private final CancellationSettlement cancellationSettlement;
 
     /** The zone a cancellation date is written in, for the line the rider reads on their next fare. */
-    @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
+    @Value("${app.reporting.zone:Asia/Kolkata}")
     private String serviceZone;
 
     /** Turns a quote the rider chose into a request. The price comes from the quote, never the body. */
@@ -205,7 +207,7 @@ public class RideRequestService {
         if (fee.amountMinor() > 0) {
             paymentService.recordDue(ride.getRider().getId(), fee,
                     "Cancellation fee for a ride on "
-                            + java.time.format.DateTimeFormatter.ofPattern("d MMM")
+                            + DateTimeFormatter.ofPattern("d MMM")
                                     .withZone(ZoneId.of(serviceZone)).format(now),
                     "RIDE_CANCELLATION", ride.getId());
             // The driver drove to a rider who then cancelled late: most of the fee is theirs.

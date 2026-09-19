@@ -13,6 +13,7 @@ import com.ridex.payment.domain.PaymentStatus;
 import com.ridex.ride.domain.RideStatus;
 
 import lombok.RequiredArgsConstructor;
+import com.ridex.admin.dto.StaffResponse;
 
 /**
  * Read-only operations views.
@@ -121,7 +122,7 @@ public class AdminQueryController {
     @GetMapping("/staff")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.OK)
-    public List<com.ridex.admin.dto.StaffResponse> staff() {
+    public List<StaffResponse> staff() {
         return people.staff();
     }
 

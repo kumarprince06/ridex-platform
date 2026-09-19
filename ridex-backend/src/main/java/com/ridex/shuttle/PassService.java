@@ -25,6 +25,14 @@ import com.ridex.shuttle.dto.PassProductResponse;
 import com.ridex.shuttle.dto.PassResponse;
 
 import lombok.RequiredArgsConstructor;
+import com.ridex.admin.dto.PageResponse;
+import com.ridex.points.PointsService;
+import com.ridex.shuttle.dto.AdminPassResponse;
+import com.ridex.shuttle.dto.RoutePassSummary;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.data.domain.PageRequest;
 
 /**
  * Commuter passes.
@@ -39,8 +47,8 @@ public class PassService {
     private final PassRepository passRepository;
     private final PassProductRepository passProductRepository;
     private final RiderProfileRepository riderProfileRepository;
-    private final com.ridex.payment.ShuttlePaymentService shuttlePayments;
-    private final com.ridex.points.PointsService pointsService;
+    private final ShuttlePaymentService shuttlePayments;
+    private final PointsService pointsService;
 
     /** What a rider can buy on a route, shortest first, each priced against the monthly pass. */
     @Transactional(readOnly = true)
@@ -62,14 +70,6 @@ public class PassService {
                 .toList();
     }
 
-    /** A route's four plans as operations sees them, with how many riders hold each. */
-    @Transactional(readOnly = true)
-    public PassPricingResponse pricing(String routeId) {
-        List<PassProduct> products = passProductRepository.findByRouteId(routeId);
-        PassProduct monthly = planOf(products, PassPlan.MONTHLY);
-        LocalDate today = LocalDate.now();
-        List<PassPricingResponse.Plan> plans = java.util.Arrays.stream(PassPlan.values())
-                .map(plan -> {
     /** Every route with where its passes stand, for the Shuttle → Passes overview. */
     @Transactional(readOnly = true)
     public List<RoutePassSummary> overview(List<Route> routes) {
@@ -101,6 +101,14 @@ public class PassService {
         });
     }
 
+    /** A route's four plans as operations sees them, with how many riders hold each. */
+    @Transactional(readOnly = true)
+    public PassPricingResponse pricing(String routeId) {
+        List<PassProduct> products = passProductRepository.findByRouteId(routeId);
+        PassProduct monthly = planOf(products, PassPlan.MONTHLY);
+        LocalDate today = LocalDate.now();
+        List<PassPricingResponse.Plan> plans = Arrays.stream(PassPlan.values())
+                .map(plan -> {
                     PassProduct product = planOf(products, plan);
                     return new PassPricingResponse.Plan(plan.name(), plan.label(), plan.months(), plan.days(),
                             product == null ? null : product.getPriceMinor(),
@@ -120,7 +128,7 @@ public class PassService {
     @Transactional
     public PassPricingResponse setPricing(Route route, PassPricingRequest request) {
         List<PassProduct> products = passProductRepository.findByRouteId(route.getId());
-        java.util.Map<PassPlan, Integer> discounts = java.util.Map.of(
+        Map<PassPlan, Integer> discounts = Map.of(
                 PassPlan.MONTHLY, 0,
                 PassPlan.QUARTERLY, request.quarterlyDiscountPercent(),
                 PassPlan.HALF_YEARLY, request.halfYearlyDiscountPercent(),

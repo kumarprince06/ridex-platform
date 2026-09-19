@@ -57,7 +57,7 @@ export function DocumentsScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Documents">
+    <Screen onRefresh={() => refetch()} onBack={() => navigation.goBack()} title="Documents">
       <ScreenTitle
         title="Your documents"
         subtitle="Keep these current. An expired document stops offers the moment it lapses."

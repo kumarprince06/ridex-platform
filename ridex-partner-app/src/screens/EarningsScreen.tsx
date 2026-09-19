@@ -23,9 +23,9 @@ const DAY_MS = 86_400_000;
 
 export function EarningsScreen({ navigation }: Props) {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>(PERIODS[0]);
-  const { data, loading, error } = useQuery(getEarnings, []);
+  const { data, loading, error, refetch: refetchEarnings } = useQuery(getEarnings, []);
   // Earnings lines carry only a trip id; the trip list says where it went.
-  const { data: trips } = useQuery(listTrips, []);
+  const { data: trips, refetch: refetchTrips } = useQuery(listTrips, []);
 
   // Windowed in the app, not the API: the endpoint returns the last fifty lines, which covers
   // every window this screen offers. A per-period query would be three round trips for one answer.
@@ -39,7 +39,7 @@ export function EarningsScreen({ navigation }: Props) {
   const ledger = balance(data?.ledgerBalanceMinor ?? 0, currency);
 
   return (
-    <Screen title="Earnings">
+    <Screen onRefresh={() => Promise.all([refetchEarnings(), refetchTrips()])} title="Earnings">
       <View style={styles.periods}>
         {PERIODS.map((option) => (
           <Chip

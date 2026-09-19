@@ -27,7 +27,7 @@ const ICONS: Record<string, { icon: IconName; tone: string }> = {
 const FALLBACK = { icon: 'notifications' as IconName, tone: '#8B95AC' };
 
 export function NotificationsScreen({ navigation }: Props) {
-  const { data, loading, error } = useQuery(listNotifications);
+  const { data, loading, error, refetch } = useQuery(listNotifications);
   // Held locally so the dots clear as soon as the screen is read, without a second fetch.
   const [read, setRead] = useState(false);
 
@@ -38,7 +38,7 @@ export function NotificationsScreen({ navigation }: Props) {
   }, [data]);
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Notifications">
+    <Screen onRefresh={() => refetch()} onBack={() => navigation.goBack()} title="Notifications">
       {loading ? <Text style={styles.muted}>Loading...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {data?.length === 0 ? (

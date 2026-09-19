@@ -25,7 +25,7 @@ const CODE_LENGTH = 6;
  */
 export function ShuttleDepartureScreen({ navigation, route }: Props) {
   const { shuttleTripId } = route.params;
-  const { data, loading, error } = useQuery(() => departureManifest(shuttleTripId), [shuttleTripId]);
+  const { data, loading, error, refetch } = useQuery(() => departureManifest(shuttleTripId), [shuttleTripId]);
 
   // The manifest after a check-in. The board call returns the refreshed one, so the counts move
   // without a second round trip.
@@ -35,7 +35,7 @@ export function ShuttleDepartureScreen({ navigation, route }: Props) {
   const manifest = boarded ?? data;
 
   return (
-    <Screen
+    <Screen onRefresh={() => refetch()}
       title="Departure"
       onBack={() => (checkingIn ? setCheckingIn(null) : navigation.goBack())}
     >

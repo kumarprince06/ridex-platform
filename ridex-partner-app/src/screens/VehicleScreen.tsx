@@ -42,7 +42,7 @@ export function VehicleScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen
+    <Screen onRefresh={() => refetch()}
       onBack={() => navigation.goBack()}
       title="Vehicle"
       footer={

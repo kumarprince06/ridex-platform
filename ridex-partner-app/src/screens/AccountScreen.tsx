@@ -17,10 +17,10 @@ import { colors, radius, spacing, type } from '../theme';
 type Props = TabScreenProps<'Account'>;
 
 export function AccountScreen({ navigation }: Props) {
-  const { data: profile } = useQuery(getProfile);
-  const { data: vehicles } = useQuery(listVehicles);
-  const { data: documents } = useQuery(listDocuments);
-  const { data: payoutAccount } = useQuery(getPayoutAccount);
+  const { data: profile, refetch: refetchProfile } = useQuery(getProfile);
+  const { data: vehicles, refetch: refetchVehicles } = useQuery(listVehicles);
+  const { data: documents, refetch: refetchDocuments } = useQuery(listDocuments);
+  const { data: payoutAccount, refetch: refetchPayoutAccount } = useQuery(getPayoutAccount);
   const { signOut } = useSession();
   const expiring = expiringSoon(documents ?? []);
   // The car they are approved to drive today, not whichever was added first.
@@ -29,7 +29,7 @@ export function AccountScreen({ navigation }: Props) {
   const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || profile?.email?.split('@')[0] || 'Your account';
 
   return (
-    <Screen title="Account">
+    <Screen onRefresh={() => Promise.all([refetchProfile(), refetchVehicles(), refetchDocuments(), refetchPayoutAccount()])} title="Account">
       <View style={styles.header}>
         <Avatar name={name} size={64} brand />
         <View style={styles.headerText}>

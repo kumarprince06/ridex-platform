@@ -21,10 +21,10 @@ const CHANNELS: { icon: IconName; tone: string; title: string; detail: string; u
 
 export function HelpSupportScreen({ navigation }: Props) {
   const [openFaq, setOpenFaq] = useState<string | null>(null);
-  const { data: tickets } = useQuery(myTickets);
+  const { data: tickets, refetch: refetchTickets } = useQuery(myTickets);
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Help & Support">
+    <Screen onRefresh={() => refetchTickets()} onBack={() => navigation.goBack()} title="Help & Support">
       <View style={styles.grid}>
         {CHANNELS.map((channel) => (
           <Pressable

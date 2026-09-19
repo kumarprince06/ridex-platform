@@ -26,7 +26,7 @@ export function PayoutsScreen({ navigation }: Props) {
   const { data: wallet, refetch: refetchWallet } = useQuery(getWallet, []);
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Payouts">
+    <Screen onRefresh={() => Promise.all([refetchPayouts(), refetchEarnings(), refetchWallet()])} onBack={() => navigation.goBack()} title="Payouts">
       <View style={styles.balance}>
         <Text style={styles.balanceLabel}>
           {earnings && earnings.ledgerBalanceMinor < 0 ? 'YOU OWE RIDEX' : 'CURRENT BALANCE'}

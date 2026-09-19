@@ -16,7 +16,7 @@ const FILTERS = ['All', 'Completed', 'Cancelled'] as const;
 
 export function TripsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
-  const { data, loading, error } = useQuery(listTrips);
+  const { data, loading, error, refetch } = useQuery(listTrips);
 
   const trips = (data ?? []).filter((trip) =>
     filter === 'All'
@@ -27,7 +27,7 @@ export function TripsScreen({ navigation }: Props) {
   );
 
   return (
-    <Screen title="Trips">
+    <Screen onRefresh={() => refetch()} title="Trips">
       <View style={styles.filters}>
         {FILTERS.map((option) => (
           <Chip

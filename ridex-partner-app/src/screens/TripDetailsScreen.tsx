@@ -21,14 +21,14 @@ type Props = RootScreenProps<'TripDetails'>;
  */
 export function TripDetailsScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
-  const { data: trip, loading, error } = useQuery(() => getTrip(tripId), [tripId]);
-  const { data: earnings } = useQuery(getEarnings);
+  const { data: trip, loading, error, refetch: refetchTrip } = useQuery(() => getTrip(tripId), [tripId]);
+  const { data: earnings, refetch: refetchEarnings } = useQuery(getEarnings);
 
   const line = earnings?.recent.find((entry) => entry.tripId === tripId);
   const currency = trip?.currency ?? earnings?.currency ?? 'INR';
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Trip">
+    <Screen onRefresh={() => Promise.all([refetchTrip(), refetchEarnings()])} onBack={() => navigation.goBack()} title="Trip">
       {loading ? <Text style={styles.muted}>Loading...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

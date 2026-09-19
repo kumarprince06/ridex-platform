@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing, type } from '../theme';
+import { BrandRefresh } from './BrandRefresh';
 
 type Props = {
   children: ReactNode;
@@ -24,9 +26,18 @@ type Props = {
   /** Pinned to the bottom, outside the scroll area, as the mockups show. */
   footer?: ReactNode;
   scroll?: boolean;
+  /** Enables pull-to-refresh; the spinner shows until the returned promise settles. */
+  onRefresh?: () => Promise<unknown> | void;
 };
 
-export function Screen({ children, onBack, title, headerRight, footer, scroll = true }: Props) {
+export function Screen({ children, onBack, title, headerRight, footer, scroll = true, onRefresh }: Props) {
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = onRefresh
+    ? () => {
+        setRefreshing(true);
+        void Promise.resolve(onRefresh()).finally(() => setRefreshing(false));
+      }
+    : undefined;
   const body = <View style={styles.body}>{children}</View>;
 
   return (
@@ -59,14 +70,30 @@ export function Screen({ children, onBack, title, headerRight, footer, scroll = 
         ) : null}
 
         {scroll ? (
-          <ScrollView
-            style={styles.flex}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {body}
-          </ScrollView>
+          <View style={styles.flex}>
+            <ScrollView
+              style={styles.flex}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                refresh ? (
+                  // The platform's gesture, with its spinner hidden: BrandRefresh shows instead.
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={refresh}
+                    tintColor="transparent"
+                    colors={['transparent']}
+                    progressBackgroundColor="transparent"
+                    progressViewOffset={-200}
+                  />
+                ) : undefined
+              }
+            >
+              {body}
+            </ScrollView>
+            {refresh ? <BrandRefresh visible={refreshing} /> : null}
+          </View>
         ) : (
           body
         )}

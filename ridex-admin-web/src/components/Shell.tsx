@@ -107,6 +107,7 @@ export function Shell() {
             <NavLink
               key={section.label}
               to={section.tabs[0].to}
+              end
               className={section === current ? 'nav-link active' : 'nav-link'}
             >
               <NavIcon name={section.icon} />
@@ -154,6 +155,7 @@ export function Shell() {
                 <NavLink
                   key={tab.to}
                   to={tab.to}
+                  end
                   className={tab === currentTab ? 'section-tab active' : 'section-tab'}
                 >
                   {tab.label}

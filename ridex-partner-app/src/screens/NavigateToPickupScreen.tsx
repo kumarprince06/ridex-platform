@@ -60,7 +60,11 @@ export function NavigateToPickupScreen({ navigation, route }: Props) {
         <View style={styles.grabber} />
 
         <Text style={styles.label}>PICKING UP</Text>
-        <RiderBar name={trip?.riderName ?? 'Your rider'} note={pickup} />
+        <RiderBar
+          name={trip?.riderName ?? 'Your rider'}
+          phone={trip?.riderPhone}
+          note={trip ? `${trip.paymentMethod === 'CASH' ? 'Cash' : 'Paid online'} · ${money(trip.quotedFareMinor, trip.currency)}` : ''}
+        />
 
         <View style={styles.addressCard}>
           <Ionicons name="location" size={17} color={colors.primary} />

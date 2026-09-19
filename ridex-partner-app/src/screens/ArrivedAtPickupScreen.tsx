@@ -90,7 +90,7 @@ export function ArrivedAtPickupScreen({ navigation, route }: Props) {
           <Text style={styles.waitNote}>Waiting at pickup</Text>
         </View>
 
-        <RiderBar name={trip?.riderName ?? 'Your rider'} note="Meeting you outside" />
+        <RiderBar name={trip?.riderName ?? 'Your rider'} phone={trip?.riderPhone} note="Meeting you outside" />
 
         {scannedCode ? (
           <View style={styles.verified}>

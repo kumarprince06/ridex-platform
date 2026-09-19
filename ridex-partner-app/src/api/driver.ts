@@ -40,6 +40,7 @@ export type Trip = {
   status: string;
   /** Who is in the car and where they are going. The offer is gone by the time these screens open. */
   riderName: string;
+  riderPhone: string | null;
   pickupAddress: string | null;
   destinationAddress: string | null;
   arrivedAt: string | null;

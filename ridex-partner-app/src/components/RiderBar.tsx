@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing, type } from '../theme';
 import { Avatar } from './Avatar';
@@ -9,13 +9,15 @@ type Props = {
   /** Null until the rider has been rated. Better blank than a number nobody earned. */
   rating?: number | null;
   note: string;
+  /** Null when the rider has no number on file - the buttons dim rather than dial nothing. */
+  phone?: string | null;
 };
 
 /**
  * Rider identity plus the two ways to reach them, on every screen from accept to drop-off.
  * Call and message are 48pt targets because they get used at the kerb, one-handed.
  */
-export function RiderBar({ name, rating, note }: Props) {
+export function RiderBar({ name, rating, note, phone }: Props) {
   return (
     <View style={styles.bar}>
       <Avatar name={name} size={48} />
@@ -30,10 +32,22 @@ export function RiderBar({ name, rating, note }: Props) {
         </View>
       </View>
 
-      <Pressable accessibilityRole="button" accessibilityLabel={`Message ${name}`} style={styles.action}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Message ${name}`}
+        disabled={!phone}
+        onPress={() => phone && void Linking.openURL(`sms:${phone}`)}
+        style={[styles.action, !phone && styles.disabled]}
+      >
         <Ionicons name="chatbubble-ellipses" size={19} color={colors.text} />
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Call ${name}`} style={[styles.action, styles.call]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Call ${name}`}
+        disabled={!phone}
+        onPress={() => phone && void Linking.openURL(`tel:${phone}`)}
+        style={[styles.action, styles.call, !phone && styles.disabled]}
+      >
         <Ionicons name="call" size={19} color={colors.onPrimary} />
       </Pressable>
     </View>
@@ -77,5 +91,8 @@ const styles = StyleSheet.create({
   call: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  disabled: {
+    opacity: 0.4,
   },
 });

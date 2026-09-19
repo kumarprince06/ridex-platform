@@ -1,8 +1,9 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 import { Permission } from '../auth/permissions';
 import { ROLE_LABELS } from '../auth/permissions';
 import { Logo } from './Logo';
+import { GlobalSearch } from './GlobalSearch';
 import { NavIcon } from './NavIcon';
 import { useSession } from '../auth/session';
 import './shell.css';
@@ -82,7 +83,6 @@ function tabFor(pathname: string, tabs: Tab[]): Tab | undefined {
 
 export function Shell() {
   const { session, can, signOut } = useSession();
-  const navigate = useNavigate();
   const { pathname } = useLocation();
 
   if (!session) {
@@ -121,18 +121,7 @@ export function Shell() {
 
       <div className="main">
         <header className="topbar">
-          <input
-            className="global-search"
-            type="search"
-            placeholder="Search a rider, driver, trip or case ID…"
-            aria-label="Global search"
-            onKeyDown={(event) => {
-              // Operations arrives knowing an ID, never a page number.
-              if (event.key === 'Enter') {
-                navigate('/trips');
-              }
-            }}
-          />
+          <GlobalSearch />
 
           <div className="identity">
             <span className="identity-avatar" aria-hidden="true">

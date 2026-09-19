@@ -329,6 +329,17 @@ export function walletEntries(driverId: string) {
   return request<WalletEntry[]>(`/api/v1/admin/wallets/${driverId}/entries`);
 }
 
+export type SearchHit = {
+  kind: 'RIDER' | 'DRIVER' | 'RIDE' | 'PAYMENT' | 'ROUTE' | 'CASE';
+  id: string;
+  title: string;
+  detail: string | null;
+};
+
+export function searchConsole(q: string) {
+  return request<SearchHit[]>(`/api/v1/admin/search?q=${encodeURIComponent(q)}`);
+}
+
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_REPLY' | 'RESOLVED' | 'CLOSED';
 
 export type TicketMessage = {

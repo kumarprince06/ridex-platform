@@ -14,6 +14,7 @@ import com.ridex.ride.domain.RideStatus;
 
 import lombok.RequiredArgsConstructor;
 import com.ridex.admin.dto.StaffResponse;
+import com.ridex.admin.dto.SearchHit;
 
 /**
  * Read-only operations views.
@@ -32,6 +33,7 @@ public class AdminQueryController {
     private final AdminPeopleQueries people;
     private final AdminRideQueries rides;
     private final AdminMoneyQueries money;
+    private final AdminSearch adminSearch;
 
     @GetMapping("/dashboard")
     @ResponseStatus(HttpStatus.OK)
@@ -117,6 +119,12 @@ public class AdminQueryController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
         return money.payments(status, page, size);
+    }
+
+    @GetMapping("/search")
+    @ResponseStatus(HttpStatus.OK)
+    public List<SearchHit> search(@RequestParam(defaultValue = "") String q) {
+        return adminSearch.search(q);
     }
 
     @GetMapping("/staff")

@@ -45,7 +45,15 @@ public class PushChannel implements NotificationChannel {
 
     @Override
     public void send(String recipient, NotificationTemplates.Rendered rendered) {
-        List<DeviceToken> devices = deviceTokenRepository.findByUserId(recipient);
+        send(recipient, rendered, null);
+    }
+
+    @Override
+    public void send(String recipient, NotificationTemplates.Rendered rendered, String eventType) {
+        String app = eventType == null ? null : NotificationTemplates.appFor(eventType);
+        List<DeviceToken> devices = app == null
+                ? deviceTokenRepository.findByUserId(recipient)
+                : deviceTokenRepository.findByUserIdAndAppContext(recipient, app);
         if (devices.isEmpty()) {
             // Not a failure: plenty of people never grant the permission, and retrying a message
             // for a person with no devices would fill the outbox with rows that can never send.

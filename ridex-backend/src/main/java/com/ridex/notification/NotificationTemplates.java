@@ -26,6 +26,21 @@ public class NotificationTemplates {
     /**
      * @param html null for channels that cannot render it. SMS and push take the text.
      */
+    /** Which app an event is for, so a person with both apps only gets it in one. Null means any. */
+    public static String appFor(String eventType) {
+        if (eventType.startsWith("DRIVER_") || eventType.startsWith("DOCUMENT_")) {
+            return "DRIVER";
+        }
+        if (eventType.startsWith("SHUTTLE_") || eventType.startsWith("RIDE_")) {
+            return "RIDER";
+        }
+        return null;
+    }
+
+    private Rendered shuttleAlert(String title, String body) {
+        return new Rendered(title, body, layout.wrap(title, body, layout.paragraph(body)));
+    }
+
     public record Rendered(String subject, String body, String html, Attachment attachment) {
 
         /** Most messages carry nothing but words. */

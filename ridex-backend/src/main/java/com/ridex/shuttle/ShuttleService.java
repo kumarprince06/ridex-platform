@@ -285,7 +285,9 @@ public class ShuttleService {
             checkout = shuttlePayments.startShuttlePayment(booking.getId(), rider, gross,
                     discount, method);
         } else {
-            confirmBooking(booking);
+            // Nothing to charge (a pass, or points covering it all): confirmed on the spot, and the
+            // rider still gets the confirmation and receipt a paid seat gets.
+            announce(booking);
         }
 
         return toResponse(booking, boarding, alighting, boardingCode, checkout);
@@ -431,7 +433,10 @@ public class ShuttleService {
                 stopOn(trip, booking.getBoardingStopId()),
                 stopOn(trip, booking.getAlightingStopId()),
                 booking.getRider());
+        announce(booking);
     }
+    }
+    private void announce(ShuttleBooking booking) {
 
     /**
      * Releases seats nobody paid for.

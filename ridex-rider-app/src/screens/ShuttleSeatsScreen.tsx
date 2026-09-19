@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { clockTime, money } from '../lib/format';
+import { clockTime, money, shortDate } from '../lib/format';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -47,8 +47,10 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
 
   // What the toggle takes off, the way the server will work it out: capped by the balance, by what
   // one journey may spend, and by the fare. Shown before the tap, not on the ticket afterwards.
+  // A pass on this route makes the seat free, so there is nothing to pay and no points to spend.
+  const coveredUntil = data?.coveredByPassUntil ?? null;
   const discountMinor =
-    usePoints && points && data?.fareMinor != null
+    !coveredUntil && usePoints && points && data?.fareMinor != null
       ? Math.min(spendableNow(points).valueMinor, data.fareMinor)
       : 0;
   const payableMinor = data?.fareMinor == null ? null : data.fareMinor - discountMinor;
@@ -111,6 +113,9 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
           {autoPicked && chosen && !bookError ? (
             <Text style={styles.autoPicked}>Seat {chosen} picked for you. Tap any free seat to change it.</Text>
           ) : null}
+          {coveredUntil ? (
+            <Text style={styles.passNote}>Your pass covers this seat · valid till {shortDate(coveredUntil)}</Text>
+          ) : null}
           {discountMinor > 0 && data?.fareMinor != null ? (
             <Text style={styles.discountNote}>
               {money(data.fareMinor, data.currency ?? 'INR')} fare ·{' '}
@@ -123,7 +128,9 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
                 ? 'Booking…'
                 : !chosen
                   ? 'Choose a seat'
-                  : payableMinor == null
+                  : coveredUntil
+                    ? `Book seat ${chosen} · covered by your pass`
+                    : payableMinor == null
                     ? `Pay & book seat ${chosen}`
                     : `Pay ${money(payableMinor, data?.currency ?? 'INR')} · seat ${chosen}`
             }
@@ -155,7 +162,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
 
       {/* Only when there is something to spend: a toggle that can take nothing off is worse
           than no toggle. A balance below one rupee's worth counts as nothing. */}
-      {points && spendableNow(points).points > 0 ? (
+      {!coveredUntil && points && spendableNow(points).points > 0 ? (
         <Pressable
           onPress={() => setUsePoints((on) => !on)}
           accessibilityRole="switch"
@@ -198,6 +205,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.amberSurface,
     borderRadius: radius.md,
     padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  passNote: {
+    ...type.caption,
+    color: colors.primary,
+    textAlign: 'center',
     marginBottom: spacing.sm,
   },
   discountNote: {

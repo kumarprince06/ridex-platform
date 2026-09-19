@@ -60,6 +60,8 @@ export type SeatMap = {
   /** What this leg costs, when both stops were named. Null on a whole-route seat map. */
   fareMinor: number | null;
   currency: string | null;
+  /** Set when this rider's pass covers the route that day: the seat is free. */
+  coveredByPassUntil: string | null;
 };
 
 export type ShuttleBooking = {
@@ -118,6 +120,10 @@ export type PassProduct = {
   rideLimit: number;
   currency: string;
   priceMinor: number;
+  /** For comparing plans: months covered, the price per month, and the saving over monthly passes. */
+  months: number;
+  perMonthMinor: number;
+  savePercent: number;
 };
 
 export type Pass = {

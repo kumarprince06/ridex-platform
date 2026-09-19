@@ -16,6 +16,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 const ABOUT_LINKS = [
   { label: 'Terms of Service', slug: 'rider-terms' },
   { label: 'Privacy Policy', slug: 'privacy-policy' },
+  { label: 'Refund and Cancellation', slug: 'refund-policy' },
 ] as const;
 
 export function SettingsScreen({ navigation }: Props) {

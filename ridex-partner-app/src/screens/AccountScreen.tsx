@@ -5,6 +5,9 @@ import { Row } from '../components/Row';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
 import { StatTiles } from '../components/StatTiles';
+import { useSession } from '../auth/session';
+import { expiringSoon, listDocuments } from '../api/documents';
+import { getPayoutAccount } from '../api/driver';
 import { getProfile } from '../api/profile';
 import { listVehicles } from '../api/vehicles';
 import { useQuery } from '../api/useQuery';
@@ -16,6 +19,10 @@ type Props = TabScreenProps<'Account'>;
 export function AccountScreen({ navigation }: Props) {
   const { data: profile } = useQuery(getProfile);
   const { data: vehicles } = useQuery(listVehicles);
+  const { data: documents } = useQuery(listDocuments);
+  const { data: payoutAccount } = useQuery(getPayoutAccount);
+  const { signOut } = useSession();
+  const expiring = expiringSoon(documents ?? []);
   // The car they are approved to drive today, not whichever was added first.
   const vehicle = (vehicles ?? []).find((candidate) => candidate.status === 'ACTIVE')
     ?? (vehicles ?? [])[0];
@@ -66,8 +73,8 @@ export function AccountScreen({ navigation }: Props) {
         icon="log-out"
         title="Sign out"
         danger
-        // Sign-out has to clear the root stack, not the tab navigator this screen lives in.
-        onPress={() => navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Welcome' }] })}
+        // Tokens first, or the next launch signs straight back in; then clear the root stack.
+        onPress={() => void signOut().then(() => navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Welcome' }] }))}
       />
     </Screen>
   );

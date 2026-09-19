@@ -4,6 +4,7 @@ import * as authApi from '../api/auth';
 import { setSessionExpiredHandler } from '../api/client';
 import { ApiError } from '../api/problem';
 import { getProfile, type DriverProfile } from '../api/profile';
+import { setDuty } from '../api/driver';
 import { clearTokens, loadTokens } from './tokens';
 
 type SessionState = {
@@ -24,6 +25,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     const tokens = await loadTokens();
     if (tokens) {
+      // Off duty first, while the token still works: a signed-out phone must not stay in dispatch.
+      await setDuty(false).catch(() => undefined);
       // Best effort: a failed revoke must not trap the user in a signed-in state on this device.
       await authApi.logout(tokens.refreshToken).catch(() => undefined);
     }

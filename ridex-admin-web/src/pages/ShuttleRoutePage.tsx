@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   addSchedule,
   addStop,
+  createReturnRoute,
   deleteRoute,
   getPassPricing,
   getRoute,
@@ -126,6 +127,8 @@ function missing(route: ShuttleRoute): string | null {
 function Overview({ route, busy, act, onDeleted }: { route: ShuttleRoute; busy: boolean; act: Act; onDeleted: () => void }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const navigate = useNavigate();
   const todo = missing(route);
   const fares = route.fares.map((fare) => fare.fareMinor);
   const first = route.stops[0];
@@ -159,6 +162,9 @@ function Overview({ route, busy, act, onDeleted }: { route: ShuttleRoute; busy: 
         title="Details"
         actions={
           <span className="row-actions">
+            <Button disabled={busy || route.stops.length < 2} onClick={() => setReturning(true)}>
+              Create return route
+            </Button>
             <Button disabled={busy} onClick={() => setEditing(true)}>
               Edit details
             </Button>
@@ -176,6 +182,31 @@ function Overview({ route, busy, act, onDeleted }: { route: ShuttleRoute; busy: 
           ]}
         />
       </Card>
+
+      {returning ? (
+        <FormDialog
+          title="Create the return route"
+          body="The same stops in reverse, the same gaps between them and the same fares each way. It starts hidden from riders - check it, then show it."
+          submitLabel="Create return route"
+          fields={[
+            {
+              name: 'times',
+              label: 'Departure times, comma separated',
+              initial: '17:30, 18:00, 18:30, 19:00',
+              hint: 'Same days and vehicle size as this route.',
+            },
+          ]}
+          onCancel={() => setReturning(false)}
+          onSubmit={(values) => {
+            setReturning(false);
+            const times = values.times.split(',').map((time) => time.trim()).filter(Boolean);
+            act(async () => {
+              const back = await createReturnRoute(route.id, times);
+              navigate(`/shuttle/routes/${back.id}`);
+            }, 'Return route created.');
+          }}
+        />
+      ) : null}
 
       {deleting ? (
         <FormDialog

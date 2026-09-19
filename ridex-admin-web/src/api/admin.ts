@@ -620,6 +620,14 @@ export function setPassPricing(
   return request<PassPricing>(`${SHUTTLE}/${routeId}/passes`, { method: 'PUT', body: pricing });
 }
 
+/** The same route the other way: stops reversed, fares mirrored, a departure at each time. */
+export function createReturnRoute(routeId: string, departureTimes: string[]) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/return`, {
+    method: 'POST',
+    body: { departureTimes: departureTimes.map((time) => (time.length === 5 ? `${time}:00` : time)) },
+  });
+}
+
 /** Only a route nobody has booked or bought a pass on. */
 export function deleteRoute(routeId: string) {
   return request<void>(`${SHUTTLE}/${routeId}`, { method: 'DELETE' });

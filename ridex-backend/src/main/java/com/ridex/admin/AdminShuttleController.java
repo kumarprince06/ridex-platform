@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import com.ridex.shuttle.dto.ReturnRouteRequest;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.function.Function;
@@ -79,6 +80,15 @@ public class AdminShuttleController {
     public PassPricingResponse setPassPricing(@PathVariable String routeId,
             @Valid @RequestBody PassPricingRequest request) {
         return adminShuttleService.setPassPricing(routeId, request);
+    }
+
+    /** The same route the other way, hidden until operations switches it on. */
+    @PostMapping("/{routeId}/return")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Audited(action = "ROUTE_CREATED", targetType = "ROUTE")
+    public AdminRouteResponse createReturn(@PathVariable String routeId,
+            @Valid @RequestBody ReturnRouteRequest request) {
+        return adminShuttleService.createReturn(routeId, request);
     }
 
     @DeleteMapping("/{routeId}")

@@ -1,5 +1,8 @@
 package com.ridex.shuttle;
 
+import com.ridex.shuttle.dto.ReturnRouteRequest;
+import java.util.HashMap;
+import java.time.LocalTime;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
@@ -91,6 +94,99 @@ public class AdminShuttleService {
         route.setActive(request.active());
 
         return toResponse(routeRepository.save(route));
+    }
+
+    /**
+     * The same route the other way: stops reversed with the same gaps between them, every fare
+     * priced the same in the opposite direction, and a departure at each time given. Created hidden,
+     * like any new route, so operations checks it before riders see it.
+     */
+    @Transactional
+    public AdminRouteResponse createReturn(String routeId, ReturnRouteRequest request) {
+        Route original = requireRoute(routeId);
+        List<RouteStop> stops = routeStopRepository.findByRouteIdOrderBySequenceAsc(routeId);
+        if (stops.size() < 2) {
+            throw new ValidationException("A route needs two stops before it has a way back.");
+        }
+
+        Route back = new Route();
+        back.setCode(uniqueCode(returnCode(original.getCode())));
+        back.setName(returnName(original.getName(), stops));
+        back.setDescription("Return of " + original.getCode());
+        back.setActive(false);
+        routeRepository.save(back);
+
+        int total = stops.get(stops.size() - 1).getOffsetMinutes();
+        Map<String, String> mirrored = new HashMap<>();
+        short sequence = 1;
+        for (int index = stops.size() - 1; index >= 0; index--) {
+            RouteStop from = stops.get(index);
+            RouteStop stop = new RouteStop();
+            stop.setRoute(back);
+            stop.setSequence(sequence++);
+            stop.setName(from.getName());
+            stop.setLatitude(from.getLatitude());
+            stop.setLongitude(from.getLongitude());
+            stop.setOffsetMinutes((short) (total - from.getOffsetMinutes()));
+            routeStopRepository.save(stop);
+            mirrored.put(from.getId(), stop.getId());
+        }
+
+        for (RouteFare fare : routeFareRepository.findByRouteId(routeId)) {
+            RouteFare reverse = new RouteFare();
+            reverse.setRouteId(back.getId());
+            reverse.setFromStopId(mirrored.get(fare.getToStopId()));
+            reverse.setToStopId(mirrored.get(fare.getFromStopId()));
+            reverse.setCurrency(fare.getCurrency());
+            reverse.setFareMinor(fare.getFareMinor());
+            routeFareRepository.save(reverse);
+        }
+
+        // The vehicle and running days of the original's first departure: the same bus goes home.
+        ShuttleSchedule template = shuttleScheduleRepository.findByRouteIdOrderByDepartureTimeAsc(routeId).stream()
+                .findFirst().orElse(null);
+        for (LocalTime time : request.departureTimes()) {
+            ShuttleSchedule schedule = new ShuttleSchedule();
+            schedule.setRoute(back);
+            schedule.setDepartureTime(time);
+            schedule.setDaysOfWeek(template == null ? "1,2,3,4,5,6" : template.getDaysOfWeek());
+            schedule.setSeatCapacity(template == null ? 40 : template.getSeatCapacity());
+            schedule.setSeatsPerRow(template == null ? SeatMap.DEFAULT_SEATS_PER_ROW : template.getSeatsPerRow());
+            shuttleScheduleRepository.save(schedule);
+        }
+        return toResponse(requireRoute(back.getId()));
+    }
+
+    /** BALLY_ECOSPACE comes back as ECOSPACE_BALLY; a one-word code gets _R. */
+    private static String returnCode(String code) {
+        String[] parts = code.split("_");
+        String flipped = parts.length == 2 ? parts[1] + "_" + parts[0] : code + "_R";
+        return flipped.length() > 20 ? flipped.substring(0, 20) : flipped;
+    }
+
+    private String uniqueCode(String base) {
+        String code = base;
+        for (int attempt = 2; routeRepository.existsByCode(code); attempt++) {
+            String suffix = "_" + attempt;
+            code = base.substring(0, Math.min(base.length(), 20 - suffix.length())) + suffix;
+        }
+        return code;
+    }
+
+    /** "Bally to Ecospace" becomes "Ecospace to Bally"; anything else is named by its end stops. */
+    private static String returnName(String name, List<RouteStop> stops) {
+        for (String joiner : List.of(" to ", " – ", " - ")) {
+            int at = name.indexOf(joiner);
+            if (at > 0) {
+                String rest = name.substring(at + joiner.length());
+                // "Bally – Ecospace (via Airport)" keeps its note on the end.
+                int note = rest.indexOf(" (");
+                String end = note > 0 ? rest.substring(0, note) : rest;
+                String tail = note > 0 ? rest.substring(note) : "";
+                return end + joiner + name.substring(0, at) + tail;
+            }
+        }
+        return stops.get(stops.size() - 1).getName() + " to " + stops.get(0).getName();
     }
 
     /** The code is not editable: it is printed on tickets and quoted in operations chatter. */

@@ -109,6 +109,22 @@ class RouteStopEditingTest {
         assertThatThrownBy(() -> admin.deleteRoute(route.id())).isInstanceOf(ConflictException.class);
     }
 
+    @Test
+    void aReturnRouteRunsTheStopsBackwardsWithTheSameGapsAndFares() {
+        var back = admin.createReturn(route.id(), new com.ridex.shuttle.dto.ReturnRouteRequest(
+                List.of(LocalTime.of(17, 30), LocalTime.of(18, 0))));
+
+        assertThat(back.stops()).extracting(AdminRouteResponse.Stop::name).containsExactly("C", "B", "A");
+        assertThat(back.stops()).extracting(AdminRouteResponse.Stop::offsetMinutes).containsExactly(0, 10, 20);
+        assertThat(back.fares()).hasSize(3);
+        String c = back.stops().get(0).id();
+        String a = back.stops().get(2).id();
+        assertThat(back.fares()).anyMatch(fare -> fare.fromStopId().equals(c) && fare.toStopId().equals(a) && fare.fareMinor() == 3000);
+        assertThat(back.schedules()).hasSize(2);
+        assertThat(back.active()).isFalse();
+        assertThat(back.code()).endsWith("_R");
+    }
+
     private String book(String from, String to) {
         User user = new User();
         user.setEmail("edit-" + System.nanoTime() + "@example.com");

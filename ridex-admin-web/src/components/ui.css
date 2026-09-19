@@ -1071,3 +1071,23 @@ button.stat-tile:focus-visible {
   max-height: 420px;
   overflow-y: auto;
 }
+
+/* Long routes: the fare grid scrolls in its own box, both ways, with the header row and the stop
+   names pinned, so a 27 x 27 grid stays usable and its scrollbars sit where the grid is. */
+.table-scroll:has(> .fare-matrix) {
+  max-height: 65vh;
+  overflow: auto;
+}
+.fare-matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--thead-bg);
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fare-matrix thead .fare-corner {
+  z-index: 3;
+  max-width: none;
+}

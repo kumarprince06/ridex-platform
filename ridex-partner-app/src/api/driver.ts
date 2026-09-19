@@ -172,6 +172,11 @@ export function getTrip(tripId: string) {
 /**
  * The live trip for the screens between accepting an offer and completing it.
  *
+/** The unfinished trip, or undefined (204) when there is none. */
+export function currentTrip() {
+  return request<Trip | undefined>('/api/v1/trips/current');
+}
+
  * Null when there is no trip id, which is how these screens are opened outside the accept flow -
  * they still render, with nothing invented on them.
  */

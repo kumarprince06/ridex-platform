@@ -11,9 +11,9 @@ type SessionState = {
   /** Null until the stored tokens have been checked, so the app can hold the splash screen. */
   ready: boolean;
   profile: DriverProfile | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<DriverProfile>;
   signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<DriverProfile>;
 };
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -35,13 +35,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    setProfile(await getProfile());
+    const next = await getProfile();
+    setProfile(next);
+    return next;
   }, []);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
       await authApi.login(email, password);
-      await refreshProfile();
+      return refreshProfile();
     },
     [refreshProfile],
   );

@@ -2,7 +2,10 @@ package com.ridex.trip;
 
 import java.time.Instant;
 import java.util.Currency;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -368,6 +371,19 @@ public class TripService {
                 rideRatingRepository.findByRideId(ride.getId())
                         .map(rating -> rating.getStars())
                         .orElse(null));
+    }
+
+    private static final Set<RideStatus> IN_PROGRESS = EnumSet.of(
+            RideStatus.DRIVER_ASSIGNED, RideStatus.DRIVER_ARRIVING,
+            RideStatus.DRIVER_AT_PICKUP, RideStatus.TRIP_STARTED);
+
+    /** The driver's unfinished trip, if any: an app killed mid-trip must reopen on it. */
+    @Transactional(readOnly = true)
+    public Optional<TripResponse> currentForDriver(String driverUserId) {
+        DriverProfile driver = driverProfileRepository.findByUserId(driverUserId)
+                .orElseThrow(() -> new NotFoundException("No driver profile for this account."));
+        return tripRepository.findFirstByDriverIdAndRideRequestStatusInOrderByCreatedAtDesc(driver.getId(), IN_PROGRESS)
+                .map(this::toResponse);
     }
 
     /** The trip a driver is on, for the screens between accepting an offer and completing it. */

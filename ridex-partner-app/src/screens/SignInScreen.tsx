@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
+import { homeRoute } from '../navigation/homeRoute';
 import { useSession } from '../auth/session';
 import { Button } from '../components/Button';
 import { Screen, ScreenTitle } from '../components/Screen';
@@ -24,8 +25,8 @@ export function SignInScreen({ navigation }: Props) {
     setError(null);
     setBusy(true);
     try {
-      await signIn(identifier.trim(), password);
-      navigation.reset({ index: 0, routes: [{ name: 'MainTabs', params: { screen: 'Drive' } }] });
+      const profile = await signIn(identifier.trim(), password);
+      navigation.reset(await homeRoute(profile.onboardingStatus));
     } catch (caught) {
       // "Not registered as a driver" arrives here too: the same account may ride but not drive.
       setError(caught instanceof ApiError ? caught.userMessage : 'Could not sign in.');

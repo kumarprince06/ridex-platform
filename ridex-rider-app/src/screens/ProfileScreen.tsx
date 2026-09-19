@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { unreadCount } from '../api/notifications';
 import { listRides } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { Avatar } from '../components/Avatar';
@@ -21,6 +22,7 @@ export function ProfileScreen({ navigation }: Props) {
 
   // Counted from the rider's own rides, so every figure here is one the server actually sent.
   const { data: rides } = useQuery(listRides, []);
+  const { data: unread } = useQuery(unreadCount, []);
   const completed = (rides ?? []).filter((ride) => ride.status === 'COMPLETED');
   const saved = completed.reduce((sum, ride) => sum + ride.discountMinor, 0);
   const stats = [
@@ -97,7 +99,7 @@ export function ProfileScreen({ navigation }: Props) {
           title="Notifications"
           subtitle="Ride updates, offers"
           tone="#E0B252"
-          count={3}
+          count={unread?.unread}
           onPress={() => navigation.navigate('Notifications')}
         />
         <Row

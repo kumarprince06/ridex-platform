@@ -20,6 +20,11 @@ export function unreadCount() {
   return request<{ unread: number }>('/api/v1/notifications/unread-count');
 }
 
+/** A bell badge: the count, capped so it fits. */
+export function countLabel(count: number): string {
+  return count > 9 ? '9+' : String(count);
+}
+
 /** Opening the screen is the acknowledgement, so the whole feed is marked at once. */
 export function markAllRead() {
   return request<void>('/api/v1/notifications/read', { method: 'POST' });

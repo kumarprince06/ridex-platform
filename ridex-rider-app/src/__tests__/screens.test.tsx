@@ -63,6 +63,7 @@ const PARAMS: Record<string, object> = {
     },
   },
 };
+PARAMS.ShuttleTracking = PARAMS.ShuttleBooked;
 
 function makeNavigation() {
   return {

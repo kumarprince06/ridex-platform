@@ -103,6 +103,7 @@ export type RootStackParamList = {
    * re-fetch it from - passing the id would lose the one thing this screen exists to show.
    */
   ShuttleBooked: { booking: ShuttleBooking };
+  ShuttleTracking: { booking: ShuttleBooking };
 
   TripDetails: { rideId: string };
   TripReceipt: { rideId: string };

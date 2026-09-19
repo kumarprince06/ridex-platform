@@ -91,3 +91,8 @@ jest.mock('react-native-razorpay', () => ({
   __esModule: true,
   default: { open: jest.fn(async () => ({})) },
 }));
+
+// The live socket. Screens only need it not to connect anywhere.
+jest.mock('@stomp/stompjs', () => ({
+  Client: jest.fn().mockImplementation(() => ({ activate: jest.fn(), deactivate: jest.fn(async () => undefined) })),
+}));

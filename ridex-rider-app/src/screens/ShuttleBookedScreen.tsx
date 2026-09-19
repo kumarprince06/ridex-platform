@@ -9,7 +9,8 @@ import { ConfirmSheet } from '../components/ConfirmSheet';
 import { payForSeat } from '../api/shuttleCheckout';
 import { Button } from '../components/Button';
 import { BoardingPassModal } from '../components/BoardingPassModal';
-import { ShuttleCrewCard } from '../components/ShuttleCrewCard';
+import { DriverCard } from '../components/DriverCard';
+import { JourneyLine } from '../components/JourneyLine';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -138,7 +139,9 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
 
           <View style={styles.legs}>
             <Leg label="From" value={booking.boardingStopName} />
-            <Ionicons name="arrow-forward" size={14} color={colors.textFaint} style={styles.legArrow} />
+            <View style={styles.legLine}>
+              <JourneyLine />
+            </View>
             <Leg label="To" value={booking.alightingStopName} align="right" />
           </View>
         </View>
@@ -164,7 +167,13 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
 
       {booking.crew ? (
         <View style={styles.crew}>
-          <ShuttleCrewCard crew={booking.crew} />
+          <DriverCard
+            name={booking.crew.driverName}
+            phone={booking.crew.driverPhone}
+            rating={booking.crew.driverRating}
+            vehicle={booking.crew.vehicle}
+            plate={booking.crew.registrationNumber}
+          />
         </View>
       ) : null}
 
@@ -320,9 +329,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.md,
   },
-  // Lines the arrow up with the stop names, not the labels above them.
-  legArrow: {
-    marginTop: 22,
+  // Level with the stop names, not the labels above them.
+  legLine: {
+    flex: 0.8,
+    marginTop: 20,
   },
   legValue: {
     ...type.button,

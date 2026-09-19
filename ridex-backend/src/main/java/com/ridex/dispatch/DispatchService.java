@@ -101,6 +101,9 @@ public class DispatchService {
                         offer.setDriver(driver);
                         offer.setWave((short) wave);
                         offer.setExpiresAt(expiresAt);
+                        driverPresence.positionOf(driverId)
+                                .map(at -> at.metresTo(ride.getPickupLat().doubleValue(), ride.getPickupLng().doubleValue()))
+                                .ifPresent(offer::setDistanceMeters);
                         created.add(rideOfferRepository.save(offer));
                     });
         }

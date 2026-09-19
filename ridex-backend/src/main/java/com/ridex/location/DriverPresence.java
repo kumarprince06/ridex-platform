@@ -107,6 +107,17 @@ public class DriverPresence {
 
     /** Latitude first, the way every caller says it out loud. */
     public record Position(double latitude, double longitude) {
+
+        private static final double EARTH_RADIUS_METERS = 6_371_000;
+
+        /** Great-circle distance: close enough to tell a driver how far the pickup is. */
+        public int metresTo(double lat, double lng) {
+            double dLat = Math.toRadians(lat - latitude);
+            double dLng = Math.toRadians(lng - longitude);
+            double a = Math.pow(Math.sin(dLat / 2), 2)
+                    + Math.cos(Math.toRadians(latitude)) * Math.cos(Math.toRadians(lat)) * Math.pow(Math.sin(dLng / 2), 2);
+            return (int) Math.round(2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a)));
+        }
     }
 
     private static String seenKey(String driverId) {

@@ -1,10 +1,10 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
-import { MAX_SEATS, VEHICLE_LABELS, addVehicle, type VehicleType } from '../api/vehicles';
+import { MAX_SEATS, VEHICLE_ICONS, VEHICLE_LABELS, addVehicle, type VehicleType } from '../api/vehicles';
 import { Button } from '../components/Button';
-import { Chip } from '../components/Chip';
 import { Screen, ScreenTitle } from '../components/Screen';
 import { StepProgress } from '../components/StepProgress';
 import { TextField } from '../components/TextField';
@@ -18,10 +18,12 @@ type Props = RootScreenProps<'VehicleDetails'>;
  * to drive a bus through this form. The physical class, not a ride tier: which tiers a vehicle can
  * serve is a pricing decision the platform makes from it.
  */
-const TYPES: VehicleType[] = ['AUTO_RICKSHAW', 'HATCHBACK', 'SEDAN', 'SUV', 'MPV', 'VAN'];
+const TYPES = ['AUTO_RICKSHAW', 'HATCHBACK', 'SEDAN', 'SUV', 'MPV', 'VAN'] as const;
+
 
 export function VehicleDetailsScreen({ navigation }: Props) {
-  const [vehicleType, setVehicleType] = useState<VehicleType>('SEDAN');
+  const [vehicleType, setVehicleType] = useState<(typeof TYPES)[number]>('SEDAN');
+  const [picking, setPicking] = useState(false);
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
@@ -83,24 +85,63 @@ export function VehicleDetailsScreen({ navigation }: Props) {
       />
 
       <Text style={styles.label}>Vehicle type</Text>
-      <View style={styles.types}>
-        {TYPES.map((option) => (
-          <Chip
-            key={option}
-            label={VEHICLE_LABELS[option]}
-            selected={vehicleType === option}
-            onPress={() => {
-              setVehicleType(option);
-              // Clamped rather than left invalid: switching from an SUV to a hatchback with 6 in
-              // the box would arm a disabled button with no obvious cause.
-              setSeats((current) =>
-                Number(current) > MAX_SEATS[option] ? String(MAX_SEATS[option]) : current,
-              );
-            }}
-            style={styles.type}
-          />
-        ))}
-      </View>
+      <Pressable
+        onPress={() => setPicking(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`Vehicle type, ${VEHICLE_LABELS[vehicleType]}`}
+        style={({ pressed }) => [styles.select, pressed && styles.pressed]}
+      >
+        <MaterialCommunityIcons name={VEHICLE_ICONS[vehicleType]} size={30} color={colors.primary} />
+        <View style={styles.optionText}>
+          <Text style={styles.optionLabel}>{VEHICLE_LABELS[vehicleType]}</Text>
+          <Text style={styles.optionHint}>Up to {MAX_SEATS[vehicleType]} passengers</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-down" size={24} color={colors.textMuted} />
+      </Pressable>
+
+      <Modal visible={picking} transparent animationType="slide" onRequestClose={() => setPicking(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setPicking(false)} accessibilityLabel="Close" />
+        <View style={styles.sheet}>
+          <Text style={styles.sheetTitle}>Choose vehicle type</Text>
+          {TYPES.map((option) => {
+            const selected = option === vehicleType;
+            return (
+              <Pressable
+                key={option}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  setVehicleType(option);
+                  // Clamped rather than left invalid: switching from an SUV to a hatchback with 6 in
+                  // the box would arm a disabled button with no obvious cause.
+                  setSeats((current) =>
+                    Number(current) > MAX_SEATS[option] ? String(MAX_SEATS[option]) : current,
+                  );
+                  setPicking(false);
+                }}
+                style={({ pressed }) => [
+                  styles.option,
+                  selected && styles.optionSelected,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={VEHICLE_ICONS[option]}
+                  size={34}
+                  color={selected ? colors.primary : colors.text}
+                />
+                <View style={styles.optionText}>
+                  <Text style={styles.optionLabel}>{VEHICLE_LABELS[option]}</Text>
+                  <Text style={styles.optionHint}>Up to {MAX_SEATS[option]} passengers</Text>
+                </View>
+                {selected ? (
+                  <MaterialCommunityIcons name="check-circle" size={22} color={colors.primary} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Modal>
 
       <TextField label="Make" value={make} onChangeText={setMake} placeholder="Toyota" icon="car-outline" autoCapitalize="words" />
       <TextField label="Model" value={model} onChangeText={setModel} placeholder="Swift Dzire" icon="car-sport-outline" autoCapitalize="words" />
@@ -126,13 +167,64 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.md,
   },
-  types: {
+  select: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
     marginBottom: spacing.xl,
   },
-  type: {
+  pressed: {
+    opacity: 0.75,
+  },
+  backdrop: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  sheet: {
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl * 2,
+    gap: spacing.sm,
+  },
+  sheetTitle: {
+    ...type.button,
+    fontSize: 17,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  option: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.lg,
+    padding: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  optionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt,
+  },
+  optionText: {
+    flex: 1,
+  },
+  optionLabel: {
+    ...type.button,
+    fontSize: 16,
+    color: colors.text,
+  },
+  optionHint: {
+    ...type.caption,
+    color: colors.textMuted,
+    marginTop: 2,
   },
 });

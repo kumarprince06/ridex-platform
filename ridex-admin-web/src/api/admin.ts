@@ -249,6 +249,41 @@ export type Setting = {
   updatedAt: string;
 };
 
+export type RideFare = {
+  rideTypeId: string;
+  code: string;
+  displayName: string;
+  seatCapacity: number;
+  active: boolean;
+  currency: string;
+  baseFareMinor: number | null;
+  perKmMinor: number | null;
+  perMinuteMinor: number | null;
+  minimumFareMinor: number | null;
+  freeWaitingSeconds: number | null;
+  perWaitingMinuteMinor: number | null;
+  validFrom: string | null;
+};
+
+export function listRideFares() {
+  return request<RideFare[]>('/api/v1/admin/ride-fares');
+}
+
+/** A new fare from now on. The old one is closed, not edited, so past quotes still add up. */
+export function changeRideFare(
+  rideTypeId: string,
+  fare: {
+    baseFareMinor: number;
+    perKmMinor: number;
+    perMinuteMinor: number;
+    minimumFareMinor: number;
+    freeWaitingSeconds: number;
+    perWaitingMinuteMinor: number;
+  },
+) {
+  return request<RideFare>(`/api/v1/admin/ride-fares/${rideTypeId}`, { method: 'PUT', body: fare });
+}
+
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_REPLY' | 'RESOLVED' | 'CLOSED';
 
 export type TicketMessage = {

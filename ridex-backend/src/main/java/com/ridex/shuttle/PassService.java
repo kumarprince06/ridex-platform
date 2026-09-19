@@ -16,7 +16,12 @@ import com.ridex.rider.domain.RiderProfile;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shuttle.domain.Pass;
+import com.ridex.shuttle.domain.PassPlan;
 import com.ridex.shuttle.domain.PassProduct;
+import com.ridex.shuttle.domain.Route;
+import com.ridex.shuttle.dto.PassPricingRequest;
+import com.ridex.shuttle.dto.PassPricingResponse;
+import com.ridex.shuttle.dto.PassProductResponse;
 import com.ridex.shuttle.dto.PassResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -37,9 +42,87 @@ public class PassService {
     private final com.ridex.payment.ShuttlePaymentService shuttlePayments;
     private final com.ridex.points.PointsService pointsService;
 
+    /** What a rider can buy on a route, shortest first, each priced against the monthly pass. */
     @Transactional(readOnly = true)
-    public List<PassProduct> productsFor(String routeId) {
-        return passProductRepository.findByRouteIdAndActiveTrueOrderByPriceMinorAsc(routeId);
+    public List<PassProductResponse> productsFor(String routeId) {
+        List<PassProduct> onSale = passProductRepository.findByRouteIdAndActiveTrueOrderByPriceMinorAsc(routeId);
+        Long monthly = onSale.stream()
+                .filter(product -> product.getDurationDays() == PassPlan.MONTHLY.days())
+                .map(PassProduct::getPriceMinor)
+                .findFirst().orElse(null);
+        return onSale.stream()
+                .map(product -> {
+                    int months = PassPlan.ofDays(product.getDurationDays()).map(PassPlan::months)
+                            .orElse(Math.max(1, Math.round(product.getDurationDays() / 30f)));
+                    return new PassProductResponse(product.getId(), product.getName(), product.getDescription(),
+                            product.getDurationDays(), product.getRideLimit(), product.getCurrency(),
+                            product.getPriceMinor(), months, product.getPriceMinor() / months,
+                            monthly == null ? 0 : discountPercent(product.getPriceMinor(), monthly, months));
+                })
+                .toList();
+    }
+
+    /** A route's four plans as operations sees them, with how many riders hold each. */
+    @Transactional(readOnly = true)
+    public PassPricingResponse pricing(String routeId) {
+        List<PassProduct> products = passProductRepository.findByRouteId(routeId);
+        PassProduct monthly = planOf(products, PassPlan.MONTHLY);
+        LocalDate today = LocalDate.now();
+        List<PassPricingResponse.Plan> plans = java.util.Arrays.stream(PassPlan.values())
+                .map(plan -> {
+                    PassProduct product = planOf(products, plan);
+                    return new PassPricingResponse.Plan(plan.name(), plan.label(), plan.months(), plan.days(),
+                            product == null ? null : product.getPriceMinor(),
+                            product == null || monthly == null ? 0
+                                    : discountPercent(product.getPriceMinor(), monthly.getPriceMinor(), plan.months()),
+                            product == null ? 0 : passRepository.countRunning(product.getId(), today));
+                })
+                .toList();
+        return new PassPricingResponse(monthly == null ? null : monthly.getPriceMinor(),
+                monthly != null && monthly.isActive(), plans);
+    }
+
+    /**
+     * Sets a route's pass prices from the monthly one and a discount per longer plan. Passes already
+     * sold keep the price they were bought at; only new purchases see the change.
+     */
+    @Transactional
+    public PassPricingResponse setPricing(Route route, PassPricingRequest request) {
+        List<PassProduct> products = passProductRepository.findByRouteId(route.getId());
+        java.util.Map<PassPlan, Integer> discounts = java.util.Map.of(
+                PassPlan.MONTHLY, 0,
+                PassPlan.QUARTERLY, request.quarterlyDiscountPercent(),
+                PassPlan.HALF_YEARLY, request.halfYearlyDiscountPercent(),
+                PassPlan.YEARLY, request.yearlyDiscountPercent());
+        for (PassPlan plan : PassPlan.values()) {
+            PassProduct product = planOf(products, plan);
+            if (product == null) {
+                product = new PassProduct();
+                product.setRoute(route);
+                product.setDurationDays((short) plan.days());
+                product.setCurrency("INR");
+                // Unlimited within the period: one seat per departure is already the rule.
+                product.setRideLimit((short) 0);
+            }
+            product.setName(plan.label());
+            product.setDescription("Every seat on %s for %d %s".formatted(route.getName(), plan.months(),
+                    plan.months() == 1 ? "month" : "months"));
+            // Whole rupees: "Rs 4,275.50" reads like a mistake on a price list.
+            long full = request.monthlyPriceMinor() * plan.months();
+            product.setPriceMinor(Math.round(full * (100 - discounts.get(plan)) / 100.0 / 100.0) * 100);
+            product.setActive(request.onSale());
+            passProductRepository.save(product);
+        }
+        return pricing(route.getId());
+    }
+
+    private static PassProduct planOf(List<PassProduct> products, PassPlan plan) {
+        return products.stream().filter(product -> product.getDurationDays() == plan.days()).findFirst().orElse(null);
+    }
+
+    private static int discountPercent(long priceMinor, long monthlyMinor, int months) {
+        long full = monthlyMinor * months;
+        return full <= 0 ? 0 : (int) Math.max(0, Math.round((full - priceMinor) * 100.0 / full));
     }
 
     /**

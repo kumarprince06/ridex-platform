@@ -56,6 +56,7 @@ public class AdminShuttleService {
     private final ShuttleCrew shuttleCrew;
     private final ShuttleRunService shuttleRunService;
     private final ShuttleService shuttleService;
+    private final PassService passService;
 
     /** The list. Counts only - the full route comes back when somebody opens one. */
     @Transactional(readOnly = true)
@@ -139,6 +140,18 @@ public class AdminShuttleService {
                     "Riders have booked %s, so it cannot be deleted. Hide it from riders instead.".formatted(route.getName()));
         }
         routeRepository.deleteWithEverything(routeId);
+    }
+
+    @Transactional(readOnly = true)
+    public com.ridex.shuttle.dto.PassPricingResponse passPricing(String routeId) {
+        requireRoute(routeId);
+        return passService.pricing(routeId);
+    }
+
+    @Transactional
+    public com.ridex.shuttle.dto.PassPricingResponse setPassPricing(String routeId,
+            com.ridex.shuttle.dto.PassPricingRequest request) {
+        return passService.setPricing(requireRoute(routeId), request);
     }
 
     /** A stop's name, pin or timing. Its place in the order does not change. */

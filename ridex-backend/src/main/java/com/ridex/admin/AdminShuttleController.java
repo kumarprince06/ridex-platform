@@ -65,6 +65,20 @@ public class AdminShuttleController {
         return adminShuttleService.update(routeId, request);
     }
 
+    @GetMapping("/{routeId}/passes")
+    @ResponseStatus(HttpStatus.OK)
+    public com.ridex.shuttle.dto.PassPricingResponse passPricing(@PathVariable String routeId) {
+        return adminShuttleService.passPricing(routeId);
+    }
+
+    @PutMapping("/{routeId}/passes")
+    @ResponseStatus(HttpStatus.OK)
+    @Audited(action = "PASS_PRICING_CHANGED", targetType = "ROUTE")
+    public com.ridex.shuttle.dto.PassPricingResponse setPassPricing(@PathVariable String routeId,
+            @Valid @RequestBody com.ridex.shuttle.dto.PassPricingRequest request) {
+        return adminShuttleService.setPassPricing(routeId, request);
+    }
+
     @DeleteMapping("/{routeId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteRoute(@PathVariable String routeId) {

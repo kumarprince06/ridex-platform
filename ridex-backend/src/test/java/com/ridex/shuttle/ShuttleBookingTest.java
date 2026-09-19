@@ -107,13 +107,13 @@ class ShuttleBookingTest {
 
     @Test
     void theSeatMapShowsEverySeatAndWhichAreGone() {
-        var before = shuttleService.seatMap(schedule.getId(), serviceDate, null, null);
+        var before = shuttleService.seatMap(schedule.getId(), serviceDate, null, null, null);
         assertThat(before.seats()).hasSize(12);
         assertThat(before.seatsAvailable()).isEqualTo(12);
 
         shuttleService.book(newRider(), request("3B"));
 
-        var after = shuttleService.seatMap(schedule.getId(), serviceDate, null, null);
+        var after = shuttleService.seatMap(schedule.getId(), serviceDate, null, null, null);
         assertThat(after.seatsAvailable()).isEqualTo(11);
         assertThat(after.seats()).filteredOn(seat -> seat.label().equals("3B"))
                 .singleElement().extracting(seat -> seat.available()).isEqualTo(false);
@@ -161,7 +161,7 @@ class ShuttleBookingTest {
 
         shuttleService.cancel(rider, booking.id());
 
-        assertThat(shuttleService.seatMap(schedule.getId(), serviceDate, null, null).seats())
+        assertThat(shuttleService.seatMap(schedule.getId(), serviceDate, null, null, null).seats())
                 .filteredOn(seat -> seat.label().equals("2C"))
                 .singleElement().extracting(seat -> seat.available()).isEqualTo(true);
         // And somebody else can now take it.

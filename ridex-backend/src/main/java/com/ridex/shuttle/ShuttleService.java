@@ -122,8 +122,16 @@ public class ShuttleService {
      */
     @Transactional
     public SeatMapResponse seatMap(String scheduleId, LocalDate serviceDate,
-            String boardingStopId, String alightingStopId) {
+            String boardingStopId, String alightingStopId, String riderUserId) {
         ShuttleTrip trip = departureFor(scheduleId, serviceDate);
+        String routeId = trip.getSchedule().getRoute().getId();
+        // The same lookup booking uses, so the picker never promises a free seat the booking charges for.
+        LocalDate passUntil = riderUserId == null ? null : riderProfileRepository.findByUserId(riderUserId)
+                .flatMap(rider -> passRepository.findLive(rider.getId(), routeId, serviceDate).stream()
+                        .filter(pass -> pass.coversOn(serviceDate, routeId))
+                        .findFirst())
+                .map(Pass::getEndsOn)
+                .orElse(null);
 
         short fromSeq = 1;
         short toSeq = Short.MAX_VALUE;
@@ -138,7 +146,6 @@ public class ShuttleService {
             fromSeq = boarding.getSequence();
             toSeq = alighting.getSequence();
 
-            String routeId = trip.getSchedule().getRoute().getId();
             fareMinor = fareBetween(routeId, boarding, alighting);
             currency = currencyFor(routeId, boarding, alighting);
         }
@@ -164,7 +171,8 @@ public class ShuttleService {
                 // the picker would show four free seats above a count of three.
                 (int) seats.stream().filter(SeatMapResponse.SeatResponse::available).count(),
                 fareMinor,
-                currency);
+                currency,
+                passUntil);
     }
 
     /**
@@ -425,7 +433,10 @@ public class ShuttleService {
         booking.setPaymentStatus("PAID");
         booking.setHoldExpiresAt(null);
         bookingRepository.save(booking);
+        announce(booking);
+    }
 
+    private void announce(ShuttleBooking booking) {
         ShuttleTrip trip = booking.getShuttleTrip();
         notifier.notifyUser(booking.getRider().getUser().getId(), "SHUTTLE_BOOKED",
                 booking.getSeatLabel(), "SHUTTLE_BOOKING", booking.getId());
@@ -433,10 +444,7 @@ public class ShuttleService {
                 stopOn(trip, booking.getBoardingStopId()),
                 stopOn(trip, booking.getAlightingStopId()),
                 booking.getRider());
-        announce(booking);
     }
-    }
-    private void announce(ShuttleBooking booking) {
 
     /**
      * Releases seats nobody paid for.

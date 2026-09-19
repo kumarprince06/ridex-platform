@@ -27,7 +27,9 @@ public record SeatMapResponse(
          * to it - a discount that only appears on the ticket is a surprise, not an offer.
          */
         Long fareMinor,
-        String currency) {
+        String currency,
+        // Set when the rider asking holds a pass valid on this route that day: the seat costs nothing.
+        java.time.LocalDate coveredByPassUntil) {
 
     public record SeatResponse(String label, boolean available) {
     }

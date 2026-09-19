@@ -66,6 +66,7 @@ class DriverWalletAndCancellationTest {
 
     @Autowired private DriverWalletService walletService;
     @Autowired private LedgerService ledger;
+    @Autowired private com.ridex.payment.PaymentWebhookService webhooks;
     @Autowired private TripService tripService;
     @Autowired private TripRepository tripRepository;
     @Autowired private DispatchService dispatchService;
@@ -200,6 +201,29 @@ class DriverWalletAndCancellationTest {
         var second = walletService.startTopUp(driverUserId, "tap2-" + paid);
         assertThatThrownBy(() -> walletService.confirmTopUp(driverUserId, second.topUpId(), paid))
                 .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void aTopUpTheAppNeverConfirmedIsCreditedByTheWebhookOnce() {
+        owe(6000);
+        String order = "order_hook_" + System.nanoTime();
+        String paid = "pay_hook_" + System.nanoTime();
+        when(gateway.createPaymentIntent(any(), anyString(), anyString()))
+                .thenReturn(new ProviderPayment(order, "PENDING", null));
+        walletService.startTopUp(driverUserId, "tap-" + paid);
+
+        webhooks.handle(captured(paid, order, 6000), "evt_" + paid);
+        // A redelivery under a new event id must not credit it twice.
+        webhooks.handle(captured(paid, order, 6000), "evt2_" + paid);
+
+        assertThat(balance()).isZero();
+    }
+
+    static String captured(String paymentId, String orderId, long amount) {
+        return """
+                {"event":"payment.captured","payload":{"payment":{"entity":
+                {"id":"%s","order_id":"%s","amount":%d,"status":"captured"}}}}
+                """.formatted(paymentId, orderId, amount);
     }
 
     private long balance() {

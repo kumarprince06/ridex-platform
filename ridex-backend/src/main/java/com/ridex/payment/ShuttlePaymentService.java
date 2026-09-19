@@ -168,6 +168,23 @@ public class ShuttlePaymentService {
         });
     }
 
+    /** Hands a seat payment back: the money arrived after the seat it was for had gone. */
+    @Transactional
+    public void refundShuttlePayment(String bookingId, String reason) {
+        paymentRepository.findByShuttleBookingId(bookingId).ifPresent(payment -> {
+            if (payment.getStatus() != PaymentStatus.SUCCEEDED) {
+                return;
+            }
+            providers.forMethod(payment.getMethod()).refundPayment(payment.getProviderPaymentId(),
+                    Money.of(payment.getNetAmountMinor(), java.util.Currency.getInstance(payment.getCurrency())),
+                    "refund:" + payment.getId());
+            // Refunds settle later; the refund.processed webhook confirms it, this records the intent.
+            payment.setStatus(PaymentStatus.REFUNDED);
+            payment.setFailureReason(reason);
+            paymentRepository.save(payment);
+        });
+    }
+
     /**
      * The open checkout for a seat that has not been paid for.
      *

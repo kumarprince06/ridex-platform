@@ -56,6 +56,9 @@ class ShuttleBookingTest {
     @Autowired private PassProductRepository passProductRepository;
     @Autowired private RiderProfileService riderProfileService;
     @Autowired private UserRepository userRepository;
+    @Autowired private ShuttleBookingRepository bookingRepository;
+    @Autowired private com.ridex.payment.PaymentRepository paymentRepository;
+    @Autowired private com.ridex.payment.PaymentWebhookService webhooks;
 
     private Route route;
     private ShuttleSchedule schedule;
@@ -232,6 +235,41 @@ class ShuttleBookingTest {
         // A twelve-seater has no 9D, and selling one strands somebody at the roadside.
         assertThatThrownBy(() -> shuttleService.book(newRider(), request("9D")))
                 .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void aSeatPaidButNeverConfirmedByTheAppIsConfirmedByTheWebhook() {
+        var booking = shuttleService.book(newRider(), request("3A"));
+        String order = paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getProviderPaymentId();
+
+        webhooks.handle(captured("pay_" + booking.id(), order, 6000), "evt_" + booking.id());
+
+        assertThat(bookingRepository.findById(booking.id()).orElseThrow().getPaymentStatus()).isEqualTo("PAID");
+    }
+
+    @Test
+    void aSeatPaidAfterItsHoldRanOutIsRefundedNotReinstated() {
+        var booking = shuttleService.book(newRider(), request("3B"));
+        String order = paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getProviderPaymentId();
+        var held = bookingRepository.findById(booking.id()).orElseThrow();
+        held.setHoldExpiresAt(java.time.Instant.now().minusSeconds(1));
+        bookingRepository.save(held);
+        shuttleService.releaseExpiredHolds();
+
+        webhooks.handle(captured("pay_" + booking.id(), order, 6000), "evt_" + booking.id());
+
+        var after = bookingRepository.findById(booking.id()).orElseThrow();
+        assertThat(after.getStatus()).isEqualTo("CANCELLED");
+        assertThat(after.getPaymentStatus()).isEqualTo("REFUNDED");
+        assertThat(paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getStatus())
+                .isEqualTo(com.ridex.payment.domain.PaymentStatus.REFUNDED);
+    }
+
+    private static String captured(String paymentId, String orderId, long amount) {
+        return """
+                {"event":"payment.captured","payload":{"payment":{"entity":
+                {"id":"%s","order_id":"%s","amount":%d,"status":"captured"}}}}
+                """.formatted(paymentId, orderId, amount);
     }
 
     private PassProduct weeklyPass() {

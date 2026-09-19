@@ -374,7 +374,7 @@ public class ShuttleService {
 
         var status = shuttlePayments.confirmShuttlePayment(bookingId, gatewayPaymentId);
         if (status == PaymentStatus.SUCCEEDED) {
-            confirmBooking(booking);
+            settlePaid(booking);
         }
 
         return toResponse(booking,
@@ -389,6 +389,18 @@ public class ShuttleService {
      * <p>Also the webhook's landing point, for the rider who pays and closes the app before the
      * confirmation call is made - which is most of the reason webhooks exist.
      */
+    @Transactional
+    public void settlePaid(ShuttleBooking booking) {
+        // The hold ran out before the money did, and the seat may already be someone else's.
+        if ("CANCELLED".equals(booking.getStatus())) {
+            shuttlePayments.refundShuttlePayment(booking.getId(), "Paid after the seat hold expired");
+            booking.setPaymentStatus("REFUNDED");
+            bookingRepository.save(booking);
+            return;
+        }
+        confirmBooking(booking);
+    }
+
     @Transactional
     public void confirmBooking(ShuttleBooking booking) {
         if ("PAID".equals(booking.getPaymentStatus())) {

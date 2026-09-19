@@ -14,5 +14,7 @@ public interface DriverWalletTopUpRepository extends JpaRepository<DriverWalletT
     Optional<DriverWalletTopUp> findFirstByDriverIdAndStatusAndAmountMinorOrderByCreatedAtDesc(
             String driverId, String status, long amountMinor);
 
+    Optional<DriverWalletTopUp> findByProviderOrderId(String providerOrderId);
+
     boolean existsByProviderPaymentId(String providerPaymentId);
 }

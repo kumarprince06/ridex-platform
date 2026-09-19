@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { distance, money, when } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { RouteStops } from '../components/RouteStops';
 import { BrandLoader } from '../components/BrandLoader';
 import { Screen } from '../components/Screen';
-import { getReceipt, getRide } from '../api/rides';
+import { getReceipt, getRide, paymentMethodLabel, ridePayment } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -18,11 +18,13 @@ export function TripReceiptScreen({ navigation, route }: Props) {
 
   // Two calls because the split is real: the receipt is what was charged, the ride is where it
   // went and when. Neither response carries the other's half.
-  const { data, loading, error } = useQuery(
+  const { data, loading, error, refetch } = useQuery(
     () => Promise.all([getReceipt(rideId), getRide(rideId)]),
     [rideId],
   );
   const [receipt, ride] = data ?? [null, null];
+  // Its own query: a receipt still reads fine when the payment lookup fails, it just says less.
+  const { data: payment, refetch: refetchPayment } = useQuery(() => ridePayment(rideId).catch(() => null), [rideId]);
 
   if (!receipt || !ride) {
     return (
@@ -41,12 +43,22 @@ export function TripReceiptScreen({ navigation, route }: Props) {
 
   return (
     <Screen
+      onRefresh={() => Promise.all([refetch(), refetchPayment()])}
       onBack={() => navigation.goBack()}
       title="Trip Receipt"
       headerRight={
-        <View style={styles.chip}>
+        <Pressable
+          onPress={() =>
+            void Share.share({
+              message: `RideX receipt · ${when(ride.requestedAt)}: ${ride.pickupAddress ?? 'Pickup'} → ${ride.destinationAddress ?? 'Destination'}, ${money(receipt.chargedTotalMinor, receipt.currency)}. Trip #${ride.id.slice(-8)}`,
+            })
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Share receipt"
+          style={styles.chip}
+        >
           <Ionicons name="share-outline" size={18} color={colors.text} />
-        </View>
+        </Pressable>
       }
     >
       <View style={styles.hero}>
@@ -59,11 +71,13 @@ export function TripReceiptScreen({ navigation, route }: Props) {
         </Text>
         <Text style={styles.date}>{when(ride.requestedAt)}</Text>
 
-        {/* Cash is the only method the platform settles today, so naming a card here would be
-            inventing a payment that never happened. */}
-        <View style={styles.paidPill}>
-          <Text style={styles.paidText}>Paid</Text>
-        </View>
+        {payment ? (
+          <View style={styles.paidPill}>
+            <Text style={styles.paidText}>
+              {paymentMethodLabel(payment.method)} · {payment.settled ? 'Paid' : 'Due'}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.card}>

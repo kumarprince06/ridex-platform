@@ -2,18 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { money, when } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import {
   getReceipt,
   getRide,
   isCancelled,
   isLive,
+  paymentMethodLabel,
   rideRoute,
   rideStatusLabel,
   ridePayment,
 } from '../api/rides';
 import { payForRide } from '../api/rideCheckout';
+import { ApiError } from '../api/problem';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { DriverCard } from '../components/DriverCard';
@@ -29,15 +31,17 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TripDetails'>;
 
 export function TripDetailsScreen({ navigation, route }: Props) {
   const { rideId } = route.params;
-  const { data: ride, loading, error } = useQuery(() => getRide(rideId), [rideId]);
+  const { data: ride, loading, error, refetch } = useQuery(() => getRide(rideId), [rideId]);
 
   // A rider who closed checkout still owes the fare, and this is where they come back to pay it.
   const { data: payment, refetch: refetchPayment } = useQuery(
     () => ridePayment(rideId).catch(() => null),
     [rideId],
   );
-  const { data: receipt } = useQuery(() => getReceipt(rideId).catch(() => null), [rideId]);
+  const { data: receipt, refetch: refetchReceipt } = useQuery(() => getReceipt(rideId).catch(() => null), [rideId]);
+  const refreshAll = () => Promise.all([refetch(), refetchPayment(), refetchReceipt()]);
   const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const outstanding = payment != null && !payment.settled;
 
   async function pay() {
@@ -45,9 +49,14 @@ export function TripDetailsScreen({ navigation, route }: Props) {
       return;
     }
     setPaying(true);
+    setPayError(null);
     try {
       await payForRide(rideId, payment);
       refetchPayment();
+    } catch (caught) {
+      setPayError(
+        caught instanceof ApiError ? caught.userMessage : caught instanceof Error ? caught.message : 'Payment failed.',
+      );
     } finally {
       setPaying(false);
     }
@@ -74,12 +83,22 @@ export function TripDetailsScreen({ navigation, route }: Props) {
 
   return (
     <Screen
+      onRefresh={refreshAll}
       onBack={() => navigation.goBack()}
       title="Trip Details"
       headerRight={
-        <View style={styles.chip}>
+        <Pressable
+          onPress={() =>
+            void Share.share({
+              message: `My RideX trip on ${when(ride.requestedAt)}: ${ride.pickupAddress ?? 'Pickup'} → ${ride.destinationAddress ?? 'Destination'}, ${money(charged, ride.currency)} (${rideStatusLabel(ride.status)}).`,
+            })
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Share trip"
+          style={styles.chip}
+        >
           <Ionicons name="share-outline" size={18} color={colors.text} />
-        </View>
+        </Pressable>
       }
     >
       {/* MapCanvas fills its parent absolutely, so it needs a sized box to live in. */}
@@ -162,7 +181,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
             <View style={styles.lineRow}>
               <Text style={styles.lineLabel}>Payment</Text>
               <Text style={[styles.lineAmount, !payment.settled && styles.due]}>
-                {payment.method === 'CASH' ? 'Cash' : 'Online'} · {payment.settled ? 'Paid' : 'Due'}
+                {paymentMethodLabel(payment.method)} · {payment.settled ? 'Paid' : 'Due'}
               </Text>
             </View>
           ) : null}
@@ -182,6 +201,8 @@ export function TripDetailsScreen({ navigation, route }: Props) {
           ) : null}
         </View>
       ) : null}
+
+      {payError ? <Text style={styles.payError}>{payError}</Text> : null}
 
       <View style={styles.actions}>
         <Button
@@ -298,6 +319,11 @@ const styles = StyleSheet.create({
   lineAmount: {
     ...type.body,
     color: colors.text,
+  },
+  payError: {
+    ...type.body,
+    color: colors.danger,
+    marginBottom: spacing.sm,
   },
   reason: {
     ...type.caption,

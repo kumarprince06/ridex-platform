@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../api/problem';
 import { payForRide } from '../api/rideCheckout';
-import { getReceipt, ridePayment, type RidePayment } from '../api/rides';
+import { getReceipt, paymentMethodLabel, ridePayment, type RidePayment } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { StatTiles } from '../components/StatTiles';
@@ -75,7 +75,7 @@ export function RideCompletedScreen({ navigation, route }: Props) {
           <View>
             <Text style={styles.chargedTo}>{outstanding ? 'to pay' : 'paid by'}</Text>
             <Text style={styles.card}>
-              {owed == null ? '—' : owed.method === 'CASH' ? 'Cash' : 'Online'}
+              {owed == null ? '—' : paymentMethodLabel(owed.method)}
             </Text>
           </View>
         </View>

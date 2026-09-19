@@ -42,7 +42,7 @@ export function CancelRideScreen({ navigation, route }: Props) {
     setError(null);
     try {
       await cancelRide(rideId, code!, detail.trim() || undefined);
-      navigation.replace('RideCancelled');
+      navigation.replace('RideCancelled', { rideId });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.userMessage : 'Could not cancel the ride.');
       setCancelling(false);

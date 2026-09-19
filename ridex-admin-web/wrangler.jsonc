@@ -1,0 +1,10 @@
+{
+  // Static build, served from Cloudflare's edge. not_found_handling sends every unknown path to
+  // index.html, which is what BrowserRouter needs - without it a refresh on /drivers is a 404.
+  "name": "ridex-console",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

@@ -138,7 +138,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
 
           <View style={styles.legs}>
             <Leg label="From" value={booking.boardingStopName} />
-            <Ionicons name="arrow-forward" size={14} color={colors.textFaint} />
+            <Ionicons name="arrow-forward" size={14} color={colors.textFaint} style={styles.legArrow} />
             <Leg label="To" value={booking.alightingStopName} align="right" />
           </View>
         </View>
@@ -168,34 +168,27 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
       ) : null}
 
-      {/* Only when points were actually spent: a zero discount line is noise on a receipt. */}
-      {booking.discountMinor > 0 ? (
-        <>
-          <View style={styles.fare}>
-            <Text style={styles.fareLabel}>Fare</Text>
-            <Text style={styles.fareValue}>
-              {money(booking.fareMinor, booking.currency)}
-            </Text>
-          </View>
-          <View style={styles.fareTight}>
-            <Text style={styles.fareLabel}>Points ({booking.redeemedPoints})</Text>
-            <Text style={styles.credit}>
-              -{money(booking.discountMinor, booking.currency)}
-            </Text>
-          </View>
-        </>
-      ) : null}
-
-      <View style={styles.fare}>
-        <Text style={styles.fareLabel}>
-          {booking.discountMinor > 0 ? 'Total' : 'Fare'}
-        </Text>
-        <Text style={styles.fareValue}>
-          {/* A pass covered it, so nothing was charged - "0.00" would read as an error. */}
-          {booking.passId
-            ? 'Covered by your pass'
-            : money(booking.fareMinor - booking.discountMinor, booking.currency)}
-        </Text>
+      <View style={styles.fareCard}>
+        {booking.discountMinor > 0 ? (
+          <>
+            <FareRow label="Fare" value={money(booking.fareMinor, booking.currency)} />
+            <FareRow
+              label={`Points (${booking.redeemedPoints})`}
+              value={`-${money(booking.discountMinor, booking.currency)}`}
+              credit
+            />
+          </>
+        ) : null}
+        <FareRow
+          label={booking.discountMinor > 0 ? 'Total' : 'Fare'}
+          value={booking.passId ? 'Covered by your pass' : money(booking.fareMinor - booking.discountMinor, booking.currency)}
+          strong
+        />
+        <FareRow
+          label="Payment"
+          value={booking.passId ? 'Pass' : cashDue ? 'Cash when you board' : pending ? 'Not paid yet' : 'Paid online'}
+          last
+        />
       </View>
 
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
@@ -240,6 +233,15 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         onDismiss={() => setConfirming(false)}
       />
     </Screen>
+  );
+}
+
+function FareRow({ label, value, strong, credit, last }: { label: string; value: string; strong?: boolean; credit?: boolean; last?: boolean }) {
+  return (
+    <View style={[styles.fareRow, !last && styles.fareDivider]}>
+      <Text style={styles.fareLabel}>{label}</Text>
+      <Text style={[styles.fareValue, strong && styles.fareStrong, credit && styles.credit]}>{value}</Text>
+    </View>
   );
 }
 
@@ -315,8 +317,12 @@ const styles = StyleSheet.create({
   },
   legs: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
+  },
+  // Lines the arrow up with the stop names, not the labels above them.
+  legArrow: {
+    marginTop: 22,
   },
   legValue: {
     ...type.button,
@@ -358,21 +364,28 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   pressed: { opacity: 0.75 },
-  fare: {
+  fareCard: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  fareRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.lg,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  fareDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   fareLabel: {
     ...type.body,
     color: colors.textMuted,
-  },
-  fareTight: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: spacing.lg,
   },
   credit: {
     ...type.button,
@@ -383,6 +396,9 @@ const styles = StyleSheet.create({
     ...type.button,
     fontSize: 16,
     color: colors.text,
+  },
+  fareStrong: {
+    fontSize: 17,
   },
   payNow: {
     ...type.button,

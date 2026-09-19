@@ -3,12 +3,14 @@ import { clockTime, dateTime } from '../lib/format';
 
 import {
   assignDeparture,
+  cancelDeparture,
   driverVehicles,
   listDepartures,
   listDrivers,
   type Departure,
 } from '../api/admin';
 import { useQuery } from '../api/useQuery';
+import { FormDialog } from '../components/FormDialog';
 import { Button, Card, Grid, PageHeader, Pill, StatTile, stateTone, Table } from '../components/ui';
 
 /** Today, in the browser's own zone - the operator is standing in it (not UTC's date). */
@@ -26,6 +28,7 @@ export function ShuttleOpsPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [assigning, setAssigning] = useState<Departure | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<Departure | null>(null);
 
   const { data, loading, error, refetch } = useQuery(() => listDepartures(date), [date]);
   const departures = data ?? [];
@@ -103,6 +106,19 @@ export function ShuttleOpsPage() {
               >
                 {row.driverId ? 'Swap crew' : 'Assign crew'}
               </span>
+              {row.runStatus === 'SCHEDULED' ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="board-link board-danger"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setCancelling(row);
+                  }}
+                >
+                  Cancel
+                </span>
+              ) : null}
             </div>
           </button>
         ))}
@@ -162,6 +178,26 @@ export function ShuttleOpsPage() {
             />
           </Card>
         ))}
+
+      {cancelling ? (
+        <FormDialog
+          title={`Cancel the ${clockTime(cancelling.departsAt)} ${cancelling.routeName}?`}
+          body={`${cancelling.seatsSold} booked rider(s) get their whole fare back as points (pass riders get the ride back) and a notification with your reason. This cannot be undone.`}
+          submitLabel="Cancel departure"
+          fields={[{ name: 'reason', label: 'Reason (riders see this)', placeholder: 'The bus has broken down.' }]}
+          onCancel={() => setCancelling(null)}
+          onSubmit={(values) => {
+            const departure = cancelling;
+            setCancelling(null);
+            cancelDeparture(departure.shuttleTripId, values.reason)
+              .then((result) => {
+                setNotice(`Departure cancelled. ${result.seatsCancelled} rider(s) refunded as points and told.`);
+                refetch();
+              })
+              .catch((caught) => setNotice(caught instanceof Error ? caught.message : 'Could not cancel.'));
+          }}
+        />
+      ) : null}
 
       {assigning ? (
         <AssignCrew
@@ -289,6 +325,7 @@ function RunState({ row }: { row: Departure }) {
     );
   }
   if (row.runStatus === 'COMPLETED') return <Pill>Done</Pill>;
+  if (row.runStatus === 'CANCELLED') return <Pill tone="danger">Cancelled</Pill>;
   // Half an hour past its time and never started: the driver did not run it.
   const missed = Date.now() > new Date(row.departsAt).getTime() + 30 * 60 * 1000;
   return missed ? <Pill tone="danger">Did not run</Pill> : <Pill tone="default">Scheduled</Pill>;

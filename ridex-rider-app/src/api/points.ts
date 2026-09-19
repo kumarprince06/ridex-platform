@@ -7,6 +7,9 @@ export type PointReason =
   | 'REDEEMED_ON_RIDE'
   | 'REDEEMED_ON_SEAT'
   | 'SHUTTLE_CANCELLED'
+  | 'RIDE_CANCELLED'
+  | 'DEPARTURE_CANCELLED'
+  | 'REFUNDED'
   | 'ADMIN_ADJUSTMENT';
 
 export type PointEntry = {
@@ -50,6 +53,9 @@ const REASON_LABELS: Record<PointReason, string> = {
   REDEEMED_ON_RIDE: 'Redeemed on a ride',
   REDEEMED_ON_SEAT: 'Redeemed on a shuttle seat',
   SHUTTLE_CANCELLED: 'Credit for a cancelled seat',
+  RIDE_CANCELLED: 'Points returned from a cancelled ride',
+  DEPARTURE_CANCELLED: 'Refund for a cancelled shuttle',
+  REFUNDED: 'Refund',
   ADMIN_ADJUSTMENT: 'Adjustment',
 };
 

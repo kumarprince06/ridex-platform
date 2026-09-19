@@ -995,6 +995,10 @@ button.stat-tile:focus-visible {
   color: var(--primary);
   font-weight: 600;
 }
+.board-danger {
+  color: var(--danger);
+  margin-left: var(--space-3);
+}
 
 /* Fare rule and wizard inputs side by side. */
 .rule-row {

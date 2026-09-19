@@ -284,6 +284,22 @@ export function changeRideFare(
   return request<RideFare>(`/api/v1/admin/ride-fares/${rideTypeId}`, { method: 'PUT', body: fare });
 }
 
+/** A refund on a payment, paid to the rider as points. Never more in total than was paid. */
+export function refundAsPoints(paymentId: string, amountMinor: number, reason: string) {
+  return request<{ refundId: string; amountMinor: number }>(`/api/v1/admin/payments/${paymentId}/refund`, {
+    method: 'POST',
+    body: { amountMinor, reason },
+  });
+}
+
+/** Calls a departure off: every rider gets the whole fare back as points and is told. */
+export function cancelDeparture(shuttleTripId: string, reason: string) {
+  return request<{ seatsCancelled: number }>(`/api/v1/admin/shuttle/departures/${shuttleTripId}/cancel`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_REPLY' | 'RESOLVED' | 'CLOSED';
 
 export type TicketMessage = {
@@ -505,7 +521,7 @@ export type Departure = {
   driverName: string | null;
   vehicle: string | null;
   registrationNumber: string | null;
-  runStatus: 'SCHEDULED' | 'RUNNING' | 'COMPLETED';
+  runStatus: 'SCHEDULED' | 'RUNNING' | 'COMPLETED' | 'CANCELLED';
   currentStop: string | null;
   delayMinutes: number;
   seats: {

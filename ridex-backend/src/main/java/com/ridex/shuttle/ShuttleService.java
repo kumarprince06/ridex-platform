@@ -205,6 +205,9 @@ public class ShuttleService {
         LocalDate serviceDate = LocalDate.parse(request.serviceDate());
         ShuttleTrip trip = departureFor(request.scheduleId(), serviceDate);
 
+        if ("CANCELLED".equals(trip.getStatus())) {
+            throw new ConflictException("This departure has been cancelled. Please pick another.");
+        }
         if (trip.getDepartsAt().isBefore(Instant.now())) {
             throw new ConflictException("That departure has already left.");
         }
@@ -307,6 +310,61 @@ public class ShuttleService {
         }
 
         return toResponse(booking, boarding, alighting, boardingCode, checkout);
+    }
+
+    /**
+     * RideX calls a departure off. Everyone booked on it gets their money back as points - the
+     * whole fare, not the 80% a rider's own cancellation earns, because this one is on us - plus any
+     * points they spent, and pass riders get the ride back on their pass. Each rider is told.
+     *
+     * @return how many seats were cancelled
+     */
+    @Transactional
+    public int cancelDeparture(String shuttleTripId, String reason) {
+        ShuttleTrip trip = shuttleTripRepository.findById(shuttleTripId)
+                .orElseThrow(() -> new NotFoundException("No such departure."));
+        if (!"SCHEDULED".equals(trip.getStatus())) {
+            throw new ConflictException("Only a departure that has not started can be cancelled.");
+        }
+
+        String when = trip.getSchedule().getRoute().getName() + " at "
+                + DateTimeFormatter.ofPattern("h:mm a, d MMM").withZone(ZoneId.of(serviceZone)).format(trip.getDepartsAt());
+        int cancelled = 0;
+        for (ShuttleBooking booking : bookingRepository.everySeatOn(trip.getId())) {
+            if (!"BOOKED".equals(booking.getStatus())) {
+                continue;
+            }
+            String riderUserId = booking.getRider().getUser().getId();
+            String refund;
+            if (booking.getPassId() != null) {
+                passRepository.findById(booking.getPassId()).ifPresent(pass -> {
+                    pass.setRidesUsed((short) Math.max(0, pass.getRidesUsed() - 1));
+                    passRepository.save(pass);
+                });
+                refund = "Your pass has not been charged for it.";
+            } else if ("PAID".equals(booking.getPaymentStatus())) {
+                long paid = booking.getFareMinor() - booking.getDiscountMinor();
+                pointsService.creditCancelledDeparture(riderUserId, paid, booking.getRedeemedPoints(), booking.getId());
+                booking.setPaymentStatus("POINTS_CREDITED");
+                refund = "The full fare is back in your RideX points.";
+            } else {
+                // Never paid: close the open order, and give back any points it held.
+                shuttlePayments.voidShuttlePayment(booking.getId(), "Departure cancelled");
+                pointsService.creditCancelledDeparture(riderUserId, 0, booking.getRedeemedPoints(), booking.getId());
+                refund = "Nothing was charged.";
+            }
+            booking.setStatus("CANCELLED");
+            booking.setCancelledAt(Instant.now());
+            bookingRepository.save(booking);
+            notifier.notifyUser(riderUserId, "SHUTTLE_DEPARTURE_CANCELLED",
+                    when + "|" + (reason == null || reason.isBlank() ? "" : reason.trim() + " ") + refund,
+                    "SHUTTLE_BOOKING", booking.getId());
+            cancelled++;
+        }
+
+        trip.setStatus("CANCELLED");
+        shuttleTripRepository.save(trip);
+        return cancelled;
     }
 
     @Transactional

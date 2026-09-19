@@ -313,6 +313,25 @@ public class PointsService {
                 "shuttle-cancel:" + bookingId, "Credit for a cancelled shuttle seat");
     }
 
+    /**
+     * A departure RideX called off: the money paid comes back at the redemption rate, and points
+     * spent on the seat come back as they were.
+     */
+    @Transactional
+    public void creditCancelledDeparture(String userId, long paidMinor, int pointsSpent, String bookingId) {
+        int points = pointsFor(paidMinor) + Math.max(0, pointsSpent);
+        if (points > 0) {
+            award(userId, points, PointReason.DEPARTURE_CANCELLED, "SHUTTLE_BOOKING", bookingId,
+                    "departure-cancel:" + bookingId, "Your shuttle was cancelled");
+        }
+    }
+
+    /** A refund support approved, credited as points. The key makes a retried refund land once. */
+    @Transactional
+    public void creditRefund(String userId, long amountMinor, String refundId, String note) {
+        award(userId, pointsFor(amountMinor), PointReason.REFUNDED, "REFUND", refundId, "refund:" + refundId, note);
+    }
+
     /** Points that an amount of money is worth. The inverse of {@link #valueOf(int)}. */
     public int pointsFor(long amountMinor) {
         return (int) (amountMinor / 100 * pointsPerCurrencyUnit());

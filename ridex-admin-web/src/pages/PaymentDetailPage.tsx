@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { dateTime, money } from '../lib/format';
 
-import { getPayment } from '../api/admin';
+import { getPayment, refundAsPoints } from '../api/admin';
+import { FormDialog } from '../components/FormDialog';
 import { useQuery } from '../api/useQuery';
 import {
+  Button,
   Card,
   DetailList,
   Grid,
@@ -14,13 +17,12 @@ import {
   Timeline,
 } from '../components/ui';
 
-/**
- * FR-OPS-007. Read-only on purpose: a refund creates a new record and needs the wallet work first
- * (docs/32), and a button that only wrote a notice to the screen was worse than no button.
- */
+/** One payment: its amounts, the gateway's events, and refunds - paid to the rider as points. */
 export function PaymentDetailPage() {
   const { paymentId = '' } = useParams();
-  const { data, loading, error } = useQuery(() => getPayment(paymentId), [paymentId]);
+  const { data, loading, error, refetch } = useQuery(() => getPayment(paymentId), [paymentId]);
+  const [refunding, setRefunding] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   if (loading) {
     return <PageHeader title="Payment" subtitle="Loading..." />;
@@ -37,7 +39,42 @@ export function PaymentDetailPage() {
       <PageHeader
         title={`Payment ${payment.id}`}
         subtitle={`${amount} · ${payment.method} · ${dateTime(payment.createdAt)}`}
+        actions={
+          payment.status === 'SUCCEEDED' || payment.status === 'PARTIALLY_REFUNDED' ? (
+            <Button variant="primary" onClick={() => setRefunding(true)}>
+              Refund as points
+            </Button>
+          ) : undefined
+        }
       />
+
+      {notice ? (
+        <Card>
+          <span className="cell-muted">{notice}</span>
+        </Card>
+      ) : null}
+
+      {refunding ? (
+        <FormDialog
+          title="Refund as points"
+          body={`The rider gets the amount as RideX points (100 points = Rs 1) and a notification with your reason. At most ${amount} in total across refunds.`}
+          submitLabel="Refund"
+          fields={[
+            { name: 'amount', label: 'Amount (₹)', type: 'number', initial: String(payment.netAmountMinor / 100) },
+            { name: 'reason', label: 'Reason (the rider sees this)', placeholder: 'Driver skipped your stop' },
+          ]}
+          onCancel={() => setRefunding(false)}
+          onSubmit={(values) => {
+            setRefunding(false);
+            refundAsPoints(payment.id, Math.round(Number(values.amount) * 100), values.reason)
+              .then(() => {
+                setNotice(`Refunded ₹${values.amount} as points.`);
+                refetch();
+              })
+              .catch((caught) => setNotice(caught instanceof Error ? caught.message : 'Could not refund.'));
+          }}
+        />
+      ) : null}
 
       <Grid columns={4}>
         <StatTile label="State" value={humanState(payment.status)} tone={stateTone(payment.status)} />

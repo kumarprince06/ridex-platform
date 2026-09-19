@@ -1052,3 +1052,22 @@ button.stat-tile:focus-visible {
   border-color: var(--primary);
   color: #fff;
 }
+
+/* New-route wizard: Back / Next stays on screen however many stops the route has. */
+.steps ~ .row-actions {
+  display: flex;
+  width: 100%;
+  position: sticky;
+  /* Past the page's bottom padding, so nothing scrolls into view underneath the bar. */
+  bottom: calc(-1 * var(--space-5));
+  z-index: 5;
+  padding: var(--space-3) 0 calc(var(--space-3) + var(--space-5));
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 12px -8px rgb(15 23 42 / 0.15);
+}
+/* The stop list scrolls in its own box instead of stretching the page. */
+.steps ~ .card .doc-layout .table-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+}

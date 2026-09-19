@@ -87,6 +87,9 @@ export type ShuttleBooking = {
   crew: Crew | null;
   /** PAID, or PENDING while the seat is held for a rider who has not paid yet. */
   paymentStatus: string;
+  /** The departure's run: SCHEDULED, RUNNING or COMPLETED. */
+  tripStatus: string;
+  boarded: boolean;
   /** Cancellation closes here - half an hour before departure. */
   cancellableUntil: string;
   /**

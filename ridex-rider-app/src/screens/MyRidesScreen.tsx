@@ -37,8 +37,7 @@ export function MyRidesScreen({ navigation }: Props) {
   // a different thing: they are trips they paid for, and they belong on the same list.
   const { data: shuttle, refetch: refetchShuttle } = useQuery(listBookings, []);
 
-  // Filtered here rather than server-side: the endpoint returns this rider's own history, which
-  // is tens of rows, not the thousands that would make a round trip worth it.
+  // Filtered on the phone - it's one rider's history, a few dozen rows.
   const rides = (data ?? []).filter((ride) => {
     if (filter === 'Completed') return ride.status === 'COMPLETED';
     if (filter === 'Cancelled') return isCancelled(ride.status);
@@ -46,7 +45,7 @@ export function MyRidesScreen({ navigation }: Props) {
   });
 
   const seats = (shuttle ?? []).filter((booking) => {
-    if (filter === 'Completed') return booking.status === 'BOARDED';
+    if (filter === 'Completed') return booking.status !== 'CANCELLED' && booking.tripStatus === 'COMPLETED';
     if (filter === 'Cancelled') return booking.status === 'CANCELLED';
     return true;
   });

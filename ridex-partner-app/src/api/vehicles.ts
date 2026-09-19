@@ -57,3 +57,7 @@ export function addVehicle(vehicle: {
 export function deactivateVehicle(vehicleId: string) {
   return request<Vehicle>(`/api/v1/driver/vehicles/${vehicleId}/deactivate`, { method: 'POST' });
 }
+
+export function reactivateVehicle(vehicleId: string) {
+  return request<Vehicle>(`/api/v1/driver/vehicles/${vehicleId}/reactivate`, { method: 'POST' });
+}

@@ -6,6 +6,7 @@ import {
   VEHICLE_LABELS,
   deactivateVehicle,
   listVehicles,
+  reactivateVehicle,
   type Vehicle,
   type VehicleStatus,
 } from '../api/vehicles';
@@ -28,9 +29,9 @@ export function VehicleScreen({ navigation }: Props) {
   const { data, loading, error, refetch } = useQuery(listVehicles, []);
   const vehicles = data ?? [];
 
-  async function takeOffRoad(vehicle: Vehicle) {
+  async function setOnRoad(vehicle: Vehicle, onRoad: boolean) {
     try {
-      await deactivateVehicle(vehicle.id);
+      await (onRoad ? reactivateVehicle : deactivateVehicle)(vehicle.id);
       refetch();
     } catch (caught) {
       Alert.alert(
@@ -89,12 +90,19 @@ export function VehicleScreen({ navigation }: Props) {
               <Line label="Seats" value={String(vehicle.seatCapacity)} last />
             </View>
 
-            {/* Only an on-road vehicle can be taken off it. Coming back needs another review. */}
-            {vehicle.status === 'ACTIVE' || vehicle.status === 'PENDING_REVIEW' ? (
+            {/* Only an approved vehicle goes off the road, so it can come back without a review. */}
+            {vehicle.status === 'ACTIVE' ? (
               <Button
                 label="Take off the road"
                 variant="secondary"
-                onPress={() => takeOffRoad(vehicle)}
+                onPress={() => setOnRoad(vehicle, false)}
+                style={styles.deactivate}
+              />
+            ) : null}
+            {vehicle.status === 'INACTIVE' ? (
+              <Button
+                label="Put back on the road"
+                onPress={() => setOnRoad(vehicle, true)}
                 style={styles.deactivate}
               />
             ) : null}
@@ -103,8 +111,8 @@ export function VehicleScreen({ navigation }: Props) {
       })}
 
       <Text style={styles.note}>
-        Changing your vehicle needs a fresh registration and insurance check, so it goes back through
-        review before you can drive it.
+        A vehicle you took off the road can go back on it any time. A different vehicle needs its own
+        registration and insurance check, so it goes through review before you can drive it.
       </Text>
     </Screen>
   );

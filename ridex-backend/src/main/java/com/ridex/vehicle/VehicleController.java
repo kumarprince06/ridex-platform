@@ -42,4 +42,11 @@ public class VehicleController {
             @PathVariable String vehicleId) {
         return vehicleService.deactivate(principal.userId(), vehicleId);
     }
+
+    @PostMapping("/{vehicleId}/reactivate")
+    @ResponseStatus(HttpStatus.OK)
+    public VehicleResponse reactivate(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String vehicleId) {
+        return vehicleService.reactivate(principal.userId(), vehicleId);
+    }
 }

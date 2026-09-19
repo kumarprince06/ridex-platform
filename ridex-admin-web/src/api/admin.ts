@@ -26,6 +26,10 @@ export type Dashboard = {
   currency: string;
   grossFaresTodayMinor: number;
   ridesByStatus: Record<string, number>;
+  platformFeeTodayMinor: number;
+  openSupportCases: number;
+  failedPaymentsThisWeek: number;
+  failedPayouts: number;
 };
 
 export type OnboardingStatus =
@@ -175,6 +179,20 @@ export function listTrips(status?: string, page = 0, size = DEFAULT_PAGE_SIZE) {
   const query = new URLSearchParams({ page: String(page), size: String(size) });
   if (status) query.set('status', status);
   return request<Page<AdminTrip>>(`/api/v1/admin/trips?${query}`);
+}
+
+export type StaffMember = {
+  id: string;
+  email: string;
+  name: string;
+  roles: string[];
+  status: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+};
+
+export function listStaff() {
+  return request<StaffMember[]>('/api/v1/admin/staff');
 }
 
 export function listAuditLog(page = 0, size = DEFAULT_PAGE_SIZE) {

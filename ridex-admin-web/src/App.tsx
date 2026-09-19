@@ -12,7 +12,6 @@ import { CasesPage } from './pages/CasesPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DriverDetailPage } from './pages/DriverDetailPage';
 import { DriversPage } from './pages/DriversPage';
-import { FlagsPage } from './pages/FlagsPage';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 import { LiveMapPage } from './pages/LiveMapPage';
 import { LoginPage } from './pages/LoginPage';
@@ -22,13 +21,11 @@ import { PaymentsPage } from './pages/PaymentsPage';
 import { PayoutsPage } from './pages/PayoutsPage';
 import { LegalPage } from './pages/LegalPage';
 import { PricingPage } from './pages/PricingPage';
-import { PromotionsPage } from './pages/PromotionsPage';
 import { RiderDetailPage } from './pages/RiderDetailPage';
 import { RidersPage } from './pages/RidersPage';
 import { ShuttleOpsPage } from './pages/ShuttleOpsPage';
 import { ShuttlePage } from './pages/ShuttlePage';
 import { StaffPage } from './pages/StaffPage';
-import { TemplatesPage } from './pages/TemplatesPage';
 import { TripDetailPage } from './pages/TripDetailPage';
 import { TripsPage } from './pages/TripsPage';
 
@@ -73,9 +70,6 @@ function Routed() {
         <Route path="legal" element={<Require permission="OPERATIONS"><LegalPage /></Require>} />
         <Route path="shuttle" element={<Require permission="OPERATIONS"><ShuttlePage /></Require>} />
         <Route path="shuttle/departures" element={<Require permission="OPERATIONS"><ShuttleOpsPage /></Require>} />
-        <Route path="promotions" element={<Require permission="OPERATIONS"><PromotionsPage /></Require>} />
-        <Route path="templates" element={<Require permission="SUPER_ADMIN"><TemplatesPage /></Require>} />
-        <Route path="flags" element={<Require permission="SUPER_ADMIN"><FlagsPage /></Require>} />
 
         <Route path="analytics" element={<Require permission="OPERATIONS"><AnalyticsPage /></Require>} />
         <Route path="audit" element={<Require permission="OPERATIONS"><AuditPage /></Require>} />

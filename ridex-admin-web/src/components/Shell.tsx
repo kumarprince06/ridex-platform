@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Permission } from '../auth/permissions';
 import { ROLE_LABELS } from '../auth/permissions';
 import { Logo } from './Logo';
+import { ChangePassword } from './ChangePassword';
 import { GlobalSearch } from './GlobalSearch';
 import { NavIcon } from './NavIcon';
 import { useSession } from '../auth/session';
@@ -133,6 +134,7 @@ export function Shell() {
                 {session.roles.map((role) => ROLE_LABELS[role]).join(' · ')}
               </span>
             </div>
+            <ChangePassword />
             <button className="signout" type="button" onClick={signOut}>
               Sign out
             </button>

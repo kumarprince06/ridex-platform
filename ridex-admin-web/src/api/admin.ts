@@ -191,6 +191,24 @@ export type StaffMember = {
   createdAt: string;
 };
 
+export type StaffRoleName = 'SUPPORT' | 'OPS_ADMIN' | 'SUPER_ADMIN';
+
+export function inviteStaff(invite: { email: string; firstName: string; lastName?: string; role: StaffRoleName }) {
+  return request<{ staff: StaffMember; temporaryPassword: string }>('/api/v1/admin/staff', { method: 'POST', body: invite });
+}
+
+export function changeStaffRole(userId: string, role: StaffRoleName) {
+  return request<StaffMember>(`/api/v1/admin/staff/${userId}/role`, { method: 'PUT', body: { role } });
+}
+
+export function setStaffEnabled(userId: string, enabled: boolean) {
+  return request<StaffMember>(`/api/v1/admin/staff/${userId}/enabled/${enabled}`, { method: 'PUT' });
+}
+
+export function changeOwnPassword(currentPassword: string, newPassword: string) {
+  return request<void>('/api/v1/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } });
+}
+
 export function listStaff() {
   return request<StaffMember[]>('/api/v1/admin/staff');
 }

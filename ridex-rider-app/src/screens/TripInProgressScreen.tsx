@@ -23,10 +23,13 @@ export function TripInProgressScreen({ navigation, route }: Props) {
   const driver = ride?.driver;
   const driverAt = driverCoordOf(ride);
   const phone = driver?.phone;
-  const [seconds, setSeconds] = useState(7 * 60 + 23);
+  // Counted from the trip's real start, so reopening the app mid-trip doesn't reset it.
+  const startedAt = ride?.startedAt ? new Date(ride.startedAt).getTime() : null;
+  const [now, setNow] = useState(Date.now());
+  const seconds = startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
 
   useEffect(() => {
-    const timer = setInterval(() => setSeconds((prev) => prev + 1), 1000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 

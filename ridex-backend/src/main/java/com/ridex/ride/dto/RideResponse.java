@@ -34,5 +34,7 @@ public record RideResponse(
         String pickupCode,
         /** Who is coming, and in what. Null until dispatch has assigned somebody. */
         DriverResponse driver,
-        Instant requestedAt) {
+        Instant requestedAt,
+        // When the driver started the trip; the in-trip timer counts from here, not app launch.
+        Instant startedAt) {
 }

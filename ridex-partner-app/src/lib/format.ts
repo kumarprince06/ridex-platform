@@ -35,8 +35,8 @@ export function clockTime(iso: string): string {
  * scanning for in a list. Anything else - past rides or a booked seat next week - is just a date.
  */
 export function when(at: string | Date): string {
-  const moment = asDate(at);
-  const time = clockTime(moment);
+  const moment = new Date(at);
+  const time = moment.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const day = new Date(moment);
   day.setHours(0, 0, 0, 0);

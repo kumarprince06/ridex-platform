@@ -11,6 +11,15 @@ export function money(amountMinor: number, currency: string): string {
   return `${sign}${currency} ${(Math.abs(amountMinor) / 100).toFixed(2)}`;
 }
 
+/**
+ * The ledger balance in words. Negative means the driver kept cash that includes the platform's
+ * fee, so "-INR 77 owed to you" would say the opposite of what is true.
+ */
+export function balance(balanceMinor: number, currency: string): { amount: string; label: string; owing: boolean } {
+  const owing = balanceMinor < 0;
+  return { amount: money(Math.abs(balanceMinor), currency), label: owing ? 'You owe' : 'Owed to you', owing };
+}
+
 /** "7.8 km" - the only unit a driver reads mid-traffic. */
 export function distance(metres: number): string {
   return `${(metres / 1000).toFixed(1)} km`;

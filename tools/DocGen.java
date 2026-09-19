@@ -107,7 +107,9 @@ public final class DocGen {
         private static final Pattern METHOD = Pattern.compile(
                 "public\\s+[\\w<>,.\\[\\] ?]+\\s+(\\w+)\\s*\\(");
         private static final Pattern JAVADOC = Pattern.compile(
-                "/\\*\\*(.*?)\\*/\\s*(?:@\\w+(?:\\([^)]*\\))?\\s*)*$", Pattern.DOTALL);
+                // Tempered so one match never runs across a "*/": otherwise a short method above
+                // lends its javadoc to the route below it.
+                "/\\*\\*((?:(?!\\*/).)*?)\\*/\\s*(?:@\\w+(?:\\([^)]*\\))?\\s*)*$", Pattern.DOTALL);
 
         record Route(String verb, String path, String who, String what) {
         }

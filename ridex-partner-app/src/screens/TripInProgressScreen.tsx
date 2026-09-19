@@ -6,8 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { completeTrip, useTrip } from '../api/driver';
 import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
+import { RiderBar } from '../components/RiderBar';
 import { SwipeAction } from '../components/SwipeAction';
-import { money } from '../lib/format';
+import { distance, minutes, money } from '../lib/format';
 import { trackTripDistance } from '../lib/tripDistance';
 import { RootScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -29,12 +30,12 @@ export function TripInProgressScreen({ navigation, route }: Props) {
   const destination = trip?.destinationAddress ?? 'the destination';
 
   // Started on mount, not on the swipe: the distance is everything between the two.
-  const distance = useRef<ReturnType<typeof trackTripDistance> | null>(null);
+  const odometer = useRef<ReturnType<typeof trackTripDistance> | null>(null);
   useEffect(() => {
-    distance.current = trackTripDistance();
+    odometer.current = trackTripDistance();
     return () => {
-      distance.current?.stop();
-      distance.current = null;
+      odometer.current?.stop();
+      odometer.current = null;
     };
   }, []);
 
@@ -51,7 +52,7 @@ export function TripInProgressScreen({ navigation, route }: Props) {
       // What the phone actually measured between pickup and here. Zero means the device never
       // gave a usable fix; the server falls back to the quoted route rather than pricing at zero.
       const durationSeconds = Math.round((Date.now() - startedAt.current) / 1000);
-      const metres = distance.current?.metres() ?? 0;
+      const metres = odometer.current?.metres() ?? 0;
       const completed = await completeTrip(tripId, metres, Math.max(60, durationSeconds));
       navigation.replace('TripCompleted', {
         tripId,
@@ -65,23 +66,21 @@ export function TripInProgressScreen({ navigation, route }: Props) {
     }
   }
 
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => setProgress((prev) => Math.min(1, prev + 0.04)), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const minutesLeft = Math.max(1, Math.round(19 * (1 - progress)));
+  // Road time from where the driver is to the drop-off, once the router answers.
+  const [eta, setEta] = useState<{ seconds: number; metres: number } | null>(null);
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute driverAt={progress} driverLabel="You" destinationLabel={destination} />
+      <MapCanvas
+        destination={trip ? [trip.destinationLng, trip.destinationLat] : undefined}
+        routeFromMe
+        onRoute={(route) => setEta({ seconds: route.duration, metres: route.distance })}
+      />
 
       <SafeAreaView style={styles.top} edges={['top']} pointerEvents="box-none">
         <View style={styles.etaCard}>
-          <Text style={styles.etaValue}>{minutesLeft} min</Text>
-          <Text style={styles.etaLabel}>to {destination}</Text>
+          <Text style={styles.etaValue}>{eta ? minutes(eta.seconds) : '--'}</Text>
+          <Text style={styles.etaLabel}>{eta ? `${distance(eta.metres)} · ` : ''}to {destination}</Text>
         </View>
 
         <Pressable
@@ -97,6 +96,13 @@ export function TripInProgressScreen({ navigation, route }: Props) {
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
         <View style={styles.grabber} />
 
+        <RiderBar name={trip?.riderName ?? 'Your rider'} phone={trip?.riderPhone} note="On board" />
+
+        <View style={styles.addressCard}>
+          <Ionicons name="flag" size={17} color={colors.amber} />
+          <Text style={styles.address}>{destination}</Text>
+        </View>
+
         <View style={styles.fareRow}>
           <View>
             <Text style={styles.fareLabel}>TRIP FARE</Text>
@@ -106,9 +112,9 @@ export function TripInProgressScreen({ navigation, route }: Props) {
             </Text>
           </View>
           <View style={styles.paymentPill}>
-            <Ionicons name="card" size={14} color={colors.textMuted} />
+            <Ionicons name={trip?.paymentMethod === 'CASH' ? 'cash' : 'card'} size={14} color={colors.textMuted} />
             <Text style={styles.payment}>
-              {trip?.paymentMethod === 'CASH' ? 'Cash at drop-off' : 'Paid online'}
+              {trip?.paymentMethod === 'CASH' ? 'Collect cash' : 'Paid online'}
             </Text>
           </View>
         </View>
@@ -195,6 +201,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  addressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  address: {
+    ...type.body,
+    flex: 1,
+    color: colors.text,
   },
   fareLabel: {
     ...type.eyebrow,

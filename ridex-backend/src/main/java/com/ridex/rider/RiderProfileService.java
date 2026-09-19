@@ -3,6 +3,7 @@ package com.ridex.rider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ridex.auth.UserIdentityService;
 import com.ridex.auth.domain.User;
 import com.ridex.rider.domain.RiderProfile;
 import com.ridex.rider.dto.RiderProfileResponse;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class RiderProfileService {
 
     private final RiderProfileRepository riderProfileRepository;
+    private final UserIdentityService userIdentityService;
 
     /** Called in the registration transaction. An account with no profile row is a null check in
      *  every screen that follows. */
@@ -34,7 +36,7 @@ public class RiderProfileService {
     @Transactional
     public RiderProfileResponse update(String userId, UpdateRiderProfileRequest request) {
         RiderProfile profile = require(userId);
-        profile.getUser().updateIdentity(request.firstName(), request.lastName(), request.phone());
+        userIdentityService.update(profile.getUser(), request.firstName(), request.lastName(), request.phone());
         return toResponse(profile);
     }
 

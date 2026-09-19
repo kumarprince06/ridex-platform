@@ -36,7 +36,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
-                "That account could not be created because it conflicts with an existing record.");
+                "That conflicts with an existing record.");
     }
 
     @ExceptionHandler(TooManyRequestsException.class)

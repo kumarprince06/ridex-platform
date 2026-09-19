@@ -73,7 +73,7 @@ export function TripsScreen({ navigation }: Props) {
             {trip.riderRating ? (
               <Stars value={trip.riderRating} />
             ) : (
-              <Text style={styles.noRating}>Not rated</Text>
+              <Text style={styles.noRating}>Rider hasn't rated you yet</Text>
             )}
             {/* What the driver earned, not the fare: the two differ by the platform's commission. */}
             <Text style={styles.net}>
@@ -84,7 +84,7 @@ export function TripsScreen({ navigation }: Props) {
       ))}
 
       {!loading && trips.length === 0 ? (
-        <Text style={styles.empty}>No {filter.toLowerCase()} trips yet.</Text>
+        <Text style={styles.empty}>{filter === 'All' ? 'No trips yet.' : `No ${filter.toLowerCase()} trips yet.`}</Text>
       ) : null}
     </Screen>
   );

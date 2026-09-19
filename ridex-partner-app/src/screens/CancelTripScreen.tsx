@@ -110,8 +110,10 @@ export function CancelTripScreen({ navigation, route }: Props) {
       <View style={styles.warning}>
         <Ionicons name="information-circle" size={17} color={colors.warning} />
         <Text style={styles.warningText}>
-          Cancelling after arriving affects your cancellation rate. Frequent cancellations can pause
-          your access to offers.
+          {route.params?.arrived
+            ? 'The rider has been told you are here. Cancelling now affects your cancellation rate.'
+            : 'Cancelling an accepted trip affects your cancellation rate.'}{' '}
+          Frequent cancellations can pause your access to offers.
         </Text>
       </View>
     </Screen>

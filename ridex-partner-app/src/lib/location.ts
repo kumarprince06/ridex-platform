@@ -60,7 +60,19 @@ export async function currentPosition(): Promise<{ latitude: number; longitude: 
     throw new Error('Location permission is required to go on duty.');
   }
 
-  const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+  // Indoors a fresh fix can take minutes or never come, and the button would just sit there. After
+  // ten seconds a fix from the last two minutes is still a street the driver is on.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const fresh = await Promise.race([
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), 10_000);
+    }),
+  ]).finally(() => clearTimeout(timer));
+  const fix = fresh ?? (await Location.getLastKnownPositionAsync({ maxAge: 2 * 60 * 1000 }));
+  if (!fix) {
+    throw new Error('Could not find your location. Turn on GPS or move near a window, then try again.');
+  }
   cached = [fix.coords.longitude, fix.coords.latitude];
   return { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
 }
@@ -87,4 +99,35 @@ export function useCurrentLocation() {
   }, []);
 
   return { coord, denied: coord === null };
+}
+
+/**
+ * The device position, kept current while mounted - the driver's own marker has to move with them.
+ * Ten-metre steps: a marker that twitches on GPS noise reads as a broken app.
+ */
+export function useLivePosition(enabled: boolean) {
+  const [position, setPosition] = useState<LngLat | null>(cached);
+  // Degrees from north while moving; null when the device does not know (standing still).
+  const [heading, setHeading] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    let subscription: Location.LocationSubscription | undefined;
+    let cancelled = false;
+    Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, distanceInterval: 10 }, (fix) => {
+      cached = [fix.coords.longitude, fix.coords.latitude];
+      setPosition(cached);
+      setHeading(fix.coords.heading != null && fix.coords.heading >= 0 ? fix.coords.heading : null);
+    })
+      .then((watch) => (cancelled ? watch.remove() : (subscription = watch)))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
+  }, [enabled]);
+
+  return { position, heading };
 }

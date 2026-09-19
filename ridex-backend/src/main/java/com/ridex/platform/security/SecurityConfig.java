@@ -42,6 +42,8 @@ public class SecurityConfig {
         "/api/v1/auth/verify",
         "/api/v1/auth/forgot-password",
         "/api/v1/auth/reset-password",
+        // Terms and privacy text: shown on the Welcome screen, before any account exists.
+        "/api/v1/legal/*",
         // A gateway carries no bearer token. Its signature is the authentication, checked in the
         // controller before the body is parsed.
         "/api/v1/payments/webhook"

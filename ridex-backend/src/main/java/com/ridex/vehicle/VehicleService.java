@@ -71,11 +71,28 @@ public class VehicleService {
         return VehicleResponse.of(driverVehicleRepository.save(vehicle));
     }
 
-    /** A driver taking their own car off the road. Reactivating needs a review, so this is one way. */
+    /**
+     * A driver taking their own approved car off the road. Only ACTIVE qualifies, so INACTIVE always
+     * means "approved once" - which is what lets {@link #reactivate} skip a second review.
+     */
     @Transactional
     public VehicleResponse deactivate(String driverUserId, String vehicleId) {
         DriverVehicle vehicle = requireOwned(driverUserId, vehicleId);
+        if (vehicle.getStatus() != VehicleStatus.ACTIVE) {
+            throw new ConflictException("Only an approved vehicle can be taken off the road.");
+        }
         vehicle.setStatus(VehicleStatus.INACTIVE);
+        return VehicleResponse.of(driverVehicleRepository.save(vehicle));
+    }
+
+    /** Back from the garage: the same car and plate, already reviewed, so no new registration. */
+    @Transactional
+    public VehicleResponse reactivate(String driverUserId, String vehicleId) {
+        DriverVehicle vehicle = requireOwned(driverUserId, vehicleId);
+        if (vehicle.getStatus() != VehicleStatus.INACTIVE) {
+            throw new ConflictException("Only a vehicle that is off the road can be put back on it.");
+        }
+        vehicle.setStatus(VehicleStatus.ACTIVE);
         return VehicleResponse.of(driverVehicleRepository.save(vehicle));
     }
 

@@ -20,6 +20,7 @@ export type DriverProfile = {
   onboardingStatus: OnboardingStatus;
   rating: number | null;
   ratingCount: number;
+  onDuty: boolean;
 };
 
 export function getProfile(): Promise<DriverProfile> {

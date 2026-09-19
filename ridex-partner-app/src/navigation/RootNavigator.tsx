@@ -42,6 +42,7 @@ import { VehicleScreen } from '../screens/VehicleScreen';
 import { VerifyOtpScreen } from '../screens/VerifyOtpScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { colors } from '../theme';
+import { LegalScreen } from '../screens/LegalScreen';
 import { MainTabs } from './MainTabs';
 import { RootStackParamList } from './types';
 
@@ -71,6 +72,7 @@ export function RootNavigator() {
         <Stack.Screen name="Splash" component={SplashScreen} />
 
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="Legal" component={LegalScreen} />
         <Stack.Screen name="SignIn" component={SignInScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="CheckInbox" component={CheckInboxScreen} />

@@ -21,6 +21,8 @@ export type Offer = {
   destinationAddress: string | null;
   pickupLat: number;
   pickupLng: number;
+  destinationLat: number;
+  destinationLng: number;
   tripDistanceMeters: number;
   distanceToPickupMeters: number | null;
   currency: string;
@@ -38,8 +40,13 @@ export type Trip = {
   status: string;
   /** Who is in the car and where they are going. The offer is gone by the time these screens open. */
   riderName: string;
+  riderPhone: string | null;
   pickupAddress: string | null;
   destinationAddress: string | null;
+  pickupLat: number;
+  pickupLng: number;
+  destinationLat: number;
+  destinationLng: number;
   arrivedAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
@@ -165,6 +172,11 @@ export function rateRider(rideId: string, stars: number, comment?: string) {
   });
 }
 
+/** The unfinished trip, or undefined (204) when there is none. */
+export function currentTrip() {
+  return request<Trip | undefined>('/api/v1/trips/current');
+}
+
 export function getTrip(tripId: string) {
   return request<Trip>(`/api/v1/trips/${tripId}`);
 }
@@ -201,7 +213,7 @@ export type EarningLine = {
   commissionRate: number;
   commissionMinor: number;
   netAmountMinor: number;
-  createdAt: string;
+  earnedAt: string;
 };
 
 export type Earnings = {

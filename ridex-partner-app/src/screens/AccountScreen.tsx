@@ -5,6 +5,9 @@ import { Row } from '../components/Row';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
 import { StatTiles } from '../components/StatTiles';
+import { useSession } from '../auth/session';
+import { expiringSoon, listDocuments } from '../api/documents';
+import { getPayoutAccount } from '../api/driver';
 import { getProfile } from '../api/profile';
 import { listVehicles } from '../api/vehicles';
 import { useQuery } from '../api/useQuery';
@@ -16,10 +19,14 @@ type Props = TabScreenProps<'Account'>;
 export function AccountScreen({ navigation }: Props) {
   const { data: profile } = useQuery(getProfile);
   const { data: vehicles } = useQuery(listVehicles);
+  const { data: documents } = useQuery(listDocuments);
+  const { data: payoutAccount } = useQuery(getPayoutAccount);
+  const { signOut } = useSession();
+  const expiring = expiringSoon(documents ?? []);
   // The car they are approved to drive today, not whichever was added first.
   const vehicle = (vehicles ?? []).find((candidate) => candidate.status === 'ACTIVE')
     ?? (vehicles ?? [])[0];
-  const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Your account';
+  const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || profile?.email?.split('@')[0] || 'Your account';
 
   return (
     <Screen title="Account">
@@ -49,11 +56,17 @@ export function AccountScreen({ navigation }: Props) {
         subtitle={vehicle ? `${vehicle.model} · ${vehicle.status}` : 'None added'}
         onPress={() => navigation.navigate('Vehicle')}
       />
-      <Row icon="document-text" title="Documents" subtitle="1 expiring soon" badge="1" onPress={() => navigation.navigate('Documents')} />
+      <Row
+        icon="document-text"
+        title="Documents"
+        subtitle={expiring ? `Expires in ${expiring.days} day${expiring.days === 1 ? '' : 's'}` : 'Licence, ID, vehicle papers'}
+        badge={expiring ? '1' : undefined}
+        onPress={() => navigation.navigate('Documents')}
+      />
       <Row icon="star" title="Ratings and stats" subtitle="Acceptance, cancellation, rating" onPress={() => navigation.navigate('Ratings')} />
 
       <SectionLabel>MONEY</SectionLabel>
-      <Row icon="cash" title="Payouts" subtitle="Weekly · HDFC ••4412" onPress={() => navigation.navigate('Payouts')} />
+      <Row icon="cash" title="Payouts" subtitle={payoutAccount?.set ? `Weekly · ${payoutAccount.accountNumberMasked}` : 'Weekly · add a bank account'} onPress={() => navigation.navigate('Payouts')} />
       <Row icon="card" title="Payout method" subtitle="Change where earnings are sent" onPress={() => navigation.navigate('PayoutMethod')} />
 
       <SectionLabel>ACCOUNT</SectionLabel>
@@ -66,8 +79,8 @@ export function AccountScreen({ navigation }: Props) {
         icon="log-out"
         title="Sign out"
         danger
-        // Sign-out has to clear the root stack, not the tab navigator this screen lives in.
-        onPress={() => navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Welcome' }] })}
+        // Tokens first, or the next launch signs straight back in; then clear the root stack.
+        onPress={() => void signOut().then(() => navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Welcome' }] }))}
       />
     </Screen>
   );

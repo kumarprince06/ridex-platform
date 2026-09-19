@@ -28,6 +28,21 @@ export const DOCUMENT_LABELS: Record<DocumentType, string> = {
   BACKGROUND_CHECK: 'Background check',
 };
 
+const DAY_MS = 86_400_000;
+
+/** The approved document closest to lapsing within a month - offers stop the moment it expires. */
+export function expiringSoon(documents: DriverDocument[]): { doc: DriverDocument; days: number } | undefined {
+  return documents
+    .filter((doc) => doc.status === 'APPROVED' && doc.expiresAt)
+    .map((doc) => ({ doc, days: Math.ceil((Date.parse(doc.expiresAt!) - Date.now()) / DAY_MS) }))
+    .filter((entry) => entry.days > 0 && entry.days <= 30)
+    .sort((a, b) => a.days - b.days)[0];
+}
+
+export function expiryTitle({ doc, days }: { doc: DriverDocument; days: number }): string {
+  return `${DOCUMENT_LABELS[doc.documentType]} expires in ${days} day${days === 1 ? '' : 's'}`;
+}
+
 export function listDocuments() {
   return request<DriverDocument[]>('/api/v1/driver/documents');
 }

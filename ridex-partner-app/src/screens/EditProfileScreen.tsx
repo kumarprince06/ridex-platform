@@ -1,49 +1,77 @@
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ApiError } from '../api/problem';
+import { updateProfile } from '../api/profile';
+import { useSession } from '../auth/session';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
-import { Chip } from '../components/Chip';
 import { Screen } from '../components/Screen';
 import { TextField } from '../components/TextField';
 import { RootStackParamList } from '../navigation/types';
-import { colors, radius, spacing, type } from '../theme';
+import { colors, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditProfile'>;
 
-const GENDERS = ['Male', 'Female', 'Other'];
-
 export function EditProfileScreen({ navigation }: Props) {
-  const [name, setName] = useState('Alex Johnson');
-  const [email, setEmail] = useState('alex@example.com');
-  const [phone, setPhone] = useState('+1 (555) 203-4471');
-  const [gender, setGender] = useState('Male');
+  const { profile, refreshProfile } = useSession();
+  const [firstName, setFirstName] = useState(profile?.firstName ?? '');
+  const [lastName, setLastName] = useState(profile?.lastName ?? '');
+  const [phone, setPhone] = useState(profile?.phone ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | undefined>();
+
+  // The session may still be loading when the screen opens; fill in once it lands.
+  useEffect(() => {
+    if (!profile) {
+      void refreshProfile().catch(() => undefined);
+      return;
+    }
+    setFirstName(profile.firstName ?? '');
+    setLastName(profile.lastName ?? '');
+    setPhone(profile.phone ?? '');
+  }, [profile, refreshProfile]);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    setPhoneError(undefined);
+    try {
+      await updateProfile({ firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim() });
+      await refreshProfile();
+      navigation.goBack();
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.fieldErrors?.phone) {
+        setPhoneError(caught.fieldErrors.phone);
+      } else {
+        setError(caught instanceof ApiError ? caught.userMessage : 'Could not save your profile.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const name = `${firstName} ${lastName}`.trim() || profile?.email || '';
 
   return (
     <Screen
       onBack={() => navigation.goBack()}
       title="Edit Profile"
-      footer={<Button label="Save Changes" onPress={() => navigation.goBack()} />}
+      footer={<Button label="Save Changes" onPress={() => void save()} loading={busy} disabled={busy} />}
     >
       <View style={styles.avatarBlock}>
-        <View>
-          <Avatar name={name} size={92} brand />
-          <View style={styles.cameraChip}>
-            <Ionicons name="camera" size={15} color={colors.onPrimary} />
-          </View>
-        </View>
-        <Text style={styles.changePhoto}>Change Photo</Text>
+        <Avatar name={name} size={92} brand />
       </View>
 
-      <TextField label="Full Name" icon="person" value={name} onChangeText={setName} autoCapitalize="words" />
+      <TextField label="First name" icon="person" value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
       <TextField
-        label="Email"
-        icon="mail"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
+        label="Last name"
+        icon="person"
+        value={lastName}
+        onChangeText={setLastName}
+        autoCapitalize="words"
         style={styles.spaced}
       />
       <TextField
@@ -52,21 +80,16 @@ export function EditProfileScreen({ navigation }: Props) {
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
+        placeholder="+91 98765 43210"
+        error={phoneError}
         style={styles.spaced}
       />
 
-      <Text style={styles.label}>Gender</Text>
-      <View style={styles.genders}>
-        {GENDERS.map((option) => (
-          <Chip
-            key={option}
-            label={option}
-            selected={gender === option}
-            onPress={() => setGender(option)}
-            style={styles.gender}
-          />
-        ))}
-      </View>
+      {/* Email is read-only here: changing it has to re-verify, which is its own flow. */}
+      <Text style={styles.label}>Email</Text>
+      <Text style={styles.email}>{profile?.email ?? '--'}</Text>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </Screen>
   );
 }
@@ -76,25 +99,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  cameraChip: {
-    position: 'absolute',
-    right: -2,
-    bottom: 0,
-    width: 30,
-    height: 30,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.bg,
-  },
-  changePhoto: {
-    ...type.button,
-    fontSize: 14,
-    color: colors.primary,
-    marginTop: spacing.md,
-  },
   spaced: {
     marginTop: spacing.lg,
   },
@@ -102,15 +106,15 @@ const styles = StyleSheet.create({
     ...type.label,
     color: colors.textMuted,
     marginTop: spacing.lg,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  genders: {
-    flexDirection: 'row',
-    gap: spacing.md,
+  email: {
+    ...type.body,
+    color: colors.text,
   },
-  gender: {
-    flex: 1,
-    alignItems: 'center',
-    borderRadius: radius.lg,
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.md,
   },
 });

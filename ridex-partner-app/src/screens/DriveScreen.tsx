@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { expiringSoon, expiryTitle, listDocuments } from '../api/documents';
 import { reportLocation, setDuty } from '../api/driver';
+import { useSession } from '../auth/session';
 import { ApiError } from '../api/problem';
 import { useOffers } from '../api/useOffers';
 import { currentPosition } from '../lib/location';
@@ -14,7 +16,7 @@ import { PulseRings } from '../components/PulseRings';
 import { StatusBanner } from '../components/StatusBanner';
 import { getEarnings } from '../api/driver';
 import { useQuery } from '../api/useQuery';
-import { money } from '../lib/format';
+import { balance, money } from '../lib/format';
 import { TabScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -24,15 +26,23 @@ type Props = TabScreenProps<'Drive'>;
 const LOCATION_PING_MS = 15000;
 
 export function DriveScreen({ navigation }: Props) {
-  const [online, setOnline] = useState(false);
+  // Start from the server's duty flag: a relaunch must not show offline while dispatch has them on.
+  const { profile } = useSession();
+  const [online, setOnline] = useState(profile?.onDuty ?? false);
   const [error, setError] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
   // What the ledger says is owed right now, and what has been earned in all. Nothing here is a
   // target the app invented.
   const { data: earnings } = useQuery(getEarnings);
   const currency = earnings?.currency ?? 'INR';
-  const owed = earnings ? money(earnings.ledgerBalanceMinor, currency) : '--';
+  const owed = earnings ? balance(earnings.ledgerBalanceMinor, currency) : null;
   const lifetime = earnings ? money(earnings.lifetimeNetMinor, currency) : '--';
   const trips = earnings?.recent.length ?? 0;
+  const midnight = new Date().setHours(0, 0, 0, 0);
+  const today = (earnings?.recent ?? []).filter((line) => Date.parse(line.earnedAt) >= midnight);
+  const todayNet = earnings ? money(today.reduce((total, line) => total + line.netAmountMinor, 0), currency) : '--';
+  const { data: documents } = useQuery(listDocuments);
+  const expiring = expiringSoon(documents ?? []);
 
   const { offer } = useOffers(online);
 
@@ -58,6 +68,7 @@ export function DriveScreen({ navigation }: Props) {
 
   async function toggleDuty(next: boolean) {
     setError(null);
+    setSwitching(true);
     try {
       const position = next ? await currentPosition() : null;
       await setDuty(next, position?.latitude, position?.longitude);
@@ -65,7 +76,15 @@ export function DriveScreen({ navigation }: Props) {
     } catch (caught) {
       // "Your account is not approved to drive yet" arrives here, which is the message that
       // matters most to a driver who just installed the app.
-      setError(caught instanceof ApiError ? caught.userMessage : 'Could not change duty status.');
+      setError(
+        caught instanceof ApiError
+          ? caught.userMessage
+          : caught instanceof Error
+            ? caught.message
+            : 'Could not change duty status.',
+      );
+    } finally {
+      setSwitching(false);
     }
   }
 
@@ -104,7 +123,7 @@ export function DriveScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <EarningsBar net={owed} goal={lifetime} progress={0} />
+        <EarningsBar net={todayNet} detail={`${today.length} trip${today.length === 1 ? '' : 's'} today`} />
       </SafeAreaView>
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
@@ -119,35 +138,39 @@ export function DriveScreen({ navigation }: Props) {
 
               <View style={styles.searchingText}>
                 <Text style={styles.searchingTitle}>Looking for rides nearby</Text>
-                <Text style={styles.searchingNote}>Midtown · demand is high until 8 PM</Text>
+                <Text style={styles.searchingNote}>Keep the app open - offers appear here</Text>
               </View>
             </View>
 
             <View style={styles.shiftRow}>
-              <Shift value={owed} label="Owed to you" />
+              <Shift value={owed?.amount ?? '--'} label={owed?.label ?? 'Owed to you'} />
               <Shift value={String(trips)} label="Recent trips" />
               <Shift value={lifetime} label="Lifetime" />
             </View>
 
-            <DutyToggle online onToggle={() => void toggleDuty(false)} />
+            <DutyToggle online busy={switching} onToggle={() => void toggleDuty(false)} />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
         ) : (
           <View style={styles.offlineBlock}>
-            <StatusBanner
-              icon="alert-circle"
-              title="Insurance expires in 12 days"
-              body="Upload a renewed certificate before it lapses, or you will stop receiving offers."
-              actionLabel="Update document"
-              onPress={() => navigation.navigate('Documents')}
-            />
+            {expiring ? (
+              <StatusBanner
+                icon="alert-circle"
+                title={expiryTitle(expiring)}
+                body="Upload a renewed copy before it lapses, or you will stop receiving offers."
+                actionLabel="Update document"
+                onPress={() => navigation.navigate('Documents')}
+              />
+            ) : null}
 
             <View style={styles.shiftRow}>
-              <Shift value={owed} label="Owed to you" />
+              <Shift value={owed?.amount ?? '--'} label={owed?.label ?? 'Owed to you'} />
               <Shift value={String(trips)} label="Recent trips" />
               <Shift value={lifetime} label="Lifetime" />
             </View>
 
-            <DutyToggle online={false} onToggle={() => void toggleDuty(true)} />
+            <DutyToggle online={false} busy={switching} onToggle={() => void toggleDuty(true)} />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
         )}
       </SafeAreaView>
@@ -168,6 +191,12 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
   topBar: {
     position: 'absolute',

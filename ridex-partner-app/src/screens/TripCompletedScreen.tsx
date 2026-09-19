@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
+import { SuccessTick } from '../components/SuccessTick';
 import { getEarnings, useTrip } from '../api/driver';
 import { useQuery } from '../api/useQuery';
 import { distance, money } from '../lib/format';
@@ -19,6 +20,9 @@ export function TripCompletedScreen({ navigation, route }: Props) {
   // arithmetic the phone did on the fare.
   const line = earnings?.recent.find((entry) => entry.tripId === route.params?.tripId);
   const currency = completed?.currency ?? earnings?.currency ?? 'INR';
+  const cash = completed?.paymentMethod === 'CASH';
+  // Negative means the driver kept cash that includes the platform's commission and owes it back.
+  const ledger = earnings?.ledgerBalanceMinor;
 
   return (
     <Screen
@@ -43,13 +47,21 @@ export function TripCompletedScreen({ navigation, route }: Props) {
     >
       <View style={styles.hero}>
         <View style={styles.badge}>
-          <Ionicons name="checkmark" size={34} color={colors.onPrimary} />
+          <SuccessTick />
         </View>
 
         <Text style={styles.eyebrow}>TRIP COMPLETE</Text>
         <Text style={styles.net}>{line ? money(line.netAmountMinor, currency) : '--'}</Text>
         <Text style={styles.note}>added to today's earnings</Text>
       </View>
+
+      {cash && completed?.finalFareMinor != null ? (
+        // The one thing a cash drop-off must not miss: how much to take from the rider.
+        <View style={styles.collect}>
+          <Ionicons name="cash" size={22} color={colors.onPrimary} />
+          <Text style={styles.collectText}>Collect {money(completed.finalFareMinor, currency)} in cash</Text>
+        </View>
+      ) : null}
 
       <View style={styles.card}>
         <Line
@@ -79,13 +91,19 @@ export function TripCompletedScreen({ navigation, route }: Props) {
         </Text>
       </View>
 
-      <View style={styles.today}>
-        <Ionicons name="trending-up" size={17} color={colors.success} />
-        <Text style={styles.todayText}>
-          {earnings ? money(earnings.ledgerBalanceMinor, earnings.currency) : '--'} owed to you
-          right now
-        </Text>
-      </View>
+      {ledger == null ? null : ledger < 0 ? (
+        <View style={[styles.today, styles.owing]}>
+          <Ionicons name="alert-circle" size={17} color={colors.warning} />
+          <Text style={styles.todayText}>
+            You owe RideX {money(-ledger, currency)} - platform fees on cash you collected
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.today}>
+          <Ionicons name="trending-up" size={17} color={colors.success} />
+          <Text style={styles.todayText}>{money(ledger, currency)} owed to you right now</Text>
+        </View>
+      )}
     </Screen>
   );
 }
@@ -118,12 +136,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   badge: {
-    width: 80,
-    height: 80,
-    borderRadius: radius.pill,
-    backgroundColor: colors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: spacing.lg,
   },
   eyebrow: {
@@ -200,6 +212,24 @@ const styles = StyleSheet.create({
     ...type.caption,
     flex: 1,
     color: colors.text,
+  },
+  owing: {
+    backgroundColor: colors.amberSurface,
+  },
+  collect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  collectText: {
+    ...type.button,
+    fontSize: 18,
+    color: colors.onPrimary,
   },
   actions: {
     gap: spacing.md,

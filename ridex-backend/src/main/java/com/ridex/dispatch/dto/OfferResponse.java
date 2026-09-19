@@ -10,6 +10,9 @@ public record OfferResponse(
         String destinationAddress,
         double pickupLat,
         double pickupLng,
+        // The far end too, so the offer map draws the real trip instead of a guess.
+        double destinationLat,
+        double destinationLng,
         int tripDistanceMeters,
         Integer distanceToPickupMeters,
         String currency,

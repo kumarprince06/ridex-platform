@@ -136,6 +136,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
+    marginBottom: spacing.lg,
   },
   channel: {
     // Two per row: half the width, minus half of the single 12pt gutter between them.

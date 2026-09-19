@@ -2,25 +2,36 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Camera,
   GeoJSONSource,
+  Images,
   Layer,
   Map,
-  UserLocation,
   ViewAnnotation,
 } from '@maplibre/maplibre-react-native';
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, View, ViewStyle } from 'react-native';
 
-import { FALLBACK_CENTER, LngLat, useCurrentLocation } from '../lib/location';
-import { fetchRoute } from '../lib/routes';
-import { colors, radius, spacing, type } from '../theme';
+import { useQuery } from '../api/useQuery';
+import { listVehicles, type VehicleType } from '../api/vehicles';
+import { FALLBACK_CENTER, LngLat, useCurrentLocation, useLivePosition } from '../lib/location';
+import { bearing, fetchRoute, type Route } from '../lib/routes';
+import { colors } from '../theme';
 
 type Props = {
-  showRoute?: boolean;
-  driverAt?: number;
-  driverLabel?: string;
+  /** The rider's kerb. Drawn when given. */
+  pickup?: LngLat;
+  /** Where the trip ends. Drawn when given. */
+  destination?: LngLat;
+  /**
+   * Route from the driver's own position to the next stop (pickup, else destination) rather than
+   * pickup to destination. On for the screens where the driver is driving, off for the offer.
+   */
+  routeFromMe?: boolean;
+  /** The driver's own vehicle at their live position, never a point interpolated along the line. */
   showUserDot?: boolean;
-  pickupLabel?: string;
-  destinationLabel?: string;
+  /** Road distance and time once the router answers, for a real ETA instead of a made-up one. */
+  onRoute?: (route: Route) => void;
   style?: ViewStyle;
 };
 
@@ -36,60 +47,81 @@ type Props = {
 // (near-greyscale) and 'liberty' if the colour ever needs toning down - one URL, no other change.
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
 
-/**
- * Mock trip geometry, offset from wherever the device actually is rather than pinned to a fixed
- * city: a map that opens on Bengaluru while the driver stands in another country reads as broken.
- * Real pickup and dropoff coordinates arrive with the offer (T10).
- */
-const PICKUP_OFFSET: [number, number] = [0.004, -0.002];
-const DESTINATION_OFFSET: [number, number] = [-0.006, 0.011];
+// Top-down sprites, nose up, drawn by the map itself so they rotate with the road like a nav app.
+const SPRITES = {
+  bike: require('../../assets/vehicles/bike.png'),
+  auto: require('../../assets/vehicles/auto.png'),
+  car: require('../../assets/vehicles/car.png'),
+  minibus: require('../../assets/vehicles/minibus.png'),
+  bus: require('../../assets/vehicles/bus.png'),
+};
+
+const SPRITE_FOR: Record<VehicleType, keyof typeof SPRITES> = {
+  BICYCLE: 'bike', SCOOTER: 'bike', MOTORCYCLE: 'bike',
+  E_RICKSHAW: 'auto', AUTO_RICKSHAW: 'auto',
+  HATCHBACK: 'car', SEDAN: 'car', MPV: 'car', SUV: 'car', VAN: 'car', PICKUP: 'car',
+  MINIBUS: 'minibus', BUS: 'bus',
+};
 
 export function MapCanvas({
-  showRoute = false,
-  driverAt,
-  driverLabel,
+  pickup,
+  destination,
+  routeFromMe = false,
   showUserDot = false,
-  pickupLabel = 'Pickup',
-  destinationLabel = 'Destination',
+  onRoute,
   style,
 }: Props) {
+  // One fix for routing (re-routing on every step would flicker), a live one for the marker.
   const { coord } = useCurrentLocation();
   const here = coord ?? FALLBACK_CENTER;
+  const showMe = showUserDot || routeFromMe;
+  const live = useLivePosition(showMe);
+  const me = live.position ?? here;
+  const { data: vehicles } = useQuery(listVehicles);
+  const vehicle = vehicles?.find((candidate) => candidate.status === 'ACTIVE') ?? vehicles?.[0];
 
-  // The driver's pickup is the rider's kerb - a short hop from wherever the driver is now.
-  const PICKUP: [number, number] = [here[0] + PICKUP_OFFSET[0], here[1] + PICKUP_OFFSET[1]];
-  const DESTINATION: [number, number] = [
-    here[0] + DESTINATION_OFFSET[0],
-    here[1] + DESTINATION_OFFSET[1],
-  ];
+  // The map is light, so the app-wide light status bar vanishes on it. Rendered only while this
+  // screen is focused: expo-status-bar stacks instances, so the dark screens underneath win back.
+  const focused = useIsFocused();
 
-  // Road geometry when the router answers, the straight line between the pins until then. The
+  const from = routeFromMe ? (coord ?? undefined) : pickup;
+  const to = routeFromMe ? (pickup ?? destination) : destination;
+
+  // Road geometry when the router answers, the straight line between the ends until then. The
   // map must draw something the moment it mounts - a blank map while a request is in flight looks
   // like a broken map.
   const [road, setRoad] = useState<LngLat[] | null>(null);
+  const onRouteRef = useRef(onRoute);
+  onRouteRef.current = onRoute;
 
   useEffect(() => {
-    if (!showRoute) {
+    if (!from || !to) {
       return;
     }
-
     const controller = new AbortController();
-    fetchRoute(PICKUP, DESTINATION, controller.signal)
-      .then((route) => setRoad(route?.coordinates ?? null))
+    fetchRoute(from, to, controller.signal)
+      .then((route) => {
+        setRoad(route?.coordinates ?? null);
+        if (route) {
+          onRouteRef.current?.(route);
+        }
+      })
       .catch(() => setRoad(null));
 
     return () => controller.abort();
-  }, [showRoute, PICKUP[0], PICKUP[1], DESTINATION[0], DESTINATION[1]]);
+  }, [from?.[0], from?.[1], to?.[0], to?.[1]]);
 
-  const line = road ?? [PICKUP, DESTINATION];
-
-  const driver: [number, number] | undefined =
-    driverAt === undefined
-      ? undefined
-      : line[Math.min(line.length - 1, Math.max(0, Math.round((line.length - 1) * driverAt)))];
+  const line = from && to ? (road ?? [from, to]) : null;
+  const sprite = SPRITE_FOR[vehicle?.vehicleType ?? 'SEDAN'];
+  const heading = headingAlong(line, me) ?? live.heading ?? 0;
+  // Frame the whole road, not just its ends: a route that loops past the pickup runs off-screen.
+  const framed = [...(line ?? []), pickup, destination, showMe ? me : undefined].filter(
+    (point): point is LngLat => Boolean(point),
+  );
 
   return (
     <View style={[styles.map, style]}>
+      {focused ? <StatusBar style="dark" /> : null}
       <Map
         style={StyleSheet.absoluteFillObject}
         mapStyle={STYLE_URL}
@@ -102,16 +134,17 @@ export function MapCanvas({
         touchPitch={false}
       >
         <Camera
-          // key, so the camera re-mounts and recentres once the device position arrives instead
-          // of staying on the fallback centre it opened with.
-          key={coord ? 'located' : 'fallback'}
-          initialViewState={{
-            center: showRoute ? midpoint(PICKUP, DESTINATION) : here,
-            zoom: showRoute ? 12.5 : 14.5,
-          }}
+          // key, so the camera re-frames once the device position or the trip points arrive
+          // instead of staying on the fallback centre it opened with.
+          key={`${coord ? 'located' : 'fallback'}:${road ? road.length : 0}:${[pickup, destination].flat().join(',')}`}
+          initialViewState={
+            framed.length > 1
+              ? { bounds: boundsOf(framed), padding: FRAME_PADDING }
+              : { center: framed[0] ?? here, zoom: 14.5, padding: FRAME_PADDING }
+          }
         />
 
-        {showRoute ? (
+        {line ? (
           <GeoJSONSource
             id="route"
             data={{
@@ -121,9 +154,15 @@ export function MapCanvas({
             }}
           >
             <Layer
+              id="route-casing"
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{ 'line-color': '#0B1220', 'line-width': 8, 'line-opacity': 0.6 }}
+            />
+            <Layer
               id="route-line"
               type="line"
-              layout={{ 'line-cap': 'round' }}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
               paint={{
                 'line-color': colors.primary,
                 'line-width': 5,
@@ -132,93 +171,100 @@ export function MapCanvas({
           </GeoJSONSource>
         ) : null}
 
-        {showUserDot ? (
-          coord ? (
-            <UserLocation />
-          ) : (
-            <ViewAnnotation lngLat={here}>
-              <View style={styles.userMarker} />
-            </ViewAnnotation>
-          )
-        ) : null}
-
-        {showRoute ? (
+        {showMe ? (
           <>
-            <ViewAnnotation lngLat={PICKUP}>
-              <View style={styles.pickupMarker}>
-                <View style={styles.pickupCore} />
-              </View>
-            </ViewAnnotation>
-
-            <ViewAnnotation lngLat={DESTINATION}>
-              <View style={styles.destMarker}>
-                <Ionicons name="location" size={14} color="#2B1A05" />
-              </View>
-            </ViewAnnotation>
+            <Images images={SPRITES} />
+            <GeoJSONSource
+              id="me"
+              data={{ type: 'Feature', properties: { heading }, geometry: { type: 'Point', coordinates: me } }}
+            >
+              <Layer
+                id="me-vehicle"
+                type="symbol"
+                layout={{
+                  'icon-image': sprite,
+                  'icon-size': 0.22,
+                  'icon-rotate': ['get', 'heading'],
+                  // Turns with the map, so the nose stays on the road rather than on the screen top.
+                  'icon-rotation-alignment': 'map',
+                  'icon-allow-overlap': true,
+                  'icon-ignore-placement': true,
+                }}
+              />
+            </GeoJSONSource>
           </>
         ) : null}
 
-        {driver ? (
-          <ViewAnnotation lngLat={driver}>
-            <View style={styles.driverMarker}>
-              <Ionicons name="car-sport" size={15} color={colors.onPrimary} />
+        {pickup ? (
+          <ViewAnnotation lngLat={pickup}>
+            <View style={styles.pickupMarker}>
+              <View style={styles.pickupCore} />
+            </View>
+          </ViewAnnotation>
+        ) : null}
+
+        {destination ? (
+          <ViewAnnotation lngLat={destination}>
+            <View style={styles.destMarker}>
+              <Ionicons name="location" size={14} color="#2B1A05" />
             </View>
           </ViewAnnotation>
         ) : null}
       </Map>
 
-      {showRoute ? (
-        <View style={styles.labels} pointerEvents="none">
-          <Label icon="ellipse" text={pickupLabel} tint={colors.primary} />
-          <Label icon="location" text={destinationLabel} tint={colors.amber} />
-        </View>
-      ) : null}
-
-      {driverLabel ? (
-        <View style={styles.driverPill} pointerEvents="none">
-          <Text style={styles.driverPillLabel}>{driverLabel}</Text>
-        </View>
-      ) : null}
     </View>
   );
 }
 
-/** Keeps both ends of the route on screen without asking MapLibre to fit bounds. */
-function midpoint(a: [number, number], b: [number, number]): [number, number] {
-  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+// Room for the address pills on top and the bottom sheet every map screen carries.
+const FRAME_PADDING = { top: 220, right: 48, bottom: 420, left: 48 };
+
+// ~25 m in degrees at Indian latitudes; direction only, so the approximation is plenty.
+const LOOK_AHEAD_DEG = 0.00025;
+
+/** Which way the road goes from where the driver is: the bearing to the next distinct route point. */
+function headingAlong(line: LngLat[] | null, at: LngLat): number | null {
+  if (!line || line.length < 2) {
+    return null;
+  }
+  let nearest = 0;
+  let best = Infinity;
+  line.forEach((point, index) => {
+    const d = (point[0] - at[0]) ** 2 + (point[1] - at[1]) ** 2;
+    if (d < best) {
+      best = d;
+      nearest = index;
+    }
+  });
+  // Look ~25 m ahead: the first few metres of a route are often a kerb-side stub that points the
+  // wrong way for the road the driver is actually about to take.
+  const origin = line[nearest];
+  const ahead = line.slice(nearest + 1);
+  const next = ahead.find((point) => (point[0] - origin[0]) ** 2 + (point[1] - origin[1]) ** 2 > LOOK_AHEAD_DEG ** 2)
+    ?? ahead[ahead.length - 1];
+  return next ? bearing(origin, next) : null;
 }
 
-function Label({ icon, text, tint }: { icon: 'ellipse' | 'location'; text: string; tint: string }) {
-  return (
-    <View style={styles.label}>
-      <Ionicons name={icon} size={11} color={tint} />
-      <Text style={styles.labelText} numberOfLines={1}>
-        {text}
-      </Text>
-    </View>
-  );
+function boundsOf(points: LngLat[]): [number, number, number, number] {
+  const lngs = points.map((point) => point[0]);
+  const lats = points.map((point) => point[1]);
+  return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
 }
+
 
 const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.surface,
   },
-  userMarker: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  // White-rimmed and solid, so both stops read against any tile colour.
+  pickupMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.primary,
     borderWidth: 3,
-    borderColor: colors.bg,
-  },
-  pickupMarker: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.bg,
-    borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -226,61 +272,16 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: '#FFFFFF',
   },
   destMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.amber,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  driverMarker: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.bg,
-  },
-  labels: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    top: spacing.xxl + spacing.lg,
-    gap: spacing.sm,
-  },
-  label: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    maxWidth: '80%',
-    backgroundColor: colors.overlay,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-  },
-  labelText: {
-    ...type.caption,
-    color: colors.text,
-  },
-  driverPill: {
-    position: 'absolute',
-    alignSelf: 'center',
-    top: '45%',
-    backgroundColor: colors.bg,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-  },
-  driverPillLabel: {
-    ...type.caption,
-    color: colors.text,
   },
 });

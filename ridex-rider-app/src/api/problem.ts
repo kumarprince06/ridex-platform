@@ -37,7 +37,8 @@ export function toApiError(status: number, body: unknown): ApiError {
   const firstFieldError = problem?.errors ? Object.values(problem.errors)[0] : undefined;
   return new ApiError(
     status,
-    problem?.detail ?? firstFieldError ?? 'Something went wrong.',
+    // The field message says what to fix; the detail on a 400 is only "Request validation failed".
+    firstFieldError ?? problem?.detail ?? 'Something went wrong.',
     problem?.errors,
   );
 }

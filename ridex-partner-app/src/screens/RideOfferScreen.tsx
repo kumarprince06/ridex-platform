@@ -78,9 +78,8 @@ export function RideOfferScreen({ navigation, route }: Props) {
   return (
     <View style={styles.root}>
       <MapCanvas
-        showRoute
-        pickupLabel={offer?.pickupAddress ?? 'Pickup'}
-        destinationLabel={offer?.destinationAddress ?? 'Drop-off'}
+        pickup={offer ? [offer.pickupLng, offer.pickupLat] : undefined}
+        destination={offer ? [offer.destinationLng, offer.destinationLat] : undefined}
       />
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>

@@ -1,6 +1,7 @@
 package com.ridex.trip;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +30,14 @@ public class TripController {
     @ResponseStatus(HttpStatus.OK)
     public List<DriverTripSummary> history(@AuthenticationPrincipal JwtPrincipal principal) {
         return tripService.history(principal.userId());
+    }
+
+    /** The unfinished trip, or 204 when the driver has none. */
+    @GetMapping("/current")
+    public ResponseEntity<TripResponse> current(@AuthenticationPrincipal JwtPrincipal principal) {
+        return tripService.currentForDriver(principal.userId())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     /** Everything the trip screens show: who the rider is, where they are going, what it costs. */

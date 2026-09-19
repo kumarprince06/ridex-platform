@@ -6,6 +6,7 @@ import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ridex.auth.UserIdentityService;
 import com.ridex.auth.domain.User;
 import com.ridex.driver.domain.DriverProfile;
 import com.ridex.driver.dto.DriverProfileResponse;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class DriverProfileService {
 
     private final DriverProfileRepository driverProfileRepository;
+    private final UserIdentityService userIdentityService;
 
     @Transactional
     public DriverProfile createFor(User user) {
@@ -39,7 +41,7 @@ public class DriverProfileService {
         DriverProfile profile = require(userId);
         // Only identity fields. Onboarding status and rating are not editable here - a driver
         // approving themselves would be one PUT away.
-        profile.getUser().updateIdentity(request.firstName(), request.lastName(), request.phone());
+        userIdentityService.update(profile.getUser(), request.firstName(), request.lastName(), request.phone());
         return toResponse(profile);
     }
 
@@ -93,6 +95,7 @@ public class DriverProfileService {
                 profile.getProfileImageKey(),
                 profile.getOnboardingStatus(),
                 profile.getRating(),
-                profile.getRatingCount());
+                profile.getRatingCount(),
+                profile.isOnDuty());
     }
 }

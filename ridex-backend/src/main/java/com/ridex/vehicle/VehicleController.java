@@ -42,4 +42,12 @@ public class VehicleController {
             @PathVariable String vehicleId) {
         return vehicleService.deactivate(principal.userId(), vehicleId);
     }
+
+    /** Puts a car the driver took off the road back on it, without a second review. */
+    @PostMapping("/{vehicleId}/reactivate")
+    @ResponseStatus(HttpStatus.OK)
+    public VehicleResponse reactivate(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String vehicleId) {
+        return vehicleService.reactivate(principal.userId(), vehicleId);
+    }
 }

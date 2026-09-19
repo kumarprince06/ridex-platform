@@ -117,6 +117,28 @@ class DriverOnboardingServiceTest {
                 .forEach(doc -> driverDocumentService.review(doc.id(), reviewerUserId, true, null));
     }
 
+    @Test
+    void aVehicleTakenOffTheRoadGoesBackOnWithoutANewRegistration() {
+        String driverUserId = newDriver();
+        String driverId = driverId(driverUserId);
+        var pending = vehicleService.add(driverUserId, new AddVehicleRequest(
+                VehicleType.SEDAN, "Maruti", "Dzire", 2021, "White", 4,
+                "WB02CD" + (System.nanoTime() % 10000)));
+
+        // Never approved, so it cannot be parked and brought back to dodge review.
+        assertThatThrownBy(() -> vehicleService.deactivate(driverUserId, pending.id()))
+                .isInstanceOf(ConflictException.class);
+
+        vehicleService.review(pending.id(), true);
+        vehicleService.deactivate(driverUserId, pending.id());
+        assertThat(vehicleService.hasActiveVehicle(driverId)).isFalse();
+
+        vehicleService.reactivate(driverUserId, pending.id());
+        assertThat(vehicleService.hasActiveVehicle(driverId)).isTrue();
+        assertThatThrownBy(() -> vehicleService.reactivate(driverUserId, pending.id()))
+                .isInstanceOf(ConflictException.class);
+    }
+
     private void approveVehicle(String driverUserId) {
         var vehicle = vehicleService.add(driverUserId, new AddVehicleRequest(
                 VehicleType.HATCHBACK, "Maruti", "Swift", 2020, "White", 4,

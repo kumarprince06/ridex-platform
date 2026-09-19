@@ -43,7 +43,7 @@ export function OfferCard({ offer, secondsLeft, totalSeconds }: Props) {
 
       {offer.distanceToPickupMeters == null ? null : (
         <View style={styles.pickupRow}>
-          <Ionicons name="walk" size={15} color={colors.textMuted} />
+          <Ionicons name="navigate" size={15} color={colors.textMuted} />
           <Text style={styles.pickupNote}>{distance(offer.distanceToPickupMeters)} to pickup</Text>
         </View>
       )}

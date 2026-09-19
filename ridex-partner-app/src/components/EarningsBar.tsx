@@ -4,15 +4,12 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = {
   net: string;
-  goal: string;
-  /** 0..1. Clamped, because a driver past their goal must not overflow the track. */
-  progress: number;
+  detail: string;
   label?: string;
 };
 
-/** Today's net against the driver's own goal. Net, never gross - gross is not spendable. */
-export function EarningsBar({ net, goal, progress, label = 'Today' }: Props) {
-  const filled = Math.max(0, Math.min(1, progress));
+/** Today's net. Net, never gross - gross is not spendable. */
+export function EarningsBar({ net, detail, label = 'Today' }: Props) {
 
   return (
     <View style={styles.card}>
@@ -21,14 +18,7 @@ export function EarningsBar({ net, goal, progress, label = 'Today' }: Props) {
         <Text style={styles.net}>{net}</Text>
       </View>
 
-      <View style={styles.track}>
-        <View style={[styles.fill, { flex: filled }]} />
-        <View style={{ flex: 1 - filled }} />
-      </View>
-
-      <Text style={styles.goal}>
-        {Math.round(filled * 100)}% of {goal} goal
-      </Text>
+      <Text style={styles.detail}>{detail}</Text>
     </View>
   );
 }
@@ -56,18 +46,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.text,
   },
-  track: {
-    flexDirection: 'row',
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.surfaceAlt,
-    overflow: 'hidden',
-    marginTop: spacing.sm,
-  },
-  fill: {
-    backgroundColor: colors.success,
-  },
-  goal: {
+  detail: {
     ...type.caption,
     fontSize: 11,
     color: colors.textFaint,

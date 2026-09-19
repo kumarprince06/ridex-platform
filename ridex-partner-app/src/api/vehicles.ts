@@ -1,3 +1,6 @@
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
+
 import { request } from './client';
 
 export type VehicleType =
@@ -38,6 +41,14 @@ export const VEHICLE_LABELS: Record<VehicleType, string> = {
   VAN: 'Van', PICKUP: 'Pickup', MINIBUS: 'Minibus', BUS: 'Bus',
 };
 
+/** The vehicle's shape, for the type picker and the driver's own marker on every map. */
+export const VEHICLE_ICONS: Record<VehicleType, ComponentProps<typeof MaterialCommunityIcons>['name']> = {
+  BICYCLE: 'bicycle', SCOOTER: 'moped', MOTORCYCLE: 'motorbike',
+  E_RICKSHAW: 'rickshaw-electric', AUTO_RICKSHAW: 'rickshaw',
+  HATCHBACK: 'car-hatchback', SEDAN: 'car-side', MPV: 'van-passenger', SUV: 'car-estate',
+  VAN: 'van-utility', PICKUP: 'car-pickup', MINIBUS: 'bus-side', BUS: 'bus',
+};
+
 export function listVehicles() {
   return request<Vehicle[]>('/api/v1/driver/vehicles');
 }
@@ -56,4 +67,8 @@ export function addVehicle(vehicle: {
 
 export function deactivateVehicle(vehicleId: string) {
   return request<Vehicle>(`/api/v1/driver/vehicles/${vehicleId}/deactivate`, { method: 'POST' });
+}
+
+export function reactivateVehicle(vehicleId: string) {
+  return request<Vehicle>(`/api/v1/driver/vehicles/${vehicleId}/reactivate`, { method: 'POST' });
 }

@@ -20,6 +20,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { PaymentDetailPage } from './pages/PaymentDetailPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { PayoutsPage } from './pages/PayoutsPage';
+import { LegalPage } from './pages/LegalPage';
 import { PricingPage } from './pages/PricingPage';
 import { PromotionsPage } from './pages/PromotionsPage';
 import { RiderDetailPage } from './pages/RiderDetailPage';
@@ -69,6 +70,7 @@ function Routed() {
         <Route path="payouts" element={<Require permission="FINANCE"><PayoutsPage /></Require>} />
 
         <Route path="pricing" element={<Require permission="OPERATIONS"><PricingPage /></Require>} />
+        <Route path="legal" element={<Require permission="OPERATIONS"><LegalPage /></Require>} />
         <Route path="shuttle" element={<Require permission="OPERATIONS"><ShuttlePage /></Require>} />
         <Route path="shuttle/departures" element={<Require permission="OPERATIONS"><ShuttleOpsPage /></Require>} />
         <Route path="promotions" element={<Require permission="OPERATIONS"><PromotionsPage /></Require>} />

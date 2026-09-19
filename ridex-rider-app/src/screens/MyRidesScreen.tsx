@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { money, when } from '../lib/format';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +20,7 @@ import {
 import { listBookings, shuttleOutcome, type ShuttleBooking } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { BrandLoader } from '../components/BrandLoader';
+import { useBrandRefresh } from '../components/BrandRefresh';
 import { Chip } from '../components/Chip';
 import { RouteStops } from '../components/RouteStops';
 import { TabScreenProps } from '../navigation/types';
@@ -32,15 +32,12 @@ const FILTERS = ['All', 'Completed', 'Cancelled'] as const;
 
 export function MyRidesScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
-  // Only a pull shows the spinner; the quiet refetch on every tab focus shouldn't flash it.
-  const [pulling, setPulling] = useState(false);
   const { data, loading, error, refetch } = useQuery(listRides, []);
   // Shuttle seats are booked through a different endpoint, but a rider does not think of them as
   // a different thing: they are trips they paid for, and they belong on the same list.
   const { data: shuttle, refetch: refetchShuttle } = useQuery(listBookings, []);
-  useEffect(() => {
-    if (!loading) setPulling(false);
-  }, [loading]);
+  // Only a pull shows the loader; the quiet refetch on every tab focus shouldn't flash it.
+  const pull = useBrandRefresh(() => Promise.all([refetch(), refetchShuttle()]));
 
   // Filtered on the phone - it's one rider's history, a few dozen rows.
   const rides = (data ?? []).filter((ride) => {
@@ -75,17 +72,7 @@ export function MyRidesScreen({ navigation }: Props) {
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={pulling && loading}
-            onRefresh={() => {
-              setPulling(true);
-              refetch();
-              refetchShuttle();
-            }}
-            tintColor={colors.primary}
-          />
-        }
+        refreshControl={pull.control}
       >
         {loading && data == null ? <BrandLoader size={72} label="Loading your rides" style={styles.spinner} /> : null}
 
@@ -120,6 +107,7 @@ export function MyRidesScreen({ navigation }: Props) {
           />
         ))}
       </ScrollView>
+      {pull.overlay}
     </SafeAreaView>
   );
 }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
-import { cancelBooking, shuttleOutcome } from '../api/shuttle';
+import { cancelBooking, listBookings, shuttleOutcome } from '../api/shuttle';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { payForSeat } from '../api/shuttleCheckout';
 import { Button } from '../components/Button';
@@ -43,6 +43,12 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
     !cancelled && !pending && !outcome && Date.now() > departs.getTime() - TRACKING_OPENS_MS
     && Date.now() < departs.getTime() + TRACKING_CLOSES_MS;
 
+  // The ticket arrives as a route param, so a pull fetches the seat's current state.
+  async function refresh() {
+    const fresh = (await listBookings().catch(() => [])).find((row) => row.id === booking.id);
+    if (fresh) setBooking(fresh);
+  }
+
   async function pay() {
     setBusy(true);
     setNotice(null);
@@ -73,6 +79,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   return (
     <Screen
       title="Your ticket"
+      onRefresh={refresh}
       onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.popToTop())}
       footer={
         tracking ? (

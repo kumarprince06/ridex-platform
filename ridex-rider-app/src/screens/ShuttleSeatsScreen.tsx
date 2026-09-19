@@ -102,6 +102,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
 
   return (
     <Screen
+      onRefresh={refetch}
       onBack={() => navigation.goBack()}
       title="Pick a seat"
       footer={

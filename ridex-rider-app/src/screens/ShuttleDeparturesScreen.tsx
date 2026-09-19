@@ -64,6 +64,7 @@ export function ShuttleDeparturesScreen({ navigation, route }: Props) {
 
   return (
     <Screen
+      onRefresh={() => Promise.all([routes.refetch(), departures.refetch()])}
       onBack={() => navigation.goBack()}
       title={shuttleRoute?.code ?? 'Shuttle'}
       // A commuter on this corridor is exactly who a pass is for, so it is offered here rather

@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing, type } from '../theme';
+import { useBrandRefresh } from './BrandRefresh';
 
 type Props = {
   children: ReactNode;
@@ -24,9 +25,12 @@ type Props = {
   /** Pinned to the bottom, outside the scroll area, as the mockups show. */
   footer?: ReactNode;
   scroll?: boolean;
+  /** Enables pull-to-refresh; the spinner shows until the returned promise settles. */
+  onRefresh?: () => Promise<unknown> | void;
 };
 
-export function Screen({ children, onBack, title, headerRight, footer, scroll = true }: Props) {
+export function Screen({ children, onBack, title, headerRight, footer, scroll = true, onRefresh }: Props) {
+  const pull = useBrandRefresh(onRefresh ?? (() => undefined));
   const body = <View style={styles.body}>{children}</View>;
 
   return (
@@ -59,14 +63,18 @@ export function Screen({ children, onBack, title, headerRight, footer, scroll = 
         ) : null}
 
         {scroll ? (
-          <ScrollView
-            style={styles.flex}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {body}
-          </ScrollView>
+          <View style={styles.flex}>
+            <ScrollView
+              style={styles.flex}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              refreshControl={onRefresh ? pull.control : undefined}
+            >
+              {body}
+            </ScrollView>
+            {onRefresh ? pull.overlay : null}
+          </View>
         ) : (
           body
         )}

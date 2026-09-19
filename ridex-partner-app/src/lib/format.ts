@@ -31,20 +31,24 @@ export function clockTime(iso: string): string {
 }
 
 /**
- * Today and yesterday get named, because "Today, 2:30 PM" is what a person scanning a list is
- * actually looking for. Anything older is just a date.
+ * Yesterday, today and tomorrow get named, because "Today, 2:30 PM" is what the rider is actually
+ * scanning for in a list. Anything else - past rides or a booked seat next week - is just a date.
  */
 export function when(at: string | Date): string {
-  const moment = at instanceof Date ? at : new Date(at);
-  const time = moment.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const moment = asDate(at);
+  const time = clockTime(moment);
 
-  const midnight = new Date();
-  midnight.setHours(0, 0, 0, 0);
-  const daysAgo = Math.floor((midnight.getTime() - moment.getTime()) / 86_400_000) + 1;
+  const day = new Date(moment);
+  day.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Rounded, so a DST shift can't turn a whole day into 0.96 of one.
+  const offset = Math.round((day.getTime() - today.getTime()) / 86_400_000);
 
-  if (daysAgo <= 0) return `Today, ${time}`;
-  if (daysAgo === 1) return `Yesterday, ${time}`;
-  return `${moment.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
+  if (offset === 0) return `Today, ${time}`;
+  if (offset === 1) return `Tomorrow, ${time}`;
+  if (offset === -1) return `Yesterday, ${time}`;
+  return `${moment.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
 }
 
 /** "19 min", never "0 min": a trip that rounds to nothing still took a minute. */

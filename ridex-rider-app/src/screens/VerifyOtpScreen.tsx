@@ -18,7 +18,7 @@ const CODE_LENGTH = 6;
 const RESEND_SECONDS = 45;
 
 export function VerifyOtpScreen({ navigation, route }: Props) {
-  const { email, password } = route.params;
+  const { email, password, fullName, phone } = route.params;
   const { signIn } = useSession();
   const [code, setCode] = useState('');
   const [focused, setFocused] = useState(false);
@@ -37,7 +37,7 @@ export function VerifyOtpScreen({ navigation, route }: Props) {
       if (password) {
         await signIn(email, password);
       }
-      navigation.navigate('Verified');
+      navigation.navigate('Verified', { fullName, phone });
     } catch (caught) {
       // Wrong, expired and already-used codes are one message on purpose - the server will not
       // say which, and neither should this.

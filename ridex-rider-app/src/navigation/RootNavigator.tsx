@@ -1,5 +1,12 @@
-import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import {
+  createNavigationContainerRef,
+  DefaultTheme,
+  NavigationContainer,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useEffect, useRef } from 'react';
+
+import { useSession } from '../auth/session';
 
 import { colors } from '../theme';
 import { MainTabs } from './MainTabs';
@@ -16,7 +23,6 @@ import { CreateAccountScreen } from '../screens/CreateAccountScreen';
 import { VerifyOtpScreen } from '../screens/VerifyOtpScreen';
 import { VerifiedScreen } from '../screens/VerifiedScreen';
 import { ProfileSetupScreen } from '../screens/ProfileSetupScreen';
-import { PersonalDetailsScreen } from '../screens/PersonalDetailsScreen';
 import { SaveLocationsScreen } from '../screens/SaveLocationsScreen';
 
 import { SearchDestinationScreen } from '../screens/SearchDestinationScreen';
@@ -49,8 +55,10 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { PrivacySecurityScreen } from '../screens/PrivacySecurityScreen';
 import { HelpSupportScreen } from '../screens/HelpSupportScreen';
+import { LegalScreen } from '../screens/LegalScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 /** Stops the white flash React Navigation paints between dark screens by default. */
 const navTheme = {
@@ -67,8 +75,19 @@ const navTheme = {
 };
 
 export function RootNavigator() {
+  const { signedIn } = useSession();
+  const wasSignedIn = useRef(signedIn);
+
+  useEffect(() => {
+    // Sign-out and an expired session both flip this, so neither leaves the rider inside the app.
+    if (wasSignedIn.current && !signedIn && navigationRef.isReady()) {
+      navigationRef.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+    }
+    wasSignedIn.current = signedIn;
+  }, [signedIn]);
+
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator
         initialRouteName="Splash"
         // Every screen draws its own header, so the native one is redundant throughout.
@@ -85,7 +104,6 @@ export function RootNavigator() {
         <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
         <Stack.Screen name="Verified" component={VerifiedScreen} />
         <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-        <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />
         <Stack.Screen name="SaveLocations" component={SaveLocationsScreen} />
 
         <Stack.Screen name="MainTabs" component={MainTabs} />
@@ -122,6 +140,7 @@ export function RootNavigator() {
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="PrivacySecurity" component={PrivacySecurityScreen} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+        <Stack.Screen name="Legal" component={LegalScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

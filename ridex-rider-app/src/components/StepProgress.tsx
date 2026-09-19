@@ -2,19 +2,19 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing, type } from '../theme';
 
-const STEPS = ['Profile', 'Personal', 'Location'] as const;
+const STEPS = ['Profile', 'Location'] as const;
 
 export type SetupStep = (typeof STEPS)[number];
 
-/** The three-segment header across the profile setup flow. */
+/** The segmented header across the profile setup flow. */
 export function StepProgress({ current }: { current: SetupStep }) {
   const currentIndex = STEPS.indexOf(current);
 
   return (
     <View style={styles.row}>
       {STEPS.map((step, index) => {
-        // Completed and current segments both read as active, matching the mockups where
-        // "Profile" stays lit once you have moved on to "Personal".
+        // Completed and current segments both read as active, so "Profile" stays lit once you
+        // have moved on to "Location".
         const active = index <= currentIndex;
 
         return (

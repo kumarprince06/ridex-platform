@@ -4,8 +4,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   addSchedule,
   addStop,
+  deleteRoute,
   getRoute,
-  removeLastStop,
+  removeStop,
+  updateStop,
   setFareMatrix,
   updateRoute,
   updateSchedule,
@@ -99,7 +101,7 @@ export function ShuttleRoutePage() {
         ))}
       </div>
 
-      {tab === 'Overview' ? <Overview route={route} /> : null}
+      {tab === 'Overview' ? <Overview route={route} busy={busy} act={act} onDeleted={() => navigate('/shuttle')} /> : null}
       {tab === 'Stops' ? <Stops route={route} busy={busy} act={act} /> : null}
       {tab === 'Fares' ? <Fares route={route} busy={busy} act={act} /> : null}
       {tab === 'Timetable' ? <Timetable route={route} busy={busy} act={act} /> : null}
@@ -117,7 +119,9 @@ function missing(route: ShuttleRoute): string | null {
   return null;
 }
 
-function Overview({ route }: { route: ShuttleRoute }) {
+function Overview({ route, busy, act, onDeleted }: { route: ShuttleRoute; busy: boolean; act: Act; onDeleted: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const todo = missing(route);
   const fares = route.fares.map((fare) => fare.fareMinor);
   const first = route.stops[0];
@@ -147,7 +151,19 @@ function Overview({ route }: { route: ShuttleRoute }) {
       <Card title="Map">
         <RouteMap stops={route.stops} />
       </Card>
-      <Card title="Details">
+      <Card
+        title="Details"
+        actions={
+          <span className="row-actions">
+            <Button disabled={busy} onClick={() => setEditing(true)}>
+              Edit details
+            </Button>
+            <Button variant="ghost" disabled={busy} onClick={() => setDeleting(true)}>
+              Delete route
+            </Button>
+          </span>
+        }
+      >
         <DetailList
           items={[
             { label: 'Code', value: <span className="mono">{route.code}</span> },
@@ -156,31 +172,69 @@ function Overview({ route }: { route: ShuttleRoute }) {
           ]}
         />
       </Card>
+
+      {deleting ? (
+        <FormDialog
+          title={`Delete ${route.name}?`}
+          body="Its stops, fares and timetable are deleted with it. A route riders have booked cannot be deleted - hide it from riders instead."
+          submitLabel="Delete route"
+          fields={[]}
+          onCancel={() => setDeleting(false)}
+          onSubmit={() => {
+            setDeleting(false);
+            act(async () => {
+              await deleteRoute(route.id);
+              onDeleted();
+            });
+          }}
+        />
+      ) : null}
+
+      {editing ? (
+        <FormDialog
+          title="Route details"
+          body="The code is printed on tickets, so it stays as it is."
+          submitLabel="Save"
+          fields={[
+            { name: 'name', label: 'Name', initial: route.name },
+            { name: 'description', label: 'Description (optional)', initial: route.description ?? '', required: false },
+          ]}
+          onCancel={() => setEditing(false)}
+          onSubmit={(values) => {
+            setEditing(false);
+            act(
+              () => updateRoute(route.id, { code: route.code, name: values.name, description: values.description || undefined, active: route.active }),
+              'Route details saved.',
+            );
+          }}
+        />
+      ) : null}
     </>
   );
 }
 
+/** Add at the end, insert after a stop, or edit one. */
+type StopDialog = { kind: 'add'; after: number } | { kind: 'edit'; stop: RouteStop } | { kind: 'delete'; stop: RouteStop };
+
 function Stops({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: Act }) {
-  const [adding, setAdding] = useState(false);
-  const lastStop = route.stops[route.stops.length - 1];
+  const [dialog, setDialog] = useState<StopDialog | null>(null);
+  const stops = route.stops;
+
+  // The stop a new or edited one is timed from, and the one it must stay ahead of.
+  const previous = !dialog || dialog.kind === 'delete' ? undefined
+    : dialog.kind === 'add' ? stops[dialog.after - 1] : stops[stops.indexOf(dialog.stop) - 1];
+  const editing = dialog?.kind === 'edit' ? dialog.stop : undefined;
 
   return (
     <Card
       title="Stops, in travel order"
       actions={
-        <span className="row-actions">
-          <Button variant="primary" disabled={busy} onClick={() => setAdding(true)}>
-            Add stop
-          </Button>
-          {route.stops.length > 0 ? (
-            <Button disabled={busy} onClick={() => act(() => removeLastStop(route.id), 'Last stop removed.')}>
-              Remove last
-            </Button>
-          ) : null}
-        </span>
+        <Button variant="primary" disabled={busy} onClick={() => setDialog({ kind: 'add', after: stops.length })}>
+          Add stop at the end
+        </Button>
       }
     >
-      <RouteMap stops={route.stops} />
+      <RouteMap stops={stops} />
       <Table<RouteStop>
         columns={[
           { key: 'sequence', header: '#', width: '60px', render: (row) => row.sequence },
@@ -191,32 +245,54 @@ function Stops({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: 
             // Minutes after departure: one row serves every departure on the route.
             render: (row) => (row.offsetMinutes === 0 ? 'Departure' : `+${row.offsetMinutes} min`),
           },
+          {
+            key: 'actions',
+            header: '',
+            align: 'right',
+            render: (row) => (
+              <span className="row-actions">
+                <Button variant="ghost" disabled={busy} onClick={() => setDialog({ kind: 'edit', stop: row })}>
+                  Edit
+                </Button>
+                {row.sequence < stops.length ? (
+                  <Button variant="ghost" disabled={busy} onClick={() => setDialog({ kind: 'add', after: row.sequence })}>
+                    Insert after
+                  </Button>
+                ) : null}
+                <Button variant="ghost" disabled={busy} onClick={() => setDialog({ kind: 'delete', stop: row })}>
+                  Delete
+                </Button>
+              </span>
+            ),
+          },
         ]}
-        rows={route.stops}
+        rows={stops}
         empty="No stops yet. A route needs at least two."
       />
 
-      {adding ? (
+      {dialog && dialog.kind !== 'delete' ? (
         <FormDialog
-          title={`Add a stop to ${route.name}`}
-          body="Search for the place or click the map, then say how long the shuttle takes to get there from the previous stop."
-          submitLabel="Add stop"
+          title={editing ? `Edit ${editing.name}` : dialog.kind === 'add' && dialog.after < stops.length ? `Insert a stop after ${stops[dialog.after - 1]?.name ?? 'the start'}` : `Add a stop to ${route.name}`}
+          body="Search for the place or click the map. Time is counted from the stop before."
+          submitLabel={editing ? 'Save stop' : 'Add stop'}
           fields={[
-            { name: 'name', label: 'Stop name', placeholder: 'Dunlop More' },
-            { name: 'latitude', label: 'Latitude', type: 'number' },
-            { name: 'longitude', label: 'Longitude', type: 'number' },
-            {
-              name: 'gap',
-              label: lastStop ? `Minutes from ${lastStop.name}` : 'Minutes after departure',
-              type: 'number',
-              initial: lastStop ? '6' : '0',
-            },
+            { name: 'name', label: 'Stop name', placeholder: 'Dunlop More', initial: editing?.name },
+            { name: 'latitude', label: 'Latitude', type: 'number', initial: editing?.latitude },
+            { name: 'longitude', label: 'Longitude', type: 'number', initial: editing?.longitude },
+            ...(previous
+              ? [{
+                  name: 'gap',
+                  label: `Minutes from ${previous.name}`,
+                  type: 'number' as const,
+                  initial: editing ? String(editing.offsetMinutes - previous.offsetMinutes) : '5',
+                }]
+              : []),
           ]}
           extra={(values, set) => (
             <LocationPicker
               latitude={values.latitude}
               longitude={values.longitude}
-              near={lastStop ? [Number(lastStop.longitude), Number(lastStop.latitude)] : undefined}
+              near={previous ? [Number(previous.longitude), Number(previous.latitude)] : undefined}
               onPick={(place) =>
                 set({
                   latitude: place.latitude.toFixed(6),
@@ -226,19 +302,38 @@ function Stops({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: 
               }
             />
           )}
-          onCancel={() => setAdding(false)}
+          onCancel={() => setDialog(null)}
           onSubmit={(values) => {
-            setAdding(false);
+            const current = dialog;
+            setDialog(null);
+            const stop = {
+              name: values.name,
+              latitude: Number(values.latitude),
+              longitude: Number(values.longitude),
+              offsetMinutes: previous ? previous.offsetMinutes + Number(values.gap || 0) : 0,
+            };
             act(
               () =>
-                addStop(route.id, {
-                  name: values.name,
-                  latitude: Number(values.latitude),
-                  longitude: Number(values.longitude),
-                  offsetMinutes: (lastStop?.offsetMinutes ?? 0) + Number(values.gap || 0),
-                }),
-              `${values.name} added.`,
+                current.kind === 'edit'
+                  ? updateStop(route.id, current.stop.id, stop)
+                  : addStop(route.id, stop, current.after < stops.length ? current.after : undefined),
+              current.kind === 'edit' ? `${values.name} saved.` : `${values.name} added.`,
             );
+          }}
+        />
+      ) : null}
+
+      {dialog?.kind === 'delete' ? (
+        <FormDialog
+          title={`Delete ${dialog.stop.name}?`}
+          body="Its fares are deleted with it and the stops after it move up. A stop riders have booked cannot be deleted - rename it or move its pin instead."
+          submitLabel="Delete stop"
+          fields={[]}
+          onCancel={() => setDialog(null)}
+          onSubmit={() => {
+            const stop = dialog.stop;
+            setDialog(null);
+            act(() => removeStop(route.id, stop.id), `${stop.name} deleted.`);
           }}
         />
       ) : null}

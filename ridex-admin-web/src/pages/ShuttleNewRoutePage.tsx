@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { addSchedule, addStop, createRoute, setFareMatrix, updateRoute, type RouteStop } from '../api/admin';
+import { addSchedule, addStop, createRoute, deleteRoute, setFareMatrix, updateRoute, type RouteStop } from '../api/admin';
 import { LocationPicker } from '../components/LocationPicker';
 import { RouteMap } from '../components/RouteMap';
 import { SeatLayout } from '../components/SeatLayout';
@@ -43,8 +43,10 @@ export function ShuttleNewRoutePage() {
   async function publish() {
     setBusy(true);
     setError(null);
+    let createdId: string | null = null;
     try {
       const created = await createRoute({ code: routeCode, name: name.trim(), description: description || undefined, active: false });
+      createdId = created.id;
       let route = created;
       // One at a time: stops are numbered in the order they arrive.
       for (const stop of stops) {
@@ -61,6 +63,8 @@ export function ShuttleNewRoutePage() {
       await updateRoute(created.id, { code: routeCode, name: name.trim(), description: description || undefined, active: true });
       navigate(`/shuttle/routes/${created.id}`);
     } catch (caught) {
+      // A half-built route would block the retry with "code already exists", so it is removed.
+      if (createdId) await deleteRoute(createdId).catch(() => undefined);
       setError(caught instanceof Error ? caught.message : 'Could not create the route.');
       setBusy(false);
     }

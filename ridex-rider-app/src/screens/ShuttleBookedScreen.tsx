@@ -468,6 +468,7 @@ const styles = StyleSheet.create({
   cancel: {
     alignItems: 'center',
     gap: 2,
+    marginTop: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
     ...type.caption,
     color: colors.danger,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginTop: spacing.md,
   },
   cancelNote: {
     ...type.caption,

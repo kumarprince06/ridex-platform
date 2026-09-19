@@ -10,21 +10,26 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.ridex.auth.UserIdentityService;
+import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.User;
 import com.ridex.rider.domain.RiderProfile;
 import com.ridex.rider.dto.UpdateRiderProfileRequest;
 
+import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 
 class RiderProfileServiceTest {
 
     private RiderProfileRepository repository;
+    private UserRepository users;
     private RiderProfileService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(RiderProfileRepository.class);
-        service = new RiderProfileService(repository);
+        users = mock(UserRepository.class);
+        service = new RiderProfileService(repository, new UserIdentityService(users));
     }
 
     @Test
@@ -47,6 +52,16 @@ class RiderProfileServiceTest {
 
         // uk_users_phone would let one empty string in and reject the second account that sent one.
         assertThat(profile.getUser().getPhone()).isNull();
+    }
+
+    @Test
+    void aPhoneAlreadyOnAnotherAccountIsAClearConflict() {
+        profileFor("user-1");
+        when(users.existsByPhone("9876543210")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.update("user-1", new UpdateRiderProfileRequest("Asha", "Verma", "9876543210")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("phone number");
     }
 
     @Test

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { money, when } from '../lib/format';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -32,10 +32,15 @@ const FILTERS = ['All', 'Completed', 'Cancelled'] as const;
 
 export function MyRidesScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
+  // Only a pull shows the spinner; the quiet refetch on every tab focus shouldn't flash it.
+  const [pulling, setPulling] = useState(false);
   const { data, loading, error, refetch } = useQuery(listRides, []);
   // Shuttle seats are booked through a different endpoint, but a rider does not think of them as
   // a different thing: they are trips they paid for, and they belong on the same list.
   const { data: shuttle, refetch: refetchShuttle } = useQuery(listBookings, []);
+  useEffect(() => {
+    if (!loading) setPulling(false);
+  }, [loading]);
 
   // Filtered on the phone - it's one rider's history, a few dozen rows.
   const rides = (data ?? []).filter((ride) => {
@@ -72,8 +77,9 @@ export function MyRidesScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={loading && data != null}
+            refreshing={pulling && loading}
             onRefresh={() => {
+              setPulling(true);
               refetch();
               refetchShuttle();
             }}
@@ -126,26 +132,24 @@ export function MyRidesScreen({ navigation }: Props) {
  */
 function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: () => void }) {
   const cancelled = booking.status === 'CANCELLED';
+  const outcome = shuttleOutcome(booking);
+  const badge = cancelled ? 'Cancelled' : outcome === 'COMPLETED' ? 'Completed' : outcome === 'MISSED' ? 'Missed' : `Seat ${booking.seatLabel}`;
+  const bad = cancelled || outcome === 'MISSED';
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-  const outcome = shuttleOutcome(booking);
-  const badge = cancelled ? 'Cancelled' : outcome === 'COMPLETED' ? 'Completed' : outcome === 'MISSED' ? 'Missed' : `Seat ${booking.seatLabel}`;
-  const bad = cancelled || outcome === 'MISSED';
     >
       <View style={styles.cardTop}>
-        <View style={[styles.status, cancelled && styles.statusCancelled]}>
+        <View style={[styles.status, bad && styles.statusCancelled]}>
           <Ionicons
             name={bad ? 'close' : outcome ? 'checkmark' : 'bus'}
             size={11}
-            color={cancelled ? colors.danger : colors.primary}
+            color={bad ? colors.danger : colors.primary}
           />
-          <Text style={[styles.statusText, cancelled && styles.statusTextCancelled]}>
-            {cancelled ? 'Cancelled' : `Seat ${booking.seatLabel}`}
-          </Text>
+          <Text style={[styles.statusText, bad && styles.statusTextCancelled]}>{badge}</Text>
         </View>
         <Text style={styles.tier}>{booking.routeName}</Text>
         <Text style={styles.fare}>
@@ -157,9 +161,13 @@ function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: (
         compact
         pickup={{ name: booking.boardingStopName }}
         dropoff={{ name: booking.alightingStopName }}
+        style={styles.stops}
       />
 
-      <Text style={styles.when}>{when(booking.departsAt)}</Text>
+      <View style={styles.cardFooter}>
+        <Text style={styles.when}>{when(booking.departsAt)}</Text>
+        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+      </View>
     </Pressable>
   );
 }

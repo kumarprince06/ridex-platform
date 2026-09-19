@@ -1,6 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { ShuttleLive } from '../api/shuttleLive';
+import { clockTime } from '../lib/format';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = { trip: ShuttleLive; boardingSequence: number; alightingSequence: number; connected: boolean };
@@ -8,12 +10,14 @@ type Props = { trip: ShuttleLive; boardingSequence: number; alightingSequence: n
 /** The one line a waiting rider looks for: how long until the shuttle reaches them. */
 export function ShuttleEtaCard({ trip, boardingSequence, alightingSequence, connected }: Props) {
   const { title, subtitle } = summary(trip, boardingSequence, alightingSequence);
+  const arrived = hasArrived(trip, alightingSequence);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, arrived && styles.cardDone]}>
       <View style={styles.row}>
+        {arrived ? <Ionicons name="checkmark-circle" size={28} color={colors.primary} /> : null}
         <Text style={styles.title}>{title}</Text>
-        {trip.status === 'RUNNING' ? (
+        {trip.status === 'RUNNING' && !arrived ? (
           <View style={styles.live}>
             <View style={[styles.dot, !connected && styles.dotOff]} />
             <Text style={styles.liveText}>{connected ? 'LIVE' : 'UPDATING'}</Text>
@@ -21,16 +25,27 @@ export function ShuttleEtaCard({ trip, boardingSequence, alightingSequence, conn
         ) : null}
       </View>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      {trip.status === 'RUNNING' && trip.delayMinutes > 0 ? (
+      {trip.status === 'RUNNING' && !arrived && trip.delayMinutes > 0 ? (
         <Text style={styles.delay}>Running {trip.delayMinutes} min late</Text>
       ) : null}
     </View>
   );
 }
 
+/** The rider's part of the run is over once the shuttle reaches their drop-off, or the run ends. */
+export function hasArrived(trip: ShuttleLive, alighting: number): boolean {
+  return trip.status === 'COMPLETED' || (trip.currentStopSequence ?? 0) >= alighting;
+}
+
 function summary(trip: ShuttleLive, boarding: number, alighting: number): { title: string; subtitle: string | null } {
   if (trip.status === 'SCHEDULED') return { title: 'Not started yet', subtitle: "You'll get a notification when it leaves." };
-  if (trip.status === 'COMPLETED') return { title: 'Trip finished', subtitle: null };
+  if (hasArrived(trip, alighting)) {
+    const drop = trip.stops.find((stop) => stop.sequence === alighting);
+    // A run the driver ended early never reached the stop, so there's no time to show.
+    return drop?.arrivedAt
+      ? { title: `You've reached ${drop.name}`, subtitle: `Arrived ${clockTime(drop.arrivedAt)}` }
+      : { title: 'Trip finished', subtitle: null };
+  }
 
   const at = trip.currentStopSequence ?? 0;
   if (at === boarding) {
@@ -57,6 +72,9 @@ const styles = StyleSheet.create({
     borderColor: colors.primaryMuted,
     padding: spacing.lg,
     gap: 4,
+  },
+  cardDone: {
+    borderColor: colors.primary,
   },
   row: {
     flexDirection: 'row',

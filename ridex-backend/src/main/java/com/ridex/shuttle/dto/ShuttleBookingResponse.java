@@ -37,7 +37,10 @@ public record ShuttleBookingResponse(
         Checkout checkout,
         // The departure's run: SCHEDULED, RUNNING or COMPLETED.
         String tripStatus,
-        boolean boarded) {
+        boolean boarded,
+        Instant boardedAt,
+        // When the shuttle reached the rider's drop-off stop; null until then.
+        Instant alightedAt) {
 
     /**
      * What the app needs to open Razorpay, and nothing it should not have. The amount comes from

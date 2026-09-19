@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useShuttleLive } from '../api/shuttleLive';
@@ -7,7 +7,7 @@ import { BoardingPassModal } from '../components/BoardingPassModal';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import { DriverCard } from '../components/DriverCard';
-import { ShuttleEtaCard } from '../components/ShuttleEtaCard';
+import { hasArrived, ShuttleEtaCard } from '../components/ShuttleEtaCard';
 import { ShuttleRouteMap } from '../components/ShuttleRouteMap';
 import { ShuttleStopSlider } from '../components/ShuttleStopSlider';
 import { RootStackParamList } from '../navigation/types';
@@ -18,20 +18,37 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ShuttleTracking'>;
 /** Live tracking for one booked shuttle: the route, how long until it reaches you, and every stop. */
 export function ShuttleTrackingScreen({ navigation, route }: Props) {
   const { booking } = route.params;
-  const { live, connected } = useShuttleLive(booking.id, true);
+  const [arrived, setArrived] = useState(false);
+  // Once the rider is there the socket closes: nothing left to watch.
+  const { live, connected } = useShuttleLive(booking.id, !arrived);
   const [showingPass, setShowingPass] = useState(false);
+
+  useEffect(() => {
+    if (live && hasArrived(live.trip, live.alightingSequence)) setArrived(true);
+  }, [live]);
+
+  // After the drop-off the map shows just the part the rider rode.
+  const mapStops = live && arrived
+    ? live.trip.stops.filter((stop) => stop.sequence >= live.boardingSequence && stop.sequence <= live.alightingSequence)
+    : live?.trip.stops ?? [];
 
   return (
     <Screen
       title={booking.routeName}
       onBack={() => navigation.goBack()}
-      footer={booking.boardingCode ? <Button label="Show boarding pass" onPress={() => setShowingPass(true)} /> : undefined}
+      footer={
+        arrived ? (
+          <Button label="Done" onPress={() => navigation.goBack()} />
+        ) : booking.boardingCode ? (
+          <Button label="Show boarding pass" onPress={() => setShowingPass(true)} />
+        ) : undefined
+      }
     >
       {live?.trip.status ? (
         <View style={styles.body}>
           <ShuttleRouteMap
-            stops={live.trip.stops}
-            vehicle={live.trip.vehicle}
+            stops={mapStops}
+            vehicle={arrived ? null : live.trip.vehicle}
             boardingSequence={live.boardingSequence}
             alightingSequence={live.alightingSequence}
             seatCapacity={booking.crew?.seatCapacity}
@@ -50,13 +67,17 @@ export function ShuttleTrackingScreen({ navigation, route }: Props) {
             vehicle={booking.crew.vehicle}
             plate={booking.crew.registrationNumber}
           /> : null}
-          <Text style={styles.label}>STOPS</Text>
-          <ShuttleStopSlider
-            stops={live.trip.stops}
-            boardingSequence={live.boardingSequence}
-            alightingSequence={live.alightingSequence}
-          />
-          <Text style={styles.hint}>Tap a stop on the map to see its name and time.</Text>
+          {arrived ? null : (
+            <>
+              <Text style={styles.label}>STOPS</Text>
+              <ShuttleStopSlider
+                stops={live.trip.stops}
+                boardingSequence={live.boardingSequence}
+                alightingSequence={live.alightingSequence}
+              />
+              <Text style={styles.hint}>Tap a stop on the map to see its name and time.</Text>
+            </>
+          )}
         </View>
       ) : (
         <Text style={styles.hint}>Loading the route...</Text>

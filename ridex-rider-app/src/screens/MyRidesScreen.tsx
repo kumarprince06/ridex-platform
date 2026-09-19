@@ -18,7 +18,7 @@ import {
   rideStatusLabel,
   type Ride,
 } from '../api/rides';
-import { listBookings, type ShuttleBooking } from '../api/shuttle';
+import { listBookings, shuttleOutcome, type ShuttleBooking } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { BrandLoader } from '../components/BrandLoader';
 import { Chip } from '../components/Chip';
@@ -45,7 +45,7 @@ export function MyRidesScreen({ navigation }: Props) {
   });
 
   const seats = (shuttle ?? []).filter((booking) => {
-    if (filter === 'Completed') return booking.status !== 'CANCELLED' && booking.tripStatus === 'COMPLETED';
+    if (filter === 'Completed') return shuttleOutcome(booking) != null;
     if (filter === 'Cancelled') return booking.status === 'CANCELLED';
     return true;
   });
@@ -132,11 +132,14 @@ function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: (
       onPress={onPress}
       accessibilityRole="button"
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+  const outcome = shuttleOutcome(booking);
+  const badge = cancelled ? 'Cancelled' : outcome === 'COMPLETED' ? 'Completed' : outcome === 'MISSED' ? 'Missed' : `Seat ${booking.seatLabel}`;
+  const bad = cancelled || outcome === 'MISSED';
     >
       <View style={styles.cardTop}>
         <View style={[styles.status, cancelled && styles.statusCancelled]}>
           <Ionicons
-            name={cancelled ? 'close' : 'bus'}
+            name={bad ? 'close' : outcome ? 'checkmark' : 'bus'}
             size={11}
             color={cancelled ? colors.danger : colors.primary}
           />

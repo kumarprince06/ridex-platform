@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
-import { cancelBooking } from '../api/shuttle';
+import { cancelBooking, shuttleOutcome } from '../api/shuttle';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { payForSeat } from '../api/shuttleCheckout';
 import { Button } from '../components/Button';
@@ -36,9 +36,11 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   // The server enforces this too; this just keeps the button honest.
   const cancellable = !cancelled && Date.now() < new Date(booking.cancellableUntil).getTime();
 
-  // Tracking from 30 min before departure until two hours after.
+  const outcome = shuttleOutcome(booking);
+
+  // Tracking from 30 min before departure until two hours after, or until the rider is there.
   const tracking =
-    !cancelled && Date.now() > departs.getTime() - TRACKING_OPENS_MS
+    !cancelled && !outcome && Date.now() > departs.getTime() - TRACKING_OPENS_MS
     && Date.now() < departs.getTime() + TRACKING_CLOSES_MS;
 
   async function pay() {
@@ -90,6 +92,19 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
       ) : null}
 
+
+      {outcome ? (
+        <View style={[styles.pending, outcome === 'COMPLETED' && styles.done]}>
+          <Ionicons
+            name={outcome === 'COMPLETED' ? 'checkmark-circle' : 'alert-circle-outline'}
+            size={16}
+            color={outcome === 'COMPLETED' ? colors.primary : colors.amber}
+          />
+          <Text style={styles.pendingText}>
+            {outcome === 'COMPLETED' ? 'Trip completed' : "This shuttle ran without you. You weren't checked in."}
+          </Text>
+        </View>
+      ) : null}
 
       {pending && !cancelled ? (
         <Pressable
@@ -145,7 +160,10 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
 
         <View style={styles.codeZone}>
-          {booking.boardingCode ? (
+          {outcome === 'COMPLETED' ? (
+            // A used ticket shows what happened, not a pass that still looks valid.
+            <TripSummary boardedAt={booking.boardedAt} alightedAt={booking.alightedAt} />
+          ) : outcome ? null : booking.boardingCode ? (
             <Button label="Show boarding pass" onPress={() => setShowingPass(true)} />
           ) : (
             // Only its hash is stored, so a ticket reopened later has no code to show.
@@ -236,6 +254,29 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   );
 }
 
+function TripSummary({ boardedAt, alightedAt }: { boardedAt: string | null; alightedAt: string | null }) {
+  const minutes =
+    boardedAt && alightedAt
+      ? Math.max(1, Math.round((new Date(alightedAt).getTime() - new Date(boardedAt).getTime()) / 60000))
+      : null;
+  return (
+    <View style={styles.summary}>
+      <SummaryItem label="BOARDED" value={boardedAt ? clockTime(boardedAt) : '—'} />
+      <SummaryItem label="GOT OFF" value={alightedAt ? clockTime(alightedAt) : '—'} />
+      <SummaryItem label="ON BOARD" value={minutes ? `${minutes} min` : '—'} />
+    </View>
+  );
+}
+
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.summaryItem}>
+      <Text style={styles.eyebrow}>{label}</Text>
+      <Text style={styles.summaryValue}>{value}</Text>
+    </View>
+  );
+}
+
 function FareRow({ label, value, strong, credit, last }: { label: string; value: string; strong?: boolean; credit?: boolean; last?: boolean }) {
   return (
     <View style={[styles.fareRow, !last && styles.fareDivider]}>
@@ -270,6 +311,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.amber,
     marginBottom: spacing.lg,
+  },
+  done: {
+    backgroundColor: colors.primarySurface,
+    borderColor: colors.primaryMuted,
+  },
+  summary: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  summaryValue: {
+    ...type.button,
+    fontSize: 16,
+    color: colors.text,
   },
   pendingText: {
     ...type.caption,

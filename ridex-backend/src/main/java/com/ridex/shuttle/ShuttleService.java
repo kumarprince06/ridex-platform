@@ -54,6 +54,7 @@ public class ShuttleService {
     private final ShuttleCrew shuttleCrew;
     private final ShuttlePaymentService shuttlePayments;
     private final PointsService pointsService;
+    private final ShuttleStopEventRepository stopEventRepository;
 
     /** How long a picked seat is held while the rider pays for it. */
     private static final java.time.Duration HOLD = java.time.Duration.ofMinutes(10);
@@ -172,11 +173,11 @@ public class ShuttleService {
      */
     @Transactional
     public ShuttleBookingResponse book(String riderUserId, BookSeatRequest request) {
-        RiderProfile rider = riderProfileRepository.findByUserId(riderUserId)
         // Seats are prepaid: a no-show on a cash seat keeps somebody else off the bus for nothing.
         if (request.methodOrDefault() == PaymentMethod.CASH) {
             throw new ValidationException("Shuttle seats are paid for online when you book.");
         }
+        RiderProfile rider = riderProfileRepository.findByUserId(riderUserId)
                 .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
 
         // The same rule as an on-demand ride: settle the last fare before starting another
@@ -621,6 +622,19 @@ public class ShuttleService {
                         checkout.gatewayOrderId(), checkout.gatewayKeyId(),
                         checkout.amountMinor(), checkout.currency()),
                 booking.getShuttleTrip().getStatus(),
-                booking.getBoardedAt() != null);
+                booking.getBoardedAt() != null,
+                booking.getBoardedAt(),
+                alightedAt(booking));
+    }
+
+    private Instant alightedAt(ShuttleBooking booking) {
+        // A departure that hasn't run has no stop events, so skip the lookup.
+        if ("SCHEDULED".equals(booking.getShuttleTrip().getStatus())) {
+            return null;
+        }
+        return stopEventRepository
+                .findByShuttleTripIdAndStopId(booking.getShuttleTrip().getId(), booking.getAlightingStopId())
+                .map(ShuttleStopEvent::getArrivedAt)
+                .orElse(null);
     }
 }

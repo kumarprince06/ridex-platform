@@ -186,6 +186,16 @@ public class NotificationTemplates {
                                 "application/pdf"));
             }
 
+            // Live tracking. The payload is the route name for STARTED, the rider's stop otherwise.
+            case "SHUTTLE_STARTED" -> shuttleAlert("Your shuttle has started",
+                    "The " + payload + " shuttle is on its way. Track it from your ticket.");
+
+            case "SHUTTLE_TWO_STOPS_AWAY" -> shuttleAlert("Your shuttle is 2 stops away",
+                    "Head to " + payload + " now so you don't miss it.");
+
+            case "SHUTTLE_ARRIVING" -> shuttleAlert("Your shuttle is arriving",
+                    "Next stop is " + payload + ". Keep your boarding code ready.");
+
             case "SHUTTLE_BOARDED" -> new Rendered(
                     "You are on board",
                     "Seat " + payload + " is checked in. Have a good trip.",

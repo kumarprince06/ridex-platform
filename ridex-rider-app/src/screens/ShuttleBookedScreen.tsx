@@ -1,17 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { clockTime, money, shortDate } from '../lib/format';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
 import { cancelBooking } from '../api/shuttle';
-import { useShuttleLive } from '../api/shuttleLive';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { payForSeat } from '../api/shuttleCheckout';
 import { Button } from '../components/Button';
-import { MapCanvas } from '../components/MapCanvas';
-import { ShuttleLiveTimeline } from '../components/ShuttleLiveTimeline';
+import { BoardingPassModal } from '../components/BoardingPassModal';
+import { ShuttleCrewCard } from '../components/ShuttleCrewCard';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -20,7 +18,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ShuttleBooked'>;
 
-const TRACKING_OPENS_MS = 15 * 60 * 1000;
+// Drivers can start a run 30 min early, so tracking opens then.
+const TRACKING_OPENS_MS = 30 * 60 * 1000;
 const TRACKING_CLOSES_MS = 2 * 60 * 60 * 1000;
 
 export function ShuttleBookedScreen({ navigation, route }: Props) {
@@ -28,6 +27,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showingPass, setShowingPass] = useState(false);
 
   const pending = booking.paymentStatus === 'PENDING';
   const cashDue = booking.paymentStatus === 'CASH_DUE';
@@ -36,18 +36,10 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   // The server enforces this too; this just keeps the button honest.
   const cancellable = !cancelled && Date.now() < new Date(booking.cancellableUntil).getTime();
 
-  // Live tracking from 15 min before departure until two hours after.
+  // Tracking from 30 min before departure until two hours after.
   const tracking =
     !cancelled && Date.now() > departs.getTime() - TRACKING_OPENS_MS
     && Date.now() < departs.getTime() + TRACKING_CLOSES_MS;
-
-  const { live, connected } = useShuttleLive(booking.id, tracking);
-  const vehicle = live?.trip.vehicle;
-  const vehicleAt: [number, number] | undefined = vehicle
-    ? [vehicle.longitude, vehicle.latitude]
-    : booking.crew?.latitude == null || booking.crew?.longitude == null
-      ? undefined
-      : [booking.crew.longitude, booking.crew.latitude];
 
   async function pay() {
     setBusy(true);
@@ -81,10 +73,9 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
       title="Your ticket"
       onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.popToTop())}
       footer={
-        <Button
-          label="Done"
-          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.popToTop())}
-        />
+        tracking ? (
+          <Button label="Track shuttle" onPress={() => navigation.navigate('ShuttleTracking', { booking })} />
+        ) : undefined
       }
     >
       {cancelled ? (
@@ -98,6 +89,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
           </Text>
         </View>
       ) : null}
+
 
       {pending && !cancelled ? (
         <Pressable
@@ -160,21 +152,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
 
         <View style={styles.codeZone}>
           {booking.boardingCode ? (
-            <>
-              <View style={styles.qrFrame}>
-                {/* Light quiet zone: a QR inverted onto the dark surface will not scan on many readers. */}
-                <QRCode
-                  value={booking.boardingCode}
-                  size={124}
-                  backgroundColor="#FFFFFF"
-                  color="#0B0F1A"
-                />
-              </View>
-              <Text style={styles.codeLabel}>or read out this code</Text>
-              <Text style={styles.code} numberOfLines={1} adjustsFontSizeToFit>
-                {booking.boardingCode}
-              </Text>
-            </>
+            <Button label="Show boarding pass" onPress={() => setShowingPass(true)} />
           ) : (
             // Only its hash is stored, so a ticket reopened later has no code to show.
             <Text style={styles.codeLabel}>
@@ -184,50 +162,9 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      {tracking && live?.trip.status ? (
-        <ShuttleLiveTimeline
-          trip={live.trip}
-          boardingSequence={live.boardingSequence}
-          alightingSequence={live.alightingSequence}
-          connected={connected}
-        />
-      ) : null}
-
-      {tracking ? (
-        <MapCanvas
-          showRoute
-          pickupCoord={[booking.boardingLng, booking.boardingLat]}
-          destinationCoord={[booking.alightingLng, booking.alightingLat]}
-          driverCoord={vehicleAt}
-          driverLabel={vehicleAt ? booking.crew?.registrationNumber ?? 'Shuttle' : undefined}
-          style={styles.map}
-        />
-      ) : null}
-
       {booking.crew ? (
         <View style={styles.crew}>
-          <View style={styles.plate}>
-            <Text style={styles.plateText}>{booking.crew.registrationNumber}</Text>
-          </View>
-
-          <View style={styles.flex}>
-            <Text style={styles.crewName}>{booking.crew.driverName}</Text>
-            <Text style={styles.crewNote}>
-              {booking.crew.vehicle}
-              {booking.crew.driverRating ? ` · ${booking.crew.driverRating}★` : ''}
-            </Text>
-          </View>
-
-          {booking.crew.driverPhone ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Call ${booking.crew.driverName}`}
-              onPress={() => Linking.openURL(`tel:${booking.crew?.driverPhone}`)}
-              style={({ pressed }) => [styles.call, pressed && styles.pressed]}
-            >
-              <Ionicons name="call" size={18} color={colors.onPrimary} />
-            </Pressable>
-          ) : null}
+          <ShuttleCrewCard crew={booking.crew} />
         </View>
       ) : null}
 
@@ -278,6 +215,15 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
           </Text>
         </Pressable>
       ) : null}
+      {booking.boardingCode ? (
+        <BoardingPassModal
+          visible={showingPass}
+          onClose={() => setShowingPass(false)}
+          code={booking.boardingCode}
+          seat={booking.seatLabel}
+          route={booking.routeName}
+        />
+      ) : null}
       <ConfirmSheet
         visible={confirming}
         title="Cancel this seat?"
@@ -309,12 +255,6 @@ function Leg({ label, value, align }: { label: string; value: string; align?: 'r
 const NOTCH = 22;
 
 const styles = StyleSheet.create({
-  map: {
-    height: 200,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    marginBottom: spacing.lg,
-  },
   flex: { flex: 1 },
   right: { alignItems: 'flex-end' },
   rightText: { textAlign: 'right' },
@@ -409,63 +349,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     gap: spacing.sm,
   },
-  qrFrame: {
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: '#FFFFFF',
-  },
   codeLabel: {
     ...type.caption,
     color: colors.textMuted,
     textAlign: 'center',
   },
-  code: {
-    ...type.title,
-    fontSize: 30,
-    letterSpacing: 8,
-    color: colors.primary,
-  },
   crew: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
     marginTop: spacing.lg,
-  },
-  plate: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  plateText: {
-    ...type.button,
-    fontSize: 13,
-    letterSpacing: 1,
-    color: colors.text,
-  },
-  crewName: {
-    ...type.button,
-    fontSize: 15,
-    color: colors.text,
-  },
-  crewNote: {
-    ...type.caption,
-    color: colors.textMuted,
-  },
-  call: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   pressed: { opacity: 0.75 },
   fare: {

@@ -3,6 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 
 import type { RouteStop } from '../api/admin';
+import { roadThrough } from '../lib/roads';
 
 /** Same map stack as the live map and the two apps: MapLibre on OpenFreeMap. No key, no billing. */
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
@@ -41,6 +42,8 @@ export function RouteMap({ stops }: { stops: RouteStop[] }) {
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
 
+    const aborted = new AbortController();
+
     map.on('load', () => {
       if (points.length > 1) {
         map.addSource('route', {
@@ -51,14 +54,24 @@ export function RouteMap({ stops }: { stops: RouteStop[] }) {
             geometry: { type: 'LineString', coordinates: points },
           },
         });
-        // Straight legs between stops, not a driven path: there is no routing provider yet (T8),
-        // and a smoothed curve would imply road geometry nothing has actually computed.
+        // Straight and dashed until the road path arrives - and left that way if routing is down,
+        // so a dashed line always means "not the real road".
         map.addLayer({
           id: 'route-line',
           type: 'line',
           source: 'route',
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': '#12a68c', 'line-width': 3, 'line-dasharray': [2, 1.5] },
+        });
+        void roadThrough(points, aborted.signal).then((road) => {
+          if (!road || aborted.signal.aborted) return;
+          (map.getSource('route') as maplibregl.GeoJSONSource).setData({
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: road },
+          });
+          map.setPaintProperty('route-line', 'line-dasharray', [1, 0]);
+          map.setPaintProperty('route-line', 'line-width', 4);
         });
       }
 
@@ -88,7 +101,10 @@ export function RouteMap({ stops }: { stops: RouteStop[] }) {
         .addTo(map);
     });
 
-    return () => map.remove();
+    return () => {
+      aborted.abort();
+      map.remove();
+    };
   }, [stops]);
 
   if (stops.length === 0) {

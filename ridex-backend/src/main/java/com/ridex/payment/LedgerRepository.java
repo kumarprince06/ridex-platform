@@ -16,4 +16,10 @@ public interface LedgerRepository extends JpaRepository<LedgerEntry, String> {
     long balanceOf(@Param("type") LedgerAccountType type, @Param("accountId") String accountId);
 
     boolean existsByIdempotencyKey(String idempotencyKey);
+
+    /** One entry type's credits since a moment - the dashboard's commission today. */
+    @Query("SELECT COALESCE(SUM(e.amountMinor), 0) FROM LedgerEntry e WHERE e.accountType = :type "
+            + "AND e.entryType = :entryType AND e.direction = 'CREDIT' AND e.createdAt >= :since")
+    long creditsSince(@Param("type") LedgerAccountType type, @Param("entryType") String entryType,
+            @Param("since") java.time.Instant since);
 }

@@ -8,9 +8,11 @@ import { rateRide } from '../api/rides';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Stars } from '../components/Stars';
-import { RATING_TAGS } from '../data/mock';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
+
+/** What a rider can praise with one tap. */
+const RATING_TAGS = ['Friendly', 'Great Driver', 'Clean Car', 'On Time', 'Smooth Ride'];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RateDriver'>;
 

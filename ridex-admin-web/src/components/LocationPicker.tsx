@@ -13,7 +13,7 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
  * <p>Reached when there is no previous stop and the browser will not say where the operator is -
  * a denied permission, an insecure origin, or a desktop with no location service.
  */
-const FALLBACK: [number, number] = [77.5946, 12.9716];
+const FALLBACK: [number, number] = [88.3639, 22.5726]; // Kolkata
 
 /**
  * Search for a place, or drop the pin yourself.
@@ -185,7 +185,7 @@ export function LocationPicker({
         <input
           className="input"
           value={query}
-          placeholder="Search a place — Marathahalli, Bengaluru"
+          placeholder="Search a place — Dunlop More, Kolkata"
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
             // Swallowed rather than submitting: this sits inside the stop form, and a stray Enter
@@ -217,8 +217,11 @@ export function LocationPicker({
                     // The first comma-separated part is the place; the rest is the postal tail.
                     label: place.formattedAddress.split(',')[0]?.trim(),
                   });
-                  picked.current = true;
-                  setQuery(place.formattedAddress.split(',')[0]?.trim() ?? '');
+                  const label = place.formattedAddress.split(',')[0]?.trim() ?? '';
+                  // Only when the text actually changes: an unchanged query never re-runs the
+                  // search effect, so the flag would stay set and swallow the next real search.
+                  picked.current = label !== query;
+                  setQuery(label);
                   setResults(null);
                 }}
               >

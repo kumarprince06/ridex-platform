@@ -26,6 +26,10 @@ export type Dashboard = {
   currency: string;
   grossFaresTodayMinor: number;
   ridesByStatus: Record<string, number>;
+  platformFeeTodayMinor: number;
+  openSupportCases: number;
+  failedPaymentsThisWeek: number;
+  failedPayouts: number;
 };
 
 export type OnboardingStatus =
@@ -175,6 +179,20 @@ export function listTrips(status?: string, page = 0, size = DEFAULT_PAGE_SIZE) {
   const query = new URLSearchParams({ page: String(page), size: String(size) });
   if (status) query.set('status', status);
   return request<Page<AdminTrip>>(`/api/v1/admin/trips?${query}`);
+}
+
+export type StaffMember = {
+  id: string;
+  email: string;
+  name: string;
+  roles: string[];
+  status: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+};
+
+export function listStaff() {
+  return request<StaffMember[]>('/api/v1/admin/staff');
 }
 
 export function listAuditLog(page = 0, size = DEFAULT_PAGE_SIZE) {
@@ -493,16 +511,26 @@ export function updateRoute(
   return request<ShuttleRoute>(`${SHUTTLE}/${routeId}`, { method: 'PUT', body: route });
 }
 
-export function addStop(
-  routeId: string,
-  stop: { name: string; latitude: number; longitude: number; offsetMinutes: number },
-) {
-  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops`, { method: 'POST', body: stop });
+type StopInput = { name: string; latitude: number; longitude: number; offsetMinutes: number };
+
+/** Appends, or inserts straight after the stop at position {@code after} (0 for the front). */
+export function addStop(routeId: string, stop: StopInput, after?: number) {
+  const query = after === undefined ? '' : `?after=${after}`;
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops${query}`, { method: 'POST', body: stop });
 }
 
-/** Only the last one. Deleting from the middle would renumber stops the fares are keyed on. */
-export function removeLastStop(routeId: string) {
-  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops/last`, { method: 'DELETE' });
+export function updateStop(routeId: string, stopId: string, stop: StopInput) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops/${stopId}`, { method: 'PUT', body: stop });
+}
+
+/** Only a route nobody has booked or bought a pass on. */
+export function deleteRoute(routeId: string) {
+  return request<void>(`${SHUTTLE}/${routeId}`, { method: 'DELETE' });
+}
+
+/** Its fares go with it. Refused for a stop anyone has booked. */
+export function removeStop(routeId: string, stopId: string) {
+  return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops/${stopId}`, { method: 'DELETE' });
 }
 
 export function setFare(

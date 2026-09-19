@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { Permission } from '../auth/permissions';
 import { ROLE_LABELS } from '../auth/permissions';
@@ -7,86 +7,93 @@ import { NavIcon } from './NavIcon';
 import { useSession } from '../auth/session';
 import './shell.css';
 
-type NavItem = {
+type Tab = {
   to: string;
   label: string;
-  /** Key into the glyph table. */
-  icon: string;
   /** Absent means everyone signed in may see it. */
   permission?: Permission;
 };
 
-type NavGroup = { title: string; items: NavItem[] };
+/** One sidebar entry; its tabs are the pages inside it, shown across the top of each one. */
+type Section = { label: string; icon: string; tabs: Tab[] };
 
 /**
  * The navigation is the permission model made visible. An item the user cannot use is not rendered
  * disabled - it is not rendered at all, and its route refuses directly-typed URLs. A greyed-out
  * "Refund" tells an agent precisely what to talk someone into granting them.
  */
-const NAV: NavGroup[] = [
+const SECTIONS: Section[] = [
   {
-    title: 'Overview',
-    items: [
-      { to: '/', label: 'Dashboard', icon: 'dashboard' },
-      { to: '/analytics', label: 'Analytics', icon: 'analytics', permission: 'OPERATIONS' },
-      { to: '/live', label: 'Live map', icon: 'live', permission: 'OPERATIONS' },
+    label: 'Dashboard',
+    icon: 'dashboard',
+    tabs: [
+      { to: '/', label: 'Overview' },
+      { to: '/analytics', label: 'Analytics', permission: 'OPERATIONS' },
+    ],
+  },
+  { label: 'Live map', icon: 'live', tabs: [{ to: '/live', label: 'Live map', permission: 'OPERATIONS' }] },
+  { label: 'Rides', icon: 'trips', tabs: [{ to: '/trips', label: 'Rides' }] },
+  {
+    label: 'Shuttle',
+    icon: 'shuttle',
+    tabs: [
+      { to: '/shuttle/departures', label: 'Today', permission: 'OPERATIONS' },
+      { to: '/shuttle', label: 'Routes', permission: 'OPERATIONS' },
     ],
   },
   {
-    title: 'People',
-    items: [
-      { to: '/riders', label: 'Riders', icon: 'riders' },
-      { to: '/drivers', label: 'Drivers', icon: 'drivers' },
-      { to: '/approvals', label: 'Driver approvals', icon: 'approvals', permission: 'OPERATIONS' },
+    label: 'People',
+    icon: 'riders',
+    tabs: [
+      { to: '/riders', label: 'Riders' },
+      { to: '/drivers', label: 'Drivers' },
+      { to: '/approvals', label: 'Driver approvals', permission: 'OPERATIONS' },
     ],
   },
   {
-    title: 'Operations',
-    items: [
-      { to: '/trips', label: 'Trips', icon: 'trips' },
-      { to: '/shuttle', label: 'Shuttle routes', icon: 'shuttle', permission: 'OPERATIONS' },
-      { to: '/shuttle/departures', label: 'Shuttle departures', icon: 'shuttle', permission: 'OPERATIONS' },
-      { to: '/cases', label: 'Support cases', icon: 'cases', permission: 'SUPPORT_CASE' },
+    label: 'Money',
+    icon: 'payments',
+    tabs: [
+      { to: '/payments', label: 'Payments', permission: 'FINANCE' },
+      { to: '/payouts', label: 'Payouts', permission: 'FINANCE' },
     ],
   },
+  { label: 'Support', icon: 'cases', tabs: [{ to: '/cases', label: 'Support', permission: 'SUPPORT_CASE' }] },
   {
-    title: 'Money',
-    items: [
-      { to: '/payments', label: 'Payments', icon: 'payments', permission: 'FINANCE' },
-      { to: '/payouts', label: 'Payouts', icon: 'payouts', permission: 'FINANCE' },
+    label: 'Settings',
+    icon: 'settings',
+    tabs: [
+      { to: '/pricing', label: 'Fares & fees', permission: 'OPERATIONS' },
+      { to: '/legal', label: 'App content', permission: 'OPERATIONS' },
+      { to: '/staff', label: 'Staff', permission: 'SUPER_ADMIN' },
     ],
   },
-  {
-    title: 'Configuration',
-    items: [
-      { to: '/pricing', label: 'Pricing and ride types', icon: 'pricing', permission: 'OPERATIONS' },
-      { to: '/promotions', label: 'Promotions', icon: 'promotions', permission: 'OPERATIONS' },
-      { to: '/legal', label: 'Legal documents', icon: 'audit', permission: 'OPERATIONS' },
-      { to: '/templates', label: 'Notification templates', icon: 'templates', permission: 'SUPER_ADMIN' },
-      { to: '/flags', label: 'Feature flags', icon: 'flags', permission: 'SUPER_ADMIN' },
-    ],
-  },
-  {
-    title: 'Platform',
-    items: [
-      { to: '/audit', label: 'Audit log', icon: 'audit', permission: 'OPERATIONS' },
-      { to: '/staff', label: 'Staff and roles', icon: 'staff', permission: 'SUPER_ADMIN' },
-    ],
-  },
+  { label: 'Audit log', icon: 'audit', tabs: [{ to: '/audit', label: 'Audit log', permission: 'SUPER_ADMIN' }] },
 ];
+
+/** Which tab a URL belongs to: the longest matching prefix, so /shuttle/departures is not /shuttle. */
+function tabFor(pathname: string, tabs: Tab[]): Tab | undefined {
+  return tabs
+    .filter((tab) => (tab.to === '/' ? pathname === '/' : pathname === tab.to || pathname.startsWith(tab.to + '/')))
+    .sort((a, b) => b.to.length - a.to.length)[0];
+}
 
 export function Shell() {
   const { session, can, signOut } = useSession();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   if (!session) {
     return null;
   }
 
-  const groups = NAV.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => !item.permission || can(item.permission)),
-  })).filter((group) => group.items.length > 0);
+  const sections = SECTIONS.map((section) => ({
+    ...section,
+    tabs: section.tabs.filter((tab) => !tab.permission || can(tab.permission)),
+  })).filter((section) => section.tabs.length > 0);
+  const allTabs = sections.flatMap((section) => section.tabs);
+  const currentTab = tabFor(pathname, allTabs);
+  const current = sections.find((section) => currentTab && section.tabs.includes(currentTab));
 
   return (
     <div className="shell">
@@ -96,21 +103,16 @@ export function Shell() {
         </div>
 
         <nav>
-          {groups.map((group) => (
-            <div className="nav-group" key={group.title}>
-              <span className="nav-title">{group.title}</span>
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-                >
-                  <NavIcon name={item.icon} />
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
+          {sections.map((section) => (
+            <NavLink
+              key={section.label}
+              to={section.tabs[0].to}
+              end
+              className={section === current ? 'nav-link active' : 'nav-link'}
+            >
+              <NavIcon name={section.icon} />
+              {section.label}
+            </NavLink>
           ))}
         </nav>
       </aside>
@@ -147,6 +149,20 @@ export function Shell() {
         </header>
 
         <main className="content">
+          {current && current.tabs.length > 1 ? (
+            <nav className="section-tabs" aria-label={current.label}>
+              {current.tabs.map((tab) => (
+                <NavLink
+                  key={tab.to}
+                  to={tab.to}
+                  end
+                  className={tab === currentTab ? 'section-tab active' : 'section-tab'}
+                >
+                  {tab.label}
+                </NavLink>
+              ))}
+            </nav>
+          ) : null}
           <Outlet />
         </main>
       </div>

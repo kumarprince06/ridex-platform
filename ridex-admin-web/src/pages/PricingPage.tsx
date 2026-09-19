@@ -12,6 +12,38 @@ import { Button, Card, PageHeader, Table } from '../components/ui';
  * Every change is audited. These numbers decide what people earn and pay, so "who set the
  * commission to 40% last Tuesday" has to be answerable.
  */
+/** Settings grouped the way operations thinks about them, by what they change. */
+const GROUPS: { title: string; about: string; match: (key: string) => boolean }[] = [
+  { title: 'Commission', about: 'What the platform keeps from every fare.', match: (key) => key.startsWith('payments.') },
+  {
+    title: 'Cancellations and no-shows',
+    about: 'Who pays when a ride is cancelled, and how much of it reaches the driver.',
+    match: (key) => key.startsWith('cancellation.') || key.startsWith('driver.cancel.') || key.startsWith('driver.no-show.'),
+  },
+  { title: 'Driver wallet', about: 'How far a driver can owe the platform before going off duty.', match: (key) => key.startsWith('driver.wallet.') },
+  {
+    title: 'Referrals',
+    about: 'Rewards for bringing in riders and drivers.',
+    match: (key) => key.startsWith('referrals.') || key.startsWith('points.referral'),
+  },
+  { title: 'Points', about: 'How riders earn and spend points.', match: (key) => key.startsWith('points.') },
+];
+
+const rupees = (value: number) => `${value < 0 ? '-' : ''}₹${Math.abs(value).toLocaleString('en-IN')}`;
+
+/** The stored value in the unit a person reads: 0.80 is 80%, 300 seconds is 5 min, 50000 paise is Rs 500. */
+function readable(setting: Setting): string {
+  const value = Number(setting.value);
+  if (Number.isNaN(value)) return setting.value;
+  if (/rate|share/.test(setting.key)) return `${Math.round(value * 100)}%`;
+  if (setting.key.endsWith('-seconds')) return value >= 60 && value % 60 === 0 ? `${value / 60} min` : `${value} s`;
+  if (setting.key.endsWith('-minor')) return rupees(value / 100);
+  if (/\(Rs\)/.test(setting.label) || setting.key.endsWith('.penalty') || setting.key.endsWith('min-balance')) {
+    return rupees(value);
+  }
+  return value.toLocaleString('en-IN');
+}
+
 export function PricingPage() {
   const { data, loading, error, refetch } = useQuery(() => listSettings(), []);
   const [editing, setEditing] = useState<string | null>(null);
@@ -37,13 +69,21 @@ export function PricingPage() {
   return (
     <>
       <PageHeader
-        title="Pricing and rewards"
+        title="Fares and fees"
         subtitle="Changes take effect immediately and are recorded in the audit log"
       />
 
       {saveError ? <p style={{ color: 'var(--danger)' }}>{saveError}</p> : null}
+      {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
+      {loading && !data ? <p className="cell-muted">Loading...</p> : null}
 
-      <Card>
+      {GROUPS.map((group, index) => {
+        // First matching group wins, so referral points are not listed again under Points.
+        const rows = (data ?? []).filter(
+          (setting) => group.match(setting.key) && GROUPS.findIndex((other) => other.match(setting.key)) === index,
+        );
+        return rows.length === 0 ? null : (
+      <Card key={group.title} title={group.title} actions={<span className="cell-muted">{group.about}</span>}>
         <Table<Setting>
           columns={[
             { key: 'label', header: 'Setting', render: (row) => (
@@ -62,11 +102,11 @@ export function PricingPage() {
                   onChange={(event) => setDraft(event.target.value)}
                 />
               ) : (
-                <span className="cell-strong mono">{row.value}</span>
+                <span className="cell-strong">{readable(row)}</span>
               ) },
             { key: 'range', header: 'Allowed', align: 'right', render: (row) =>
               row.minValue != null || row.maxValue != null ? (
-                <span className="cell-muted">
+                <span className="cell-muted mono">
                   {row.minValue ?? '—'} to {row.maxValue ?? '—'}
                 </span>
               ) : '—' },
@@ -94,10 +134,11 @@ export function PricingPage() {
                 </Button>
               ) },
           ]}
-          rows={data ?? []}
-          empty={error ?? (loading ? 'Loading...' : 'No settings.')}
+          rows={rows}
         />
       </Card>
+        );
+      })}
     </>
   );
 }

@@ -18,9 +18,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
+    // Only the auth calls a password or code can be guessed through. Refresh, sessions and logout
+    // need a token already, and counting them signed staff out for reloading pages quickly.
     // Estimates are here because each one costs a billed maps call.
     private static final String[] LIMITED_PREFIXES = {
-            "/api/v1/auth/", "/api/v1/maps/", "/api/v1/rides/estimate"};
+            "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/verify",
+            "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
+            "/api/v1/auth/change-password", "/api/v1/maps/", "/api/v1/rides/estimate"};
 
     private final RateLimiter rateLimiter;
     private final int limit;

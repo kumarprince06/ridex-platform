@@ -118,6 +118,13 @@ public class AdminQueryController {
         return money.payments(status, page, size);
     }
 
+    @GetMapping("/staff")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @ResponseStatus(HttpStatus.OK)
+    public List<com.ridex.admin.dto.StaffResponse> staff() {
+        return people.staff();
+    }
+
     // Super admin only: the audit log records what everyone else did, so it is not something an
     // ordinary operator should be reading over.
     @GetMapping("/audit")

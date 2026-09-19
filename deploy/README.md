@@ -55,18 +55,8 @@ curl https://api.<domain>/actuator/health
 Flyway runs at boot, so the schema arrives with the code. The bootstrap admin is created on first
 start from `RIDEX_BOOTSTRAP_ADMIN_*`.
 
-**5. Demo data.**
-
-```bash
-docker compose -f docker-compose.prod.yml exec -T postgres \
-    psql -U ridex_app -d ridex_platform < ../ridex-backend/src/main/resources/seed/kolkata-shuttle.sql
-docker compose -f docker-compose.prod.yml exec -T postgres \
-    psql -U ridex_app -d ridex_platform < demo-accounts.sql
-```
-
-Two accounts, both `Ridex@2026`: `ridex-rider@yopmail.com` and `ridex-driver@yopmail.com`. yopmail
-because its inbox is public and needs no signup - a verification code, a receipt and a shuttle
-invoice can all be opened in front of whoever is watching.
+**5. Nothing else is seeded.** The admin is the only account; routes, fares, drivers and legal
+text are all set up from the console.
 
 ## Every deployment after that
 
@@ -88,30 +78,3 @@ Rolling back is the same command with an older tag:
 echo "RIDEX_TAG=<previous-sha>" > .env.tag
 docker compose -f docker-compose.prod.yml --env-file .env.production --env-file .env.tag up -d
 ```
-
-## Between demos
-
-```bash
-./demo-reset.sh
-```
-
-Clears rides, bookings, payments, tickets and notifications, then rebuilds the city and the two
-accounts - so the next walkthrough starts on the same screen as the last one.
-
-It refuses to run when it finds accounts that are not demo accounts. Those people's rides,
-invoices and payouts are a record of what happened, and "which host am I on" is a question
-everybody gets wrong once.
-
-## The clients
-
-```bash
-# Console
-cd ridex-admin-web && npm ci && VITE_API_BASE_URL=https://api.<domain> npm run build
-# then publish dist/ - Cloudflare Pages, Netlify, anything static
-
-# Apps
-cd ridex-rider-app && EXPO_PUBLIC_API_BASE_URL=https://api.<domain> npx eas build -p android --profile preview
-```
-
-Set `RIDEX_CORS_ALLOWED_ORIGINS` to the console's origin, or the browser refuses every call it
-makes.

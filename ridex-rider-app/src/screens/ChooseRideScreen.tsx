@@ -59,7 +59,6 @@ export function ChooseRideScreen({ navigation, route }: Props) {
   }, [destinationCoord, pickup?.[0], pickup?.[1]]);
 
   const selected = options?.find((option) => option.estimateId === selectedId) ?? null;
-  // The server priced every option; anything the local mock adds is presentation only.
 
   return (
     <View style={styles.root}>

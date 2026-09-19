@@ -54,6 +54,7 @@ class DriverBoardingTest {
     @Autowired private UserRepository userRepository;
     @Autowired private AdminShuttleService adminShuttleService;
     @MockitoBean private PaymentProviders paymentProviders;
+    @Autowired private com.ridex.payment.LedgerService ledger;
 
     private ShuttleSchedule schedule;
     private RouteStop first;
@@ -124,6 +125,21 @@ class DriverBoardingTest {
                     assertThat(passenger.seatLabel()).isEqualTo("2A");
                     assertThat(passenger.boarded()).isTrue();
                 });
+    }
+
+    @Test
+    void aCancelledPaidSeatSplitsWhatTheRiderForfeitsWithTheDriver() {
+        var booking = bookPaidSeat("1A");
+        rosterDriverOntoTheDeparture();
+        String driverId = driverProfileRepository.findByUserId(driverUserId).orElseThrow().getId();
+        java.util.Currency inr = java.util.Currency.getInstance("INR");
+        long before = ledger.balanceOf(com.ridex.payment.domain.LedgerAccountType.DRIVER, driverId, inr).amountMinor();
+
+        shuttleService.cancel(riderOf(booking), booking.id());
+
+        // Rs 60 paid, Rs 48 back to the rider as points, Rs 12 forfeited - 80% of that to the driver.
+        long after = ledger.balanceOf(com.ridex.payment.domain.LedgerAccountType.DRIVER, driverId, inr).amountMinor();
+        assertThat(after - before).isEqualTo(960);
     }
 
     @Test

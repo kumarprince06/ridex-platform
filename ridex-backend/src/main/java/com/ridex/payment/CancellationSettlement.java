@@ -28,11 +28,20 @@ public class CancellationSettlement {
      */
     @Transactional
     public void shareWithDriver(String driverId, Money riderFee, String rideId) {
-        Money share = riderFee.times(settings.getDecimal("cancellation.driver-share", new BigDecimal("0.80")));
+        shareWithDriver(driverId, riderFee, "RIDE", rideId);
+    }
+
+    /**
+     * The same split for anything a rider forfeits - a ride fee, or the part of a cancelled shuttle
+     * seat that did not come back as points. The platform keeps the rest.
+     */
+    @Transactional
+    public void shareWithDriver(String driverId, Money forfeited, String referenceType, String referenceId) {
+        Money share = forfeited.times(settings.getDecimal("cancellation.driver-share", new BigDecimal("0.80")));
         ledger.credit(LedgerAccountType.DRIVER, driverId, share,
-                "CANCELLATION_COMPENSATION", "RIDE", rideId, "cancel-share:" + rideId);
+                "CANCELLATION_COMPENSATION", referenceType, referenceId, "cancel-share:" + referenceId);
         ledger.debit(LedgerAccountType.PLATFORM, null, share,
-                "CANCELLATION_COMPENSATION", "RIDE", rideId, "cancel-share-platform:" + rideId);
+                "CANCELLATION_COMPENSATION", referenceType, referenceId, "cancel-share-platform:" + referenceId);
     }
 
     @Transactional

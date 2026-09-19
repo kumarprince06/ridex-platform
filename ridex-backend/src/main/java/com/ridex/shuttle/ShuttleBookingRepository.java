@@ -54,6 +54,10 @@ public interface ShuttleBookingRepository extends JpaRepository<ShuttleBooking, 
             + "AND b.rider.user.id = :userId AND b.status <> 'CANCELLED'")
     boolean isRiderOn(@Param("tripId") String tripId, @Param("userId") String userId);
 
+    /** Whether any seat, in any state, was ever sold from or to this stop - its history pins it. */
+    @Query("SELECT COUNT(b) > 0 FROM ShuttleBooking b WHERE b.boardingStopId = :stopId OR b.alightingStopId = :stopId")
+    boolean everUsedStop(@Param("stopId") String stopId);
+
     /**
      * The manifest. Cancelled seats are out - nobody is waiting for them - and so are seats still
      * in checkout: prepaid only, so an unpaid hold is not a passenger yet.

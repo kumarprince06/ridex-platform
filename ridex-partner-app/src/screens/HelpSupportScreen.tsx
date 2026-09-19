@@ -14,7 +14,7 @@ import { colors, IconName, radius, spacing, type } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'HelpSupport'>;
 
 const CHANNELS: { icon: IconName; tone: string; title: string; detail: string; url: string }[] = [
-  { icon: 'mail', tone: '#E0B252', title: 'Email us', detail: 'Reply in 24h', url: 'mailto:partners@ridex.app' },
+  { icon: 'mail', tone: '#E0B252', title: 'Email us', detail: 'Reply in 24h', url: 'mailto:support@ridex.com' },
 ];
 
 // Figures mirror the backend defaults (platform_settings, cancellation_policies); update both together.

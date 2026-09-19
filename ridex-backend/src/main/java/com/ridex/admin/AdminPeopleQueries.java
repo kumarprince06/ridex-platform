@@ -11,6 +11,9 @@ import com.ridex.admin.dto.AdminRiderDetailResponse;
 import com.ridex.admin.dto.AdminRiderResponse;
 import com.ridex.admin.dto.LiveDriverResponse;
 import com.ridex.admin.dto.PageResponse;
+import com.ridex.admin.dto.StaffResponse;
+import com.ridex.auth.UserRepository;
+import com.ridex.auth.domain.UserRole;
 import com.ridex.driver.DriverCard;
 import com.ridex.driver.DriverProfileRepository;
 import com.ridex.driver.domain.DriverOnboardingStatus;
@@ -42,6 +45,7 @@ public class AdminPeopleQueries {
     private final PointsService pointsService;
     private final PaymentService paymentService;
     private final AdminRowMapper rows;
+    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<AdminRiderResponse> riders(String term, int page, int size) {
@@ -122,5 +126,22 @@ public class AdminPeopleQueries {
                 at.latitude(),
                 at.longitude(),
                 onTrip);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StaffResponse> staff() {
+        return userRepository.findByAnyRole(List.of(UserRole.SUPPORT, UserRole.OPS_ADMIN, UserRole.SUPER_ADMIN))
+                .stream()
+                .map(user -> new StaffResponse(
+                        user.getId(),
+                        user.getEmail(),
+                        java.util.stream.Stream.of(user.getFirstName(), user.getLastName())
+                                .filter(part -> part != null && !part.isBlank())
+                                .collect(Collectors.joining(" ")),
+                        user.getRoles().stream().map(Enum::name).sorted().toList(),
+                        user.getStatus().name(),
+                        user.getLastLoginAt(),
+                        user.getCreatedAt()))
+                .toList();
     }
 }

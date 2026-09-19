@@ -23,6 +23,7 @@ import com.ridex.rider.domain.RiderProfile;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
+import com.ridex.payment.CancellationSettlement;
 import com.ridex.shared.money.Money;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.shared.util.UlidGenerator;
@@ -54,6 +55,7 @@ public class ShuttleService {
     private final ShuttleCrew shuttleCrew;
     private final ShuttlePaymentService shuttlePayments;
     private final PointsService pointsService;
+    private final CancellationSettlement cancellationSettlement;
     private final ShuttleStopEventRepository stopEventRepository;
 
     /** How long a picked seat is held while the rider pays for it. */
@@ -319,6 +321,15 @@ public class ShuttleService {
             pointsService.creditCancelledShuttleSeat(rider.getUser().getId(), credit,
                     booking.getId());
             booking.setPaymentStatus("POINTS_CREDITED");
+            // What the rider forfeits is split like a ride's late-cancel fee: most of it to the
+            // driver rostered on the run, the rest to the platform. Nobody rostered, the platform keeps it.
+            long forfeited = booking.getFareMinor() - booking.getDiscountMinor() - credit;
+            String driverId = booking.getShuttleTrip().getDriverId();
+            if (forfeited > 0 && driverId != null) {
+                cancellationSettlement.shareWithDriver(driverId,
+                        Money.of(forfeited, java.util.Currency.getInstance(booking.getCurrency())),
+                        "SHUTTLE_BOOKING", booking.getId());
+            }
         } else {
             // Nothing was captured. The open order is closed so it stops counting as a fare owed.
             shuttlePayments.voidShuttlePayment(booking.getId(), "Seat cancelled before payment");
@@ -391,10 +402,12 @@ public class ShuttleService {
      */
     @Transactional
     public void settlePaid(ShuttleBooking booking) {
-        // The hold ran out before the money did, and the seat may already be someone else's.
+        // The hold ran out before the money did, and the seat may already be someone else's. The
+        // whole amount comes back as points, the same way every other shuttle refund does.
         if ("CANCELLED".equals(booking.getStatus())) {
-            shuttlePayments.refundShuttlePayment(booking.getId(), "Paid after the seat hold expired");
-            booking.setPaymentStatus("REFUNDED");
+            pointsService.creditCancelledShuttleSeat(booking.getRider().getUser().getId(),
+                    booking.getFareMinor() - booking.getDiscountMinor(), booking.getId());
+            booking.setPaymentStatus("POINTS_CREDITED");
             bookingRepository.save(booking);
             return;
         }
@@ -449,7 +462,7 @@ public class ShuttleService {
     /**
      * What would be credited back as points if the seat were cancelled right now.
      *
-     * <p>Zero for cash (nothing was taken), for a pass (nothing was charged), and once the cutoff
+     * <p>Zero for a pass (nothing was charged), for an unpaid hold, and once the cutoff
      * has passed - at which point cancelling is refused outright.
      */
     private static long creditIfCancelled(ShuttleBooking booking) {
@@ -536,6 +549,18 @@ public class ShuttleService {
     }
 
     /** Materialised on first use, so an unbooked route does not fill the table with empty days. */
+    /**
+     * Every departure the timetable runs on a day, including ones nothing has sold on yet - ops
+     * needs to crew the empty 07:15 too. Created on first look, exactly as a first booking would.
+     */
+    @Transactional
+    public List<ShuttleTrip> departuresOn(LocalDate serviceDate) {
+        return scheduleRepository.findRunning().stream()
+                .filter(schedule -> schedule.runsOn(serviceDate.getDayOfWeek()))
+                .map(schedule -> departureFor(schedule.getId(), serviceDate))
+                .toList();
+    }
+
     private ShuttleTrip departureFor(String scheduleId, LocalDate serviceDate) {
         ShuttleSchedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new NotFoundException("No such departure."));

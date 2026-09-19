@@ -31,6 +31,7 @@ services:
       RIDEX_MAIL_USERNAME: ${RIDEX_MAIL_USERNAME}
       RIDEX_MAIL_PASSWORD: ${RIDEX_MAIL_PASSWORD}
       RIDEX_MAIL_FROM: ${RIDEX_MAIL_FROM}
+      RIDEX_MAIL_SUPPORT: ${RIDEX_MAIL_SUPPORT:-support@ridex.com}
       # Hosted relays want both; the app defaults them off for Mailpit.
       RIDEX_MAIL_AUTH: ${RIDEX_MAIL_AUTH:-true}
       RIDEX_MAIL_STARTTLS: ${RIDEX_MAIL_STARTTLS:-true}

@@ -248,8 +248,9 @@ class ShuttleBookingTest {
     }
 
     @Test
-    void aSeatPaidAfterItsHoldRanOutIsRefundedNotReinstated() {
-        var booking = shuttleService.book(newRider(), request("3B"));
+    void aSeatPaidAfterItsHoldRanOutComesBackAsPointsNotASeat() {
+        String rider = newRider();
+        var booking = shuttleService.book(rider, request("3B"));
         String order = paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getProviderPaymentId();
         var held = bookingRepository.findById(booking.id()).orElseThrow();
         held.setHoldExpiresAt(java.time.Instant.now().minusSeconds(1));
@@ -260,9 +261,9 @@ class ShuttleBookingTest {
 
         var after = bookingRepository.findById(booking.id()).orElseThrow();
         assertThat(after.getStatus()).isEqualTo("CANCELLED");
-        assertThat(after.getPaymentStatus()).isEqualTo("REFUNDED");
-        assertThat(paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getStatus())
-                .isEqualTo(com.ridex.payment.domain.PaymentStatus.REFUNDED);
+        assertThat(after.getPaymentStatus()).isEqualTo("POINTS_CREDITED");
+        // The whole Rs 60 back, at the redemption rate.
+        assertThat(pointsService.balance(rider).balance()).isEqualTo(pointsService.pointsFor(6000));
     }
 
     private static String captured(String paymentId, String orderId, long amount) {

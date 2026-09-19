@@ -9,7 +9,7 @@ import { Card, Grid, humanState, PageHeader, Pill, StatTile, stateTone, Table } 
 
 /** Same map stack as the two apps: MapLibre against OpenFreeMap tiles. No key, no billing. */
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
-const CENTRE: [number, number] = [77.5946, 12.9716];
+const CENTRE: [number, number] = [88.3639, 22.5726]; // Kolkata
 
 /** Carrying somebody, or waiting for the next offer. Two states is all ops reads at a glance. */
 const ON_TRIP = '#12805a';

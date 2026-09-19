@@ -37,7 +37,7 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={`Good evening, ${session?.email.split('@')[0] ?? 'there'}`}
+        title={`${greeting()}, ${session?.email.split('@')[0] ?? 'there'}`}
         subtitle="Live marketplace health. Updated a few seconds ago."
       />
 
@@ -51,7 +51,7 @@ export function DashboardPage() {
       </Grid>
 
       <Grid columns={4}>
-        <StatTile label="Rides today" value={value(metrics?.ridesToday)} note="Requested since midnight UTC" />
+        <StatTile label="Rides today" value={value(metrics?.ridesToday)} note="Requested since midnight IST" />
         <StatTile label="Completed today" value={value(metrics?.ridesCompletedToday)} note="Finished trips" tone="success" />
         <StatTile
           label="Gross fares today"
@@ -59,9 +59,11 @@ export function DashboardPage() {
           note="Charged on completed trips"
           tone="success"
         />
-        {/* Not wired: the platform fee needs the payments ledger (T12). Showing a mock number
-            next to real ones is worse than showing none. */}
-        <StatTile label="Platform fee today" value="—" note="Needs payments (T12)" />
+        <StatTile
+          label="Platform fee today"
+          value={metrics ? money(metrics.platformFeeTodayMinor, metrics.currency) : '—'}
+          note="Commission on completed trips"
+        />
       </Grid>
 
       <Grid columns={2}>
@@ -90,11 +92,9 @@ export function DashboardPage() {
             ]}
             rows={[
               { what: 'Drivers awaiting approval', count: String(pendingApprovals), to: '/approvals' },
-              // Dashes, not numbers: these queues need endpoints that do not exist, and an
-              // invented count is one an operator would act on.
-              { what: 'Urgent support cases', count: '—', to: '/cases' },
-              { what: 'Failed payments to review', count: '—', to: '/payments' },
-              { what: 'Failed payouts to retry', count: '—', to: '/payouts' },
+              { what: 'Open support cases', count: value(metrics?.openSupportCases), to: '/cases' },
+              { what: 'Failed payments this week', count: value(metrics?.failedPaymentsThisWeek), to: '/payments' },
+              { what: 'Failed payouts to retry', count: value(metrics?.failedPayouts), to: '/payouts' },
             ]}
             onRowClick={(row) => navigate(row.to)}
           />
@@ -125,4 +125,10 @@ export function DashboardPage() {
       </Card>
     </>
   );
+}
+
+/** By the operator's own clock, not a fixed "Good evening". */
+function greeting() {
+  const hour = new Date().getHours();
+  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 }

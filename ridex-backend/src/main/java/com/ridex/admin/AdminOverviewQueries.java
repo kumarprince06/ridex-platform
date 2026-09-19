@@ -1,6 +1,7 @@
 package com.ridex.admin;
 
 import java.sql.Date;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -23,10 +24,17 @@ import com.ridex.admin.dto.DashboardResponse;
 import com.ridex.admin.dto.PageResponse;
 import com.ridex.driver.DriverProfileRepository;
 import com.ridex.driver.domain.DriverOnboardingStatus;
+import com.ridex.payment.DriverPayoutRepository;
+import com.ridex.payment.LedgerRepository;
 import com.ridex.payment.PaymentRepository;
+import com.ridex.payment.domain.LedgerAccountType;
+import com.ridex.payment.domain.PaymentStatus;
+import com.ridex.payment.domain.PayoutStatus;
 import com.ridex.ride.RideRequestRepository;
 import com.ridex.ride.domain.RideStatus;
 import com.ridex.rider.RiderProfileRepository;
+import com.ridex.support.SupportTicketRepository;
+import com.ridex.support.domain.TicketStatus;
 
 import lombok.RequiredArgsConstructor;
 
@@ -52,6 +60,9 @@ public class AdminOverviewQueries {
     private final RideRequestRepository rideRequestRepository;
     private final PaymentRepository paymentRepository;
     private final AuditLogRepository auditLogRepository;
+    private final LedgerRepository ledgerRepository;
+    private final SupportTicketRepository ticketRepository;
+    private final DriverPayoutRepository payoutRepository;
 
     @Value("${app.reporting.zone}")
     private String reportingZone;
@@ -72,7 +83,14 @@ public class AdminOverviewQueries {
                         List.of(RideStatus.COMPLETED), startOfToday),
                 "INR",
                 rideRequestRepository.grossFaresSince(startOfToday),
-                ridesByStatus());
+                ridesByStatus(),
+                ledgerRepository.creditsSince(LedgerAccountType.PLATFORM, "COMMISSION",
+                        startOfToday),
+                ticketRepository.countByStatusIn(List.of(TicketStatus.OPEN,
+                        TicketStatus.IN_PROGRESS)),
+                paymentRepository.countByStatusAndCreatedAtAfter(PaymentStatus.FAILED,
+                        startOfToday.minus(Duration.ofDays(7))),
+                payoutRepository.countByStatus(PayoutStatus.FAILED));
     }
 
     private Map<String, Long> ridesByStatus() {

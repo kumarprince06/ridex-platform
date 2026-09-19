@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
 export type LngLat = [number, number];
 
 /**
- * Where the map points when the device has not answered yet, or refused. Bengaluru, because the
- * mock trips are written around it - a map that opens on null island looks broken.
+ * Where the map points when the device has not answered yet, or refused. Kolkata, where RideX
+ * runs - a map that opens on null island looks broken.
  */
-export const FALLBACK_CENTER: LngLat = [77.5946, 12.9716];
+export const FALLBACK_CENTER: LngLat = [88.3639, 22.5726];
 
 /**
  * Last known position, shared across screens for the life of the process.

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { listTrips, type TripSummary } from '../api/driver';
+import { listTrips, tripState, type TripState, type TripSummary } from '../api/driver';
 import { useQuery } from '../api/useQuery';
 import { Chip } from '../components/Chip';
 import { Screen } from '../components/Screen';
@@ -14,11 +14,6 @@ type Props = TabScreenProps<'Trips'>;
 
 const FILTERS = ['All', 'Completed', 'Cancelled'] as const;
 
-/** A ride that ended without anybody being carried. The server's word for it is a status. */
-function isCancelled(status: string) {
-  return status.startsWith('CANCELLED') || status === 'EXPIRED';
-}
-
 export function TripsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
   const { data, loading, error } = useQuery(listTrips);
@@ -27,8 +22,8 @@ export function TripsScreen({ navigation }: Props) {
     filter === 'All'
       ? true
       : filter === 'Cancelled'
-        ? isCancelled(trip.status)
-        : trip.status === 'COMPLETED',
+        ? tripState(trip.status) === 'cancelled'
+        : tripState(trip.status) === 'completed',
   );
 
   return (
@@ -90,16 +85,17 @@ export function TripsScreen({ navigation }: Props) {
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  const completed = status === 'COMPLETED';
+const PILL: Record<TripState, { label: string; fg: string; bg: string }> = {
+  completed: { label: 'Completed', fg: colors.success, bg: colors.successSurface },
+  cancelled: { label: 'Cancelled', fg: colors.danger, bg: colors.dangerSurface },
+  active: { label: 'In progress', fg: colors.primary, bg: colors.surfaceAlt },
+};
 
+function StatusPill({ status }: { status: string }) {
+  const pill = PILL[tripState(status)];
   return (
-    <View
-      style={[styles.pill, { backgroundColor: completed ? colors.successSurface : colors.dangerSurface }]}
-    >
-      <Text style={[styles.pillLabel, { color: completed ? colors.success : colors.danger }]}>
-        {completed ? 'Completed' : 'Cancelled'}
-      </Text>
+    <View style={[styles.pill, { backgroundColor: pill.bg }]}>
+      <Text style={[styles.pillLabel, { color: pill.fg }]}>{pill.label}</Text>
     </View>
   );
 }

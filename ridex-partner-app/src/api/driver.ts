@@ -181,6 +181,14 @@ export function rateRider(rideId: string, stars: number, comment?: string) {
   });
 }
 
+/** Where a trip ended up, from the ride status - the one place both trip screens read it. */
+export type TripState = 'completed' | 'cancelled' | 'active';
+
+export function tripState(status: string | null | undefined): TripState {
+  if (status === 'COMPLETED') return 'completed';
+  return status?.startsWith('CANCELLED') || status === 'EXPIRED' ? 'cancelled' : 'active';
+}
+
 /** The unfinished trip, or undefined (204) when there is none. */
 export function currentTrip() {
   return request<Trip | undefined>('/api/v1/trips/current');

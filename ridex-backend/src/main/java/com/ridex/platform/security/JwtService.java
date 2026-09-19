@@ -2,6 +2,7 @@ package com.ridex.platform.security;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,6 +16,7 @@ import com.ridex.auth.domain.AppContext;
 import com.ridex.auth.domain.UserRole;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
@@ -67,6 +69,28 @@ public class JwtService {
 
     public String generateAccessToken(String userId, String email, Set<UserRole> roles, AppContext app) {
         return buildToken(userId, email, roles, app, accessExpirationMs, TOKEN_TYPE_ACCESS);
+    }
+
+    /**
+     * Who an access token belongs to. Shared by the HTTP filter and the WebSocket CONNECT check, so
+     * both accept exactly the same tokens. Throws JwtException for anything else.
+     */
+    public JwtPrincipal accessPrincipal(String token) {
+        Claims claims = parseClaims(token);
+        if (!TOKEN_TYPE_ACCESS.equals(claims.get(CLAIM_TOKEN_TYPE, String.class))) {
+            throw new JwtException("Not an access token.");
+        }
+        String userId = claims.getSubject();
+        String email = claims.get(CLAIM_EMAIL, String.class);
+        String app = claims.get(CLAIM_APP, String.class);
+        Set<UserRole> roles = EnumSet.noneOf(UserRole.class);
+        if (claims.get(CLAIM_ROLES) instanceof List<?> values) {
+            values.forEach(value -> roles.add(UserRole.valueOf(String.valueOf(value))));
+        }
+        if (userId == null || email == null || app == null || roles.isEmpty()) {
+            throw new JwtException("JWT claims are incomplete.");
+        }
+        return new JwtPrincipal(userId, email, roles, AppContext.valueOf(app));
     }
 
     public Claims parseClaims(String token) {

@@ -20,6 +20,7 @@ import com.ridex.ride.domain.RideRequest;
 import com.ridex.rider.domain.RiderProfile;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
+import com.ridex.shared.exception.ValidationException;
 import com.ridex.shared.money.Money;
 import com.ridex.trip.TripRepository;
 import com.ridex.trip.domain.Trip;
@@ -298,6 +299,10 @@ public class PaymentService {
 
         switch (confirmed.status()) {
             case "SUCCEEDED" -> {
+                // Until paid, providerPaymentId holds our order id - the one the payment must be for.
+                if (!confirmed.isFor(payment.getProviderPaymentId(), payment.getNetAmountMinor())) {
+                    throw new ValidationException("That payment is not for this trip.");
+                }
                 payment.setStatus(PaymentStatus.SUCCEEDED);
                 payment.setPaidAt(Instant.now());
                 // Overwritten deliberately: the order id was a placeholder until somebody paid,

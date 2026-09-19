@@ -26,6 +26,21 @@ public class NotificationTemplates {
     /**
      * @param html null for channels that cannot render it. SMS and push take the text.
      */
+    /** Which app an event is for, so a person with both apps only gets it in one. Null means any. */
+    public static String appFor(String eventType) {
+        if (eventType.startsWith("DRIVER_") || eventType.startsWith("DOCUMENT_")) {
+            return "DRIVER";
+        }
+        if (eventType.startsWith("SHUTTLE_") || eventType.startsWith("RIDE_")) {
+            return "RIDER";
+        }
+        return null;
+    }
+
+    private Rendered shuttleAlert(String title, String body) {
+        return new Rendered(title, body, layout.wrap(title, body, layout.paragraph(body)));
+    }
+
     public record Rendered(String subject, String body, String html, Attachment attachment) {
 
         /** Most messages carry nothing but words. */
@@ -170,6 +185,16 @@ public class NotificationTemplates {
                                         "Thank you for travelling with RideX."),
                                 "application/pdf"));
             }
+
+            // Live tracking. The payload is the route name for STARTED, the rider's stop otherwise.
+            case "SHUTTLE_STARTED" -> shuttleAlert("Your shuttle has started",
+                    "The " + payload + " shuttle is on its way. Track it from your ticket.");
+
+            case "SHUTTLE_TWO_STOPS_AWAY" -> shuttleAlert("Your shuttle is 2 stops away",
+                    "Head to " + payload + " now so you don't miss it.");
+
+            case "SHUTTLE_ARRIVING" -> shuttleAlert("Your shuttle is arriving",
+                    "Next stop is " + payload + ". Keep your boarding code ready.");
 
             case "SHUTTLE_BOARDED" -> new Rendered(
                     "You are on board",

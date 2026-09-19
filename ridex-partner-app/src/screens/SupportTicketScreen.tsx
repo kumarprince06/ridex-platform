@@ -20,14 +20,14 @@ type Props = RootScreenProps<'SupportTicket'>;
  */
 export function SupportTicketScreen({ navigation, route }: Props) {
   const { ticketId } = route.params;
-  const { data, loading, error } = useQuery(() => getTicket(ticketId), [ticketId]);
+  const { data, loading, error, refetch } = useQuery(() => getTicket(ticketId), [ticketId]);
 
   // The reply returns the refreshed ticket, so the thread grows without a second round trip.
   const [replied, setReplied] = useState<Ticket | null>(null);
   const ticket = replied ?? data;
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Support">
+    <Screen onRefresh={() => refetch()} onBack={() => navigation.goBack()} title="Support">
       {loading ? <Text style={styles.muted}>Loading...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

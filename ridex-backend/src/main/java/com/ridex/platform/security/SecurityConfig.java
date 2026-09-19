@@ -94,6 +94,8 @@ public class SecurityConfig {
                 .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                // The socket handshake is open; the token is checked on the STOMP CONNECT frame.
+                .requestMatchers("/ws", "/ws/**").permitAll()
                 // The schema of the API, not the data in it. ponytail: fine while the API is
                 // public-facing anyway; put it behind auth if the endpoint list ever becomes
                 // something worth hiding.

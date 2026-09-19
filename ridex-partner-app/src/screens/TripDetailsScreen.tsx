@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { getEarnings, getTrip } from '../api/driver';
+import { getEarnings, getTrip, tripState } from '../api/driver';
 import { useQuery } from '../api/useQuery';
 import { RouteStops } from '../components/RouteStops';
 import { Screen } from '../components/Screen';
@@ -21,26 +21,35 @@ type Props = RootScreenProps<'TripDetails'>;
  */
 export function TripDetailsScreen({ navigation, route }: Props) {
   const { tripId } = route.params;
-  const { data: trip, loading, error } = useQuery(() => getTrip(tripId), [tripId]);
-  const { data: earnings } = useQuery(getEarnings);
+  const { data: trip, loading, error, refetch: refetchTrip } = useQuery(() => getTrip(tripId), [tripId]);
+  const { data: earnings, refetch: refetchEarnings } = useQuery(getEarnings);
 
   const line = earnings?.recent.find((entry) => entry.tripId === tripId);
   const currency = trip?.currency ?? earnings?.currency ?? 'INR';
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Trip">
+    <Screen onRefresh={() => Promise.all([refetchTrip(), refetchEarnings()])} onBack={() => navigation.goBack()} title="Trip">
       {loading ? <Text style={styles.muted}>Loading...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {trip ? (
         <>
           <View style={styles.hero}>
-            <Text style={styles.netLabel}>YOU EARNED</Text>
+            {tripState(trip.status) === 'cancelled' ? (
+              <View style={styles.cancelledBadge}>
+                <Ionicons name="close" size={30} color={colors.danger} />
+              </View>
+            ) : null}
+            <Text style={styles.netLabel}>{tripState(trip.status) === 'cancelled' ? 'TRIP CANCELLED' : 'YOU EARNED'}</Text>
             <Text style={styles.net}>
               {line ? money(line.netAmountMinor, currency) : '--'}
             </Text>
             <Text style={styles.when}>
-              {trip.completedAt ? when(trip.completedAt) : 'In progress'}
+              {tripState(trip.status) === 'completed' && trip.completedAt
+                ? when(trip.completedAt)
+                : tripState(trip.status) === 'cancelled'
+                  ? 'Cancelled before drop-off'
+                  : 'In progress'}
             </Text>
           </View>
 
@@ -62,7 +71,13 @@ export function TripDetailsScreen({ navigation, route }: Props) {
             />
             <Line
               label="Payment"
-              value={trip.paymentMethod === 'CASH' ? 'Cash at drop-off' : 'Paid online'}
+              value={
+                tripState(trip.status) === 'cancelled'
+                  ? 'Not charged'
+                  : trip.paymentMethod === 'CASH'
+                    ? 'Cash at drop-off'
+                    : 'Paid online'
+              }
               last
             />
           </View>
@@ -161,7 +176,9 @@ const styles = StyleSheet.create({
   },
   line: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
     paddingVertical: spacing.md,
   },
   lineBorder: {
@@ -174,7 +191,20 @@ const styles = StyleSheet.create({
   },
   lineValue: {
     ...type.body,
+    flexShrink: 1,
+    textAlign: 'right',
     color: colors.text,
+  },
+  cancelledBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.dangerSurface,
+    borderWidth: 2,
+    borderColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   lineStrong: {
     ...type.button,

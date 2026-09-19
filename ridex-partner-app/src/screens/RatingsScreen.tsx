@@ -23,8 +23,8 @@ const STARS = [5, 4, 3, 2, 1];
  * make the average look made up too.
  */
 export function RatingsScreen({ navigation }: Props) {
-  const { data: profile } = useQuery(getProfile);
-  const { data: ratings, loading, error } = useQuery(listRatings);
+  const { data: profile, refetch: refetchProfile } = useQuery(getProfile);
+  const { data: ratings, loading, error, refetch: refetchRatings } = useQuery(listRatings);
 
   const rows = ratings ?? [];
   const breakdown = STARS.map((stars) => ({
@@ -34,7 +34,7 @@ export function RatingsScreen({ navigation }: Props) {
   const average = profile?.rating ?? null;
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Ratings">
+    <Screen onRefresh={() => Promise.all([refetchProfile(), refetchRatings()])} onBack={() => navigation.goBack()} title="Ratings">
       <View style={styles.hero}>
         <Text style={styles.rating}>{average ?? '--'}</Text>
         <Stars value={Math.round(Number(average ?? 0))} size={20} />

@@ -7,6 +7,8 @@ type Options = {
   body?: unknown;
   /** Public endpoints skip the token and the refresh dance entirely. */
   auth?: boolean;
+  /** Extra headers - an Idempotency-Key on a payment, kept identical on the retry after refresh. */
+  headers?: Record<string, string>;
 };
 
 /** Called when a refresh fails, so the session context can drop the user back to sign-in. */
@@ -47,7 +49,10 @@ async function send(path: string, options: Options, accessToken?: string): Promi
   // FormData sets its own Content-Type with a boundary. Setting ours would strip the boundary and
   // the server would read the whole upload as one unparseable blob.
   const multipart = options.body instanceof FormData;
-  const headers: Record<string, string> = multipart ? {} : { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    ...(multipart ? {} : { 'Content-Type': 'application/json' }),
+    ...options.headers,
+  };
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }

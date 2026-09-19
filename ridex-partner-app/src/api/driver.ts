@@ -158,6 +158,15 @@ export function cancellationReasons() {
 }
 
 /** Ends the rider's ride with a stated reason, rather than leaving them watching the map. */
+/** What cancelling now would cost the driver for this reason - the same rules the cancel applies. */
+export type CancellationQuote = { currency: string; penaltyMinor: number; free: boolean; note: string };
+
+export function cancellationQuote(rideId: string, reasonCode: string) {
+  return request<CancellationQuote>(
+    `/api/v1/driver/rides/${rideId}/cancellation-quote?reasonCode=${encodeURIComponent(reasonCode)}`,
+  );
+}
+
 export function cancelRide(rideId: string, reasonCode: string, reason?: string) {
   return request<void>(`/api/v1/driver/rides/${rideId}/cancel`, {
     method: 'POST',
@@ -170,6 +179,14 @@ export function rateRider(rideId: string, stars: number, comment?: string) {
     method: 'POST',
     body: { stars, comment },
   });
+}
+
+/** Where a trip ended up, from the ride status - the one place both trip screens read it. */
+export type TripState = 'completed' | 'cancelled' | 'active';
+
+export function tripState(status: string | null | undefined): TripState {
+  if (status === 'COMPLETED') return 'completed';
+  return status?.startsWith('CANCELLED') || status === 'EXPIRED' ? 'cancelled' : 'active';
 }
 
 /** The unfinished trip, or undefined (204) when there is none. */

@@ -47,8 +47,18 @@ public class ShuttleTrip {
     @Column(name = "seats_per_row", nullable = false)
     private short seatsPerRow = 4;
 
+    // SCHEDULED -> RUNNING -> COMPLETED
     @Column(name = "status", nullable = false, length = 20)
     private String status = "SCHEDULED";
+
+    @Column(name = "started_at")
+    private Instant startedAt;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
+    @Column(name = "current_stop_seq")
+    private Short currentStopSeq;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

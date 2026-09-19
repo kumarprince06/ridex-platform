@@ -14,4 +14,9 @@ public interface NotificationChannel {
      * text as a fallback, SMS and push have only the text and no subject line at all.
      */
     void send(String recipient, NotificationTemplates.Rendered rendered);
+
+    // Push overrides this to pick the right app; the others don't care about the event type.
+    default void send(String recipient, NotificationTemplates.Rendered rendered, String eventType) {
+        send(recipient, rendered);
+    }
 }

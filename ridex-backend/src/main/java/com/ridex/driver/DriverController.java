@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -18,9 +19,11 @@ import java.util.List;
 import com.ridex.driver.dto.DriverProfileResponse;
 import com.ridex.rating.dto.DriverRatingResponse;
 import com.ridex.rating.dto.RateRideRequest;
+import com.ridex.ride.domain.CancellationReason;
 import com.ridex.ride.domain.CancelledBy;
 import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CancellationReasonResponse;
+import com.ridex.ride.dto.DriverCancellationQuote;
 import com.ridex.ride.dto.RideResponse;
 import com.ridex.driver.dto.PayoutAccountRequest;
 import com.ridex.driver.dto.PayoutAccountResponse;
@@ -77,6 +80,14 @@ public class DriverController {
     }
 
     /** Ends the rider's ride with a stated reason, rather than leaving them watching the map. */
+    /** What cancelling now would cost for this reason, shown before the driver swipes. */
+    @GetMapping("/rides/{rideId}/cancellation-quote")
+    @ResponseStatus(HttpStatus.OK)
+    public DriverCancellationQuote cancellationQuote(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String rideId, @RequestParam CancellationReason reasonCode) {
+        return rideRequestService.quoteDriverCancellation(principal.userId(), rideId, reasonCode);
+    }
+
     @PostMapping("/rides/{rideId}/cancel")
     @ResponseStatus(HttpStatus.OK)
     public RideResponse cancelRide(@AuthenticationPrincipal JwtPrincipal principal,

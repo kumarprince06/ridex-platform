@@ -103,7 +103,9 @@ public class RazorpayPaymentProvider implements PaymentProvider {
             return new ProviderPayment(
                     providerPaymentId,
                     mapStatus(status),
-                    (String) payment.get("error_description"));
+                    (String) payment.get("error_description"),
+                    (String) payment.get("order_id"),
+                    payment.get("amount") instanceof Number amount ? amount.longValue() : 0);
         } catch (RestClientException ex) {
             throw new ProviderUnavailableException("Could not read the Razorpay payment", ex);
         }

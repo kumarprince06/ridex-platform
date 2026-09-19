@@ -24,6 +24,7 @@ public class ShuttleController {
     private final ShuttleService shuttleService;
     private final PassService passService;
     private final ShuttleCrew shuttleCrew;
+    private final ShuttleRunService shuttleRunService;
 
     @GetMapping("/routes")
     @ResponseStatus(HttpStatus.OK)
@@ -67,6 +68,14 @@ public class ShuttleController {
     @ResponseStatus(HttpStatus.OK)
     public List<ShuttleBookingResponse> myBookings(@AuthenticationPrincipal JwtPrincipal principal) {
         return shuttleService.myBookings(principal.userId());
+    }
+
+    /** Where the rider's shuttle is and when it reaches their stop. Live updates follow on the socket. */
+    @GetMapping("/bookings/{bookingId}/live")
+    @ResponseStatus(HttpStatus.OK)
+    public BookingLiveResponse live(@AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable String bookingId) {
+        return shuttleRunService.forRider(principal.userId(), bookingId);
     }
 
     @PostMapping("/bookings")

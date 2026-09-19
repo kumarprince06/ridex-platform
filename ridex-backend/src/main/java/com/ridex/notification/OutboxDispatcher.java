@@ -61,7 +61,7 @@ public class OutboxDispatcher {
                 }
 
                 NotificationTemplates.Rendered rendered = templates.render(message);
-                channels.get(message.getChannel()).send(message.getRecipient(), rendered);
+                channels.get(message.getChannel()).send(message.getRecipient(), rendered, message.getEventType());
 
                 message.setStatus(OutboxStatus.SENT);
                 message.setSentAt(Instant.now());

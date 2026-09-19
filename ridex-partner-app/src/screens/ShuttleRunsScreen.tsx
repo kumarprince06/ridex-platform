@@ -20,7 +20,7 @@ export function ShuttleRunsScreen({ navigation }: Props) {
   const { data, loading, error, refetch } = useQuery(() => myDepartures());
 
   return (
-    <Screen title="My runs" onBack={() => navigation.goBack()}>
+    <Screen onRefresh={() => refetch()} title="My runs" onBack={() => navigation.goBack()}>
       {loading ? <Text style={styles.note}>Loading today's runs...</Text> : null}
 
       {error ? (

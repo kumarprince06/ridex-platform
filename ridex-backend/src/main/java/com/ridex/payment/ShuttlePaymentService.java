@@ -129,6 +129,9 @@ public class ShuttlePaymentService {
 
         switch (confirmed.status()) {
             case "SUCCEEDED" -> {
+                if (!confirmed.isFor(payment.getProviderPaymentId(), payment.getNetAmountMinor())) {
+                    throw new ValidationException("That payment is not for this purchase.");
+                }
                 payment.setStatus(PaymentStatus.SUCCEEDED);
                 payment.setPaidAt(Instant.now());
                 // The order id was a placeholder until somebody paid; the payment id is what every

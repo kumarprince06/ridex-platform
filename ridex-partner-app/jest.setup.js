@@ -25,6 +25,12 @@ jest.mock('@maplibre/maplibre-react-native', () => {
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useIsFocused: () => true,
+  useFocusEffect: () => undefined,
+}));
+
+jest.mock('react-native-razorpay', () => ({
+  __esModule: true,
+  default: { open: jest.fn(async () => ({})) },
 }));
 
 jest.mock('expo-location', () => ({

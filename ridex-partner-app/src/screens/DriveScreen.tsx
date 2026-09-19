@@ -1,11 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { expiringSoon, expiryTitle, listDocuments } from '../api/documents';
 import { reportLocation, setDuty } from '../api/driver';
 import { useSession } from '../auth/session';
+import { getWallet } from '../api/wallet';
+import { WalletDueCard } from '../components/WalletDueCard';
 import { ApiError } from '../api/problem';
 import { useOffers } from '../api/useOffers';
 import { currentPosition } from '../lib/location';
@@ -33,7 +36,15 @@ export function DriveScreen({ navigation }: Props) {
   const [switching, setSwitching] = useState(false);
   // What the ledger says is owed right now, and what has been earned in all. Nothing here is a
   // target the app invented.
-  const { data: earnings } = useQuery(getEarnings);
+  const { data: earnings, refetch: refetchEarnings } = useQuery(getEarnings);
+  const { data: wallet, refetch: refetchWallet } = useQuery(getWallet);
+  // This tab stays mounted under a trip, so a cash ride's fee would otherwise show up only on relaunch.
+  useFocusEffect(
+    useCallback(() => {
+      refetchEarnings();
+      refetchWallet();
+    }, [refetchEarnings, refetchWallet]),
+  );
   const currency = earnings?.currency ?? 'INR';
   const owed = earnings ? balance(earnings.ledgerBalanceMinor, currency) : null;
   const lifetime = earnings ? money(earnings.lifetimeNetMinor, currency) : '--';
@@ -142,6 +153,8 @@ export function DriveScreen({ navigation }: Props) {
               </View>
             </View>
 
+            <WalletDueCard wallet={wallet} onPaid={refetchWallet} />
+
             <View style={styles.shiftRow}>
               <Shift value={owed?.amount ?? '--'} label={owed?.label ?? 'Owed to you'} />
               <Shift value={String(trips)} label="Recent trips" />
@@ -163,13 +176,20 @@ export function DriveScreen({ navigation }: Props) {
               />
             ) : null}
 
+            <WalletDueCard wallet={wallet} onPaid={refetchWallet} />
+
             <View style={styles.shiftRow}>
               <Shift value={owed?.amount ?? '--'} label={owed?.label ?? 'Owed to you'} />
               <Shift value={String(trips)} label="Recent trips" />
               <Shift value={lifetime} label="Lifetime" />
             </View>
 
-            <DutyToggle online={false} busy={switching} onToggle={() => void toggleDuty(true)} />
+            <DutyToggle
+              online={false}
+              busy={switching}
+              blockedReason={wallet?.blocked ? 'Pay what you owe to go online.' : undefined}
+              onToggle={() => void toggleDuty(true)}
+            />
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
         )}

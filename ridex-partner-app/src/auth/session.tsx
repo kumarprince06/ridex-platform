@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import * as authApi from '../api/auth';
 import { setSessionExpiredHandler } from '../api/client';
+import { ApiError } from '../api/problem';
 import { getProfile, type DriverProfile } from '../api/profile';
 import { clearTokens, loadTokens } from './tokens';
 
@@ -54,7 +55,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (tokens) {
         // Tokens on disk are not proof of a live session - the account may have been suspended
         // or every session revoked. One call settles it.
-        await refreshProfile().catch(() => clearTokens());
+        // Only a rejected session clears them. A backend that is down or unreachable at launch is
+        // not a sign-out, or every restart without a network logs the driver out.
+        await refreshProfile().catch((caught) => {
+          if (caught instanceof ApiError && (caught.status === 401 || caught.status === 403)) {
+            return clearTokens();
+          }
+        });
       }
       setReady(true);
     })();

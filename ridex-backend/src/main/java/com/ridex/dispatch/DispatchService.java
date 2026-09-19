@@ -23,6 +23,7 @@ import com.ridex.ride.domain.RideStatus;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.trip.TripService;
+import com.ridex.wallet.DriverWalletService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class DispatchService {
     private final DriverPresence driverPresence;
     private final OfferNotifier offerNotifier;
     private final TripService tripService;
+    private final DriverWalletService driverWalletService;
 
     @Value("${app.dispatch.wave-radius-meters:3000}")
     private double waveRadiusMeters;
@@ -186,8 +188,10 @@ public class DispatchService {
      * that needs to change.
      */
     private boolean isEligible(DriverProfile driver) {
+        // The wallet too: a cash ride can push an on-duty driver past the limit mid-shift.
         return driver.isOnDuty()
-                && driver.getOnboardingStatus() == DriverOnboardingStatus.APPROVED;
+                && driver.getOnboardingStatus() == DriverOnboardingStatus.APPROVED
+                && driverWalletService.blockedReason(driver.getId()) == null;
     }
 
     private DriverProfile requireDriver(String driverUserId) {

@@ -3,6 +3,7 @@ package com.ridex.driver;
 import org.springframework.stereotype.Component;
 
 import com.ridex.vehicle.VehicleService;
+import com.ridex.wallet.DriverWalletService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +22,7 @@ public class DriverEligibility {
     private final DriverProfileRepository driverProfileRepository;
     private final DriverDocumentService driverDocumentService;
     private final VehicleService vehicleService;
+    private final DriverWalletService driverWalletService;
 
     /** @return null when eligible, otherwise the reason, worded for the driver to read. */
     public String blockedReason(String driverId) {
@@ -37,7 +39,8 @@ public class DriverEligibility {
         if (!vehicleService.hasActiveVehicle(driverId)) {
             return "You have no approved vehicle to drive.";
         }
-        return null;
+        // Last: everything above is a fix only operations can make; this one the driver pays off.
+        return driverWalletService.blockedReason(driverId);
     }
 
     public boolean isEligible(String driverId) {

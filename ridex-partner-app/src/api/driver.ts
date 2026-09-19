@@ -43,11 +43,11 @@ export type Trip = {
   riderPhone: string | null;
   pickupAddress: string | null;
   destinationAddress: string | null;
-  arrivedAt: string | null;
   pickupLat: number;
   pickupLng: number;
   destinationLat: number;
   destinationLng: number;
+  arrivedAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
   waitingSeconds: number;
@@ -172,6 +172,11 @@ export function rateRider(rideId: string, stars: number, comment?: string) {
   });
 }
 
+/** The unfinished trip, or undefined (204) when there is none. */
+export function currentTrip() {
+  return request<Trip | undefined>('/api/v1/trips/current');
+}
+
 export function getTrip(tripId: string) {
   return request<Trip>(`/api/v1/trips/${tripId}`);
 }
@@ -179,11 +184,6 @@ export function getTrip(tripId: string) {
 /**
  * The live trip for the screens between accepting an offer and completing it.
  *
-/** The unfinished trip, or undefined (204) when there is none. */
-export function currentTrip() {
-  return request<Trip | undefined>('/api/v1/trips/current');
-}
-
  * Null when there is no trip id, which is how these screens are opened outside the accept flow -
  * they still render, with nothing invented on them.
  */
@@ -213,7 +213,7 @@ export type EarningLine = {
   commissionRate: number;
   commissionMinor: number;
   netAmountMinor: number;
-  createdAt: string;
+  earnedAt: string;
 };
 
 export type Earnings = {

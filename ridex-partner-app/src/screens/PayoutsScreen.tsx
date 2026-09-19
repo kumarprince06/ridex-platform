@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { getEarnings, listPayouts, type PayoutStatus } from '../api/driver';
-import { money } from '../lib/format';
+import { balance, money } from '../lib/format';
 import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
@@ -25,11 +25,13 @@ export function PayoutsScreen({ navigation }: Props) {
   return (
     <Screen onBack={() => navigation.goBack()} title="Payouts">
       <View style={styles.balance}>
-        <Text style={styles.balanceLabel}>CURRENT BALANCE</Text>
+        <Text style={styles.balanceLabel}>
+          {earnings && earnings.ledgerBalanceMinor < 0 ? 'YOU OWE RIDEX' : 'CURRENT BALANCE'}
+        </Text>
         {/* The ledger balance, not lifetime earnings: this is what is still owed after every
             payout that has actually settled. */}
         <Text style={styles.balanceValue}>
-          {earnings ? money(earnings.ledgerBalanceMinor, earnings.currency) : '—'}
+          {earnings ? balance(earnings.ledgerBalanceMinor, earnings.currency).amount : '—'}
         </Text>
         <Text style={styles.balanceNote}>Transfers are made once operations settles the batch.</Text>
       </View>

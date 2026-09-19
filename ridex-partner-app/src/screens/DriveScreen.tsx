@@ -15,7 +15,7 @@ import { PulseRings } from '../components/PulseRings';
 import { StatusBanner } from '../components/StatusBanner';
 import { getEarnings } from '../api/driver';
 import { useQuery } from '../api/useQuery';
-import { money } from '../lib/format';
+import { balance, money } from '../lib/format';
 import { TabScreenProps } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -33,12 +33,16 @@ export function DriveScreen({ navigation }: Props) {
   // target the app invented.
   const { data: earnings } = useQuery(getEarnings);
   const currency = earnings?.currency ?? 'INR';
-  const [switching, setSwitching] = useState(false);
-  const owed = earnings ? money(earnings.ledgerBalanceMinor, currency) : '--';
+  const owed = earnings ? balance(earnings.ledgerBalanceMinor, currency) : null;
   const lifetime = earnings ? money(earnings.lifetimeNetMinor, currency) : '--';
   const trips = earnings?.recent.length ?? 0;
 
   const { offer } = useOffers(online);
+  const midnight = new Date().setHours(0, 0, 0, 0);
+  const today = (earnings?.recent ?? []).filter((line) => Date.parse(line.earnedAt) >= midnight);
+  const todayNet = earnings ? money(today.reduce((total, line) => total + line.netAmountMinor, 0), currency) : '--';
+  const { data: documents } = useQuery(listDocuments);
+  const expiring = expiringSoon(documents ?? []);
 
   useEffect(() => {
     if (offer) {
@@ -116,7 +120,7 @@ export function DriveScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <EarningsBar net={owed} goal={lifetime} progress={0} />
+        <EarningsBar net={todayNet} detail={`${today.length} trip${today.length === 1 ? '' : 's'} today`} />
       </SafeAreaView>
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
@@ -136,7 +140,7 @@ export function DriveScreen({ navigation }: Props) {
             </View>
 
             <View style={styles.shiftRow}>
-              <Shift value={owed} label="Owed to you" />
+              <Shift value={owed?.amount ?? '--'} label={owed?.label ?? 'Owed to you'} />
               <Shift value={String(trips)} label="Recent trips" />
               <Shift value={lifetime} label="Lifetime" />
             </View>
@@ -155,7 +159,7 @@ export function DriveScreen({ navigation }: Props) {
             />
 
             <View style={styles.shiftRow}>
-              <Shift value={owed} label="Owed to you" />
+              <Shift value={owed?.amount ?? '--'} label={owed?.label ?? 'Owed to you'} />
               <Shift value={String(trips)} label="Recent trips" />
               <Shift value={lifetime} label="Lifetime" />
             </View>

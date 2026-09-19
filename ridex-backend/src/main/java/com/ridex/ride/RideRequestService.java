@@ -282,9 +282,8 @@ public class RideRequestService {
         Currency currency = Currency.getInstance(ride.getCurrency());
         return cancellationPolicyRepository
                 .findByCancelledByAndFromStatusAndActiveTrue(by, ride.getStatus())
-                // Assignment time arrives with dispatch; until then nothing has been spent on the
-                // rider's behalf, so the grace window has not started.
-                .map(policy -> policy.feeFor(null, now))
+                // The grace window runs from assignment; with no driver yet it is always free.
+                .map(policy -> policy.feeFor(ride.getAssignedAt(), now))
                 .orElse(Money.zero(currency));
     }
 

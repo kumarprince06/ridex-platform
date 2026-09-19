@@ -5,6 +5,7 @@ import {
   Outfit_700Bold,
   useFonts,
 } from '@expo-google-fonts/outfit';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -24,6 +25,9 @@ export default function App() {
     Outfit_500Medium,
     Outfit_600SemiBold,
     Outfit_700Bold,
+    // Icon fonts too: map markers render before a lazily loaded font arrives and stay blank.
+    ...Ionicons.font,
+    ...MaterialCommunityIcons.font,
   });
 
   // Render on error as well as on success. A font that failed to load should degrade to the

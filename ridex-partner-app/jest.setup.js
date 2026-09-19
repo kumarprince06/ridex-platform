@@ -17,8 +17,15 @@ jest.mock('@maplibre/maplibre-react-native', () => {
     Layer: stub('Layer'),
     ViewAnnotation: stub('ViewAnnotation'),
     UserLocation: stub('UserLocation'),
+    Images: stub('Images'),
   };
 });
+
+// Screens render here without a navigator; the map only asks whether its screen is on top.
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useIsFocused: () => true,
+}));
 
 jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },

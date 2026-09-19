@@ -21,6 +21,8 @@ export type Offer = {
   destinationAddress: string | null;
   pickupLat: number;
   pickupLng: number;
+  destinationLat: number;
+  destinationLng: number;
   tripDistanceMeters: number;
   distanceToPickupMeters: number | null;
   currency: string;
@@ -41,6 +43,10 @@ export type Trip = {
   pickupAddress: string | null;
   destinationAddress: string | null;
   arrivedAt: string | null;
+  pickupLat: number;
+  pickupLng: number;
+  destinationLat: number;
+  destinationLng: number;
   startedAt: string | null;
   completedAt: string | null;
   waitingSeconds: number;

@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { arriveAtPickup, useTrip } from '../api/driver';
 import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
+import { minutes, money } from '../lib/format';
 import { RiderBar } from '../components/RiderBar';
 import { SwipeAction } from '../components/SwipeAction';
 import { RootScreenProps } from '../navigation/types';
@@ -19,6 +20,7 @@ export function NavigateToPickupScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const trip = useTrip(route.params?.tripId);
   const pickup = trip?.pickupAddress ?? 'Pickup point';
+  const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
 
   async function onArrive() {
     const tripId = route.params?.tripId;
@@ -39,12 +41,18 @@ export function NavigateToPickupScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas showRoute driverAt={0.2} driverLabel="You" pickupLabel={pickup} />
+      <MapCanvas
+        pickup={trip ? [trip.pickupLng, trip.pickupLat] : undefined}
+        routeFromMe
+        onRoute={(route) => setEtaSeconds(route.duration)}
+      />
 
       <SafeAreaView style={styles.banner} edges={['top']} pointerEvents="box-none">
         <View style={styles.eta}>
           <Ionicons name="navigate" size={17} color={colors.onPrimary} />
-          <Text style={styles.etaLabel}>Heading to pickup</Text>
+          <Text style={styles.etaLabel}>
+            Heading to pickup{etaSeconds == null ? '' : ` · ${minutes(etaSeconds)}`}
+          </Text>
         </View>
       </SafeAreaView>
 
@@ -60,7 +68,17 @@ export function NavigateToPickupScreen({ navigation, route }: Props) {
         </View>
 
         {/* Turn-by-turn is a handoff to the phone's map app, not a second navigation stack. */}
-        <Button label="Open navigation" variant="secondary" />
+        <Button
+          label="Open navigation"
+          variant="secondary"
+          disabled={!trip}
+          onPress={() =>
+            trip &&
+            void Linking.openURL(
+              `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${trip.pickupLat},${trip.pickupLng}`,
+            )
+          }
+        />
 
         {/*
           Arriving is a claim the driver makes, and it is what tells the rider to come out - the

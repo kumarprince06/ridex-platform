@@ -209,6 +209,8 @@ public class DispatchService {
                 ride.getDestinationAddress(),
                 ride.getPickupLat().doubleValue(),
                 ride.getPickupLng().doubleValue(),
+                ride.getDestinationLat().doubleValue(),
+                ride.getDestinationLng().doubleValue(),
                 ride.getFareEstimate().getDistanceMeters(),
                 offer.getDistanceMeters(),
                 ride.getCurrency(),

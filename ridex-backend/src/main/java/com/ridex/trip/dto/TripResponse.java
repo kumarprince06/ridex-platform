@@ -20,6 +20,11 @@ public record TripResponse(
         String destinationAddress,
         Instant arrivedAt,
         Instant startedAt,
+        // The trip screens route to these; an address alone cannot be drawn on a map.
+        double pickupLat,
+        double pickupLng,
+        double destinationLat,
+        double destinationLng,
         Instant completedAt,
         int waitingSeconds,
         String currency,

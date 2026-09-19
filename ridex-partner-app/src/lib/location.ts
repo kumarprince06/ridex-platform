@@ -100,3 +100,34 @@ export function useCurrentLocation() {
 
   return { coord, denied: coord === null };
 }
+
+/**
+ * The device position, kept current while mounted - the driver's own marker has to move with them.
+ * Ten-metre steps: a marker that twitches on GPS noise reads as a broken app.
+ */
+export function useLivePosition(enabled: boolean) {
+  const [position, setPosition] = useState<LngLat | null>(cached);
+  // Degrees from north while moving; null when the device does not know (standing still).
+  const [heading, setHeading] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    let subscription: Location.LocationSubscription | undefined;
+    let cancelled = false;
+    Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, distanceInterval: 10 }, (fix) => {
+      cached = [fix.coords.longitude, fix.coords.latitude];
+      setPosition(cached);
+      setHeading(fix.coords.heading != null && fix.coords.heading >= 0 ? fix.coords.heading : null);
+    })
+      .then((watch) => (cancelled ? watch.remove() : (subscription = watch)))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
+  }, [enabled]);
+
+  return { position, heading };
+}

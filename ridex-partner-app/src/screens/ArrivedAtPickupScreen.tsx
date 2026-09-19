@@ -72,7 +72,10 @@ export function ArrivedAtPickupScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.root}>
-      <MapCanvas driverAt={1} driverLabel="You" pickupLabel={trip?.pickupAddress ?? 'Pickup point'} />
+      <MapCanvas
+        pickup={trip ? [trip.pickupLng, trip.pickupLat] : undefined}
+        showUserDot
+      />
 
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
         <View style={styles.grabber} />

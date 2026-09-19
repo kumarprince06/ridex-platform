@@ -30,6 +30,7 @@ export function DriveScreen({ navigation }: Props) {
   // target the app invented.
   const { data: earnings } = useQuery(getEarnings);
   const currency = earnings?.currency ?? 'INR';
+  const [switching, setSwitching] = useState(false);
   const owed = earnings ? money(earnings.ledgerBalanceMinor, currency) : '--';
   const lifetime = earnings ? money(earnings.lifetimeNetMinor, currency) : '--';
   const trips = earnings?.recent.length ?? 0;
@@ -65,7 +66,15 @@ export function DriveScreen({ navigation }: Props) {
     } catch (caught) {
       // "Your account is not approved to drive yet" arrives here, which is the message that
       // matters most to a driver who just installed the app.
-      setError(caught instanceof ApiError ? caught.userMessage : 'Could not change duty status.');
+      setError(
+        caught instanceof ApiError
+          ? caught.userMessage
+          : caught instanceof Error
+            ? caught.message
+            : 'Could not change duty status.',
+      );
+    } finally {
+      setSwitching(false);
     }
   }
 
@@ -129,7 +138,8 @@ export function DriveScreen({ navigation }: Props) {
               <Shift value={lifetime} label="Lifetime" />
             </View>
 
-            <DutyToggle online onToggle={() => void toggleDuty(false)} />
+            <DutyToggle online busy={switching} onToggle={() => void toggleDuty(false)} />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
         ) : (
           <View style={styles.offlineBlock}>
@@ -147,7 +157,8 @@ export function DriveScreen({ navigation }: Props) {
               <Shift value={lifetime} label="Lifetime" />
             </View>
 
-            <DutyToggle online={false} onToggle={() => void toggleDuty(true)} />
+            <DutyToggle online={false} busy={switching} onToggle={() => void toggleDuty(true)} />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
         )}
       </SafeAreaView>
@@ -181,6 +192,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
   },
   topActions: {
     flexDirection: 'row',

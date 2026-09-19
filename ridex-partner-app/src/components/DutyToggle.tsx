@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing, type } from '../theme';
 
@@ -8,6 +8,8 @@ type Props = {
   onToggle: () => void;
   /** Blocks going online and says why - an expired document, a denied permission, a suspension. */
   blockedReason?: string;
+  /** A GPS fix can take ~10s indoors; without feedback drivers tap again and flip it back. */
+  busy?: boolean;
 };
 
 /**
@@ -15,17 +17,17 @@ type Props = {
  * shrinks out of the way when on duty. A driver taps this at the start and end of a shift and
  * must never hit it by accident in between.
  */
-export function DutyToggle({ online, onToggle, blockedReason }: Props) {
+export function DutyToggle({ online, onToggle, blockedReason, busy = false }: Props) {
   const blocked = !online && Boolean(blockedReason);
 
   return (
     <View>
       <Pressable
         accessibilityRole="switch"
-        accessibilityState={{ checked: online, disabled: blocked }}
+        accessibilityState={{ checked: online, disabled: blocked || busy, busy }}
         accessibilityLabel={online ? 'Go offline' : 'Go online'}
         accessibilityHint={blockedReason}
-        disabled={blocked}
+        disabled={blocked || busy}
         onPress={onToggle}
         style={({ pressed }) => [
           styles.base,
@@ -34,13 +36,17 @@ export function DutyToggle({ online, onToggle, blockedReason }: Props) {
           pressed && styles.pressed,
         ]}
       >
-        <Ionicons
-          name={online ? 'pause' : 'power'}
-          size={online ? 18 : 22}
-          color={online ? colors.text : colors.onPrimary}
-        />
+        {busy ? (
+          <ActivityIndicator color={online ? colors.text : colors.onPrimary} />
+        ) : (
+          <Ionicons
+            name={online ? 'pause' : 'power'}
+            size={online ? 18 : 22}
+            color={online ? colors.text : colors.onPrimary}
+          />
+        )}
         <Text style={[styles.label, online ? styles.offlineLabel : styles.onlineLabel]}>
-          {online ? 'Go offline' : 'Go online'}
+          {busy ? (online ? 'Going offline…' : 'Finding your location…') : online ? 'Go offline' : 'Go online'}
         </Text>
       </Pressable>
 

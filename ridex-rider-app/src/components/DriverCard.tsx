@@ -1,30 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { Crew } from '../api/shuttle';
 import { colors, radius, spacing, type } from '../theme';
 
+type Props = { name: string; phone: string | null; rating: string | null; vehicle: string; plate: string };
+
 /** Who is driving and which vehicle to look for: plate first, since that's what you spot on the road. */
-export function ShuttleCrewCard({ crew }: { crew: Crew }) {
+export function DriverCard({ name, phone, rating, vehicle, plate }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.plate}>
-        <Text style={styles.plateText}>{crew.registrationNumber}</Text>
+        <Text style={styles.plateText}>{plate}</Text>
       </View>
 
       <View style={styles.text}>
-        <Text style={styles.name}>{crew.driverName}</Text>
+        <Text style={styles.name}>{name}</Text>
         <Text style={styles.note}>
-          {crew.vehicle}
-          {crew.driverRating ? ` · ${crew.driverRating}★` : ''}
+          {vehicle}
+          {rating ? ` · ${rating}★` : ''}
         </Text>
       </View>
 
-      {crew.driverPhone ? (
+      {phone ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Call ${crew.driverName}`}
-          onPress={() => Linking.openURL(`tel:${crew.driverPhone}`)}
+          accessibilityLabel={`Call ${name}`}
+          onPress={() => Linking.openURL(`tel:${phone}`)}
           style={({ pressed }) => [styles.call, pressed && styles.pressed]}
         >
           <Ionicons name="call" size={18} color={colors.onPrimary} />

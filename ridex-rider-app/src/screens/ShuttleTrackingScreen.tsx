@@ -6,7 +6,7 @@ import { useShuttleLive } from '../api/shuttleLive';
 import { BoardingPassModal } from '../components/BoardingPassModal';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { ShuttleCrewCard } from '../components/ShuttleCrewCard';
+import { DriverCard } from '../components/DriverCard';
 import { ShuttleEtaCard } from '../components/ShuttleEtaCard';
 import { ShuttleRouteMap } from '../components/ShuttleRouteMap';
 import { ShuttleStopSlider } from '../components/ShuttleStopSlider';
@@ -43,7 +43,13 @@ export function ShuttleTrackingScreen({ navigation, route }: Props) {
             alightingSequence={live.alightingSequence}
             connected={connected}
           />
-          {booking.crew ? <ShuttleCrewCard crew={booking.crew} /> : null}
+          {booking.crew ? <DriverCard
+            name={booking.crew.driverName}
+            phone={booking.crew.driverPhone}
+            rating={booking.crew.driverRating}
+            vehicle={booking.crew.vehicle}
+            plate={booking.crew.registrationNumber}
+          /> : null}
           <Text style={styles.label}>STOPS</Text>
           <ShuttleStopSlider
             stops={live.trip.stops}

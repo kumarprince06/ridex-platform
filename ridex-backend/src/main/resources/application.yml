@@ -64,7 +64,11 @@ spring:
     redis:
       host: ${RIDEX_REDIS_HOST:localhost}
       port: ${RIDEX_REDIS_PORT:6379}
-      timeout: 500ms
+      # 500ms was enough for a Redis on the same host. A hosted one adds a TLS handshake and an
+      # AUTH to every connect, and cutting that off mid-handshake is what "connection closed
+      # prematurely" is - the command path is still fast, this only bounds a stalled connection.
+      timeout: ${RIDEX_REDIS_TIMEOUT:3000ms}
+      connect-timeout: ${RIDEX_REDIS_CONNECT_TIMEOUT:5000ms}
 
 app:
   jwt:
@@ -157,6 +161,11 @@ management:
     # The outbox exists so a mail outage cannot stop the platform. Letting it mark the app DOWN
     # would pull every node out of a load balancer for the one failure that is already absorbed.
     mail:
+      enabled: false
+    # Same reasoning. Redis holds presence and rate limits, both worthless within a minute, and a
+    # dropped connection reconnects on its own. Reporting DOWN for it fails the platform's health
+    # check and, on a host that gates deploys on it, rolls back a release that was fine.
+    redis:
       enabled: false
 
 springdoc:

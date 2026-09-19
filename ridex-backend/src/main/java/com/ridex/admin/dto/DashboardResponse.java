@@ -13,5 +13,11 @@ public record DashboardResponse(
         long grossFaresTodayMinor,
         // Every status with at least one ride, so the console shows the real spread rather than a
         // fixed list of states that may not exist yet.
-        java.util.Map<String, Long> ridesByStatus) {
+        java.util.Map<String, Long> ridesByStatus,
+        // What the platform kept today: commission on completed trips.
+        long platformFeeTodayMinor,
+        long openSupportCases,
+        // Failed charges in the last week - old ones are not worth chasing from the dashboard.
+        long failedPaymentsThisWeek,
+        long failedPayouts) {
 }

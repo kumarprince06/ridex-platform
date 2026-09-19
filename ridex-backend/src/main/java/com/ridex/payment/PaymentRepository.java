@@ -19,6 +19,8 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
 
     Optional<Payment> findByPassId(String passId);
 
+    long countByStatusAndCreatedAtAfter(com.ridex.payment.domain.PaymentStatus status, java.time.Instant since);
+
     Page<Payment> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<Payment> findByStatusOrderByCreatedAtDesc(PaymentStatus status, Pageable pageable);

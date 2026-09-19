@@ -16,4 +16,6 @@ public interface DriverPayoutRepository extends JpaRepository<DriverPayout, Stri
     Page<DriverPayout> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<DriverPayout> findByStatusOrderByCreatedAtDesc(PayoutStatus status, Pageable pageable);
+
+    long countByStatus(com.ridex.payment.domain.PayoutStatus status);
 }

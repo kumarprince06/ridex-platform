@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java erd > docs/09-Project-ERD.md
 ```
 
-Generated on 2026-09-19 from `5b2d025`.
+Generated on 2026-09-20 from `44d0bb5`.
 
 ## How to read it
 
@@ -364,6 +364,7 @@ erDiagram
       varchar_255 description
       boolean active
       timestamptz created_at
+      integer pass_limit
     }
     ROUTE_STOPS {
       varchar_26 id

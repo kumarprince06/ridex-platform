@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { completeTrip, useTrip } from '../api/driver';
 import { ApiError } from '../api/problem';
 import { MapCanvas } from '../components/MapCanvas';
+import { RiderBar } from '../components/RiderBar';
 import { SwipeAction } from '../components/SwipeAction';
 import { distance, minutes, money } from '../lib/format';
 import { trackTripDistance } from '../lib/tripDistance';
@@ -95,6 +96,13 @@ export function TripInProgressScreen({ navigation, route }: Props) {
       <SafeAreaView style={styles.sheet} edges={['bottom']}>
         <View style={styles.grabber} />
 
+        <RiderBar name={trip?.riderName ?? 'Your rider'} phone={trip?.riderPhone} note="On board" />
+
+        <View style={styles.addressCard}>
+          <Ionicons name="flag" size={17} color={colors.amber} />
+          <Text style={styles.address}>{destination}</Text>
+        </View>
+
         <View style={styles.fareRow}>
           <View>
             <Text style={styles.fareLabel}>TRIP FARE</Text>
@@ -104,9 +112,9 @@ export function TripInProgressScreen({ navigation, route }: Props) {
             </Text>
           </View>
           <View style={styles.paymentPill}>
-            <Ionicons name="card" size={14} color={colors.textMuted} />
+            <Ionicons name={trip?.paymentMethod === 'CASH' ? 'cash' : 'card'} size={14} color={colors.textMuted} />
             <Text style={styles.payment}>
-              {trip?.paymentMethod === 'CASH' ? 'Cash at drop-off' : 'Paid online'}
+              {trip?.paymentMethod === 'CASH' ? 'Collect cash' : 'Paid online'}
             </Text>
           </View>
         </View>
@@ -193,6 +201,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  addressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  address: {
+    ...type.body,
+    flex: 1,
+    color: colors.text,
   },
   fareLabel: {
     ...type.eyebrow,

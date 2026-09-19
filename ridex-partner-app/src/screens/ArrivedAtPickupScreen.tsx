@@ -24,15 +24,18 @@ const CODE_LENGTH = 6;
  */
 export function ArrivedAtPickupScreen({ navigation, route }: Props) {
   const trip = useTrip(route.params?.tripId);
-  const [waited, setWaited] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const [code, setCode] = useState('');
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setWaited((prev) => prev + 1), 1000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // From the server's arrival time, so a relaunch mid-wait keeps counting instead of restarting at 0.
+  const waited = trip?.arrivedAt ? Math.max(0, Math.floor((now - Date.parse(trip.arrivedAt)) / 1000)) : 0;
 
   const minutes = String(Math.floor(waited / 60)).padStart(2, '0');
   const seconds = String(waited % 60).padStart(2, '0');
@@ -125,7 +128,7 @@ export function ArrivedAtPickupScreen({ navigation, route }: Props) {
                 setCode(next.replace(/[^0-9]/g, '').slice(0, CODE_LENGTH));
                 setError(null);
               }}
-              placeholder="Any 4 digits in this build"
+              placeholder="6-digit code from the rider"
               keyboardType="number-pad"
               icon="keypad"
             />
@@ -142,7 +145,7 @@ export function ArrivedAtPickupScreen({ navigation, route }: Props) {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => navigation.navigate('CancelTrip', { rideId: trip?.rideId })}
+          onPress={() => navigation.navigate('CancelTrip', { rideId: trip?.rideId, arrived: true })}
           style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
         >
           <Text style={styles.cancelLabel}>Rider is not here</Text>

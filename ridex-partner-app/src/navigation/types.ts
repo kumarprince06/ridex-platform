@@ -58,7 +58,7 @@ export type RootStackParamList = {
   /** The ride being rated, and who it was with. Without the ride there is nothing to rate. */
   RateRider: { rideId?: string; riderName?: string } | undefined;
   /** The ride being cancelled. Without it the screen can only pretend. */
-  CancelTrip: { rideId?: string };
+  CancelTrip: { rideId?: string; arrived?: boolean };
   Safety: { riderName?: string } | undefined;
   /**
    * The callback is a param because the scanner is a pushed screen, not a modal the caller

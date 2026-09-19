@@ -16,6 +16,7 @@ import com.ridex.shared.exception.ForbiddenException;
 import com.ridex.notification.Notifier;
 import com.ridex.driver.DriverProfileRepository;
 import com.ridex.location.DriverPresence;
+import com.ridex.payment.CancellationSettlement;
 import com.ridex.payment.OutstandingPayments;
 import com.ridex.payment.PaymentService;
 import com.ridex.payment.domain.PaymentMethod;
@@ -31,6 +32,7 @@ import com.ridex.ride.dto.CancelRideRequest;
 import com.ridex.ride.dto.CancellationQuote;
 import com.ridex.ride.dto.CancellationReasonResponse;
 import com.ridex.ride.dto.CreateRideRequest;
+import com.ridex.ride.dto.DriverCancellationQuote;
 import com.ridex.ride.dto.DriverResponse;
 import com.ridex.ride.dto.RideResponse;
 import com.ridex.rider.RiderProfileRepository;
@@ -61,6 +63,8 @@ public class RideRequestService {
     private final DriverPresence driverPresence;
     private final DriverProfileRepository driverProfileRepository;
     private final Notifier notifier;
+    private final DriverCancellationRules driverCancellationRules;
+    private final CancellationSettlement cancellationSettlement;
 
     /** The zone a cancellation date is written in, for the line the rider reads on their next fare. */
     @org.springframework.beans.factory.annotation.Value("${app.reporting.zone:Asia/Kolkata}")
@@ -204,6 +208,10 @@ public class RideRequestService {
                             + java.time.format.DateTimeFormatter.ofPattern("d MMM")
                                     .withZone(ZoneId.of(serviceZone)).format(now),
                     "RIDE_CANCELLATION", ride.getId());
+            // The driver drove to a rider who then cancelled late: most of the fee is theirs.
+            if (ride.getAssignedDriverId() != null) {
+                cancellationSettlement.shareWithDriver(ride.getAssignedDriverId(), fee, ride.getId());
+            }
         }
 
         return toResponse(ride);
@@ -228,19 +236,7 @@ public class RideRequestService {
     @Transactional
     public RideResponse cancelAsDriver(String driverUserId, String rideId,
             CancelRideRequest request) {
-        RideRequest ride = rideRequestRepository.findById(rideId)
-                .orElseThrow(() -> new NotFoundException("No such ride."));
-
-        String driverId = driverProfileRepository.findByUserId(driverUserId)
-                .orElseThrow(() -> new NotFoundException("No driver profile for this account."))
-                .getId();
-
-        if (!driverId.equals(ride.getAssignedDriverId())) {
-            throw new ForbiddenException("That ride was assigned to another driver.");
-        }
-        if (ride.getStatus().isTerminal()) {
-            throw new ConflictException("That ride has already ended.");
-        }
+        RideRequest ride = requireAssignedRide(driverUserId, rideId);
         if (!request.reasonCode().isFor(CancelledBy.DRIVER)) {
             throw new ValidationException("That is not a reason a driver can give.");
         }
@@ -248,8 +244,23 @@ public class RideRequestService {
             throw new ValidationException("Tell us what went wrong, so we can act on it.");
         }
 
-        ride.cancel(CancelledBy.DRIVER, request.text(), 0, Instant.now());
+        Instant now = Instant.now();
+        var charge = driverCancellationRules.chargeFor(ride, arrivedAt(ride), request.reasonCode(), now);
+        // Read before cancel() moves the status: the no-show fee is the at-pickup rider fee.
+        Money riderFee = charge.riderNoShow() ? feeFor(ride, CancelledBy.RIDER, now) : Money.zero(Currency.getInstance(ride.getCurrency()));
+
+        ride.cancel(CancelledBy.DRIVER, request.text(), riderFee.amountMinor(), now);
         ride.setCancellationReasonCode(request.reasonCode());
+
+        if (riderFee.amountMinor() > 0) {
+            paymentService.recordDue(ride.getRider().getId(), riderFee, "No-show fee - the driver waited at your pickup",
+                    "RIDE_CANCELLATION", ride.getId());
+            cancellationSettlement.shareWithDriver(ride.getAssignedDriverId(), riderFee, ride.getId());
+        }
+        if (charge.penaltyMinor() > 0) {
+            cancellationSettlement.penaliseDriver(ride.getAssignedDriverId(),
+                    Money.of(charge.penaltyMinor(), Currency.getInstance(ride.getCurrency())), ride.getId());
+        }
 
         if (ride.getRedeemedPoints() > 0) {
             pointsService.returnRidePoints(ride.getRider().getUser().getId(),
@@ -278,6 +289,35 @@ public class RideRequestService {
      * No policy row means no charge. Failing open is deliberate: a missing configuration must not
      * invent a fee, and an uncharged cancellation is cheaper than an unexplained one.
      */
+    /** What cancelling now would cost the driver for this reason, from the same rules the cancel uses. */
+    @Transactional(readOnly = true)
+    public DriverCancellationQuote quoteDriverCancellation(String driverUserId, String rideId,
+            CancellationReason reason) {
+        RideRequest ride = requireAssignedRide(driverUserId, rideId);
+        var charge = driverCancellationRules.chargeFor(ride, arrivedAt(ride), reason, Instant.now());
+        return new DriverCancellationQuote(ride.getCurrency(), charge.penaltyMinor(),
+                charge.penaltyMinor() == 0, charge.note());
+    }
+
+    private RideRequest requireAssignedRide(String driverUserId, String rideId) {
+        RideRequest ride = rideRequestRepository.findById(rideId)
+                .orElseThrow(() -> new NotFoundException("No such ride."));
+        String driverId = driverProfileRepository.findByUserId(driverUserId)
+                .orElseThrow(() -> new NotFoundException("No driver profile for this account."))
+                .getId();
+        if (!driverId.equals(ride.getAssignedDriverId())) {
+            throw new ForbiddenException("That ride was assigned to another driver.");
+        }
+        if (ride.getStatus().isTerminal()) {
+            throw new ConflictException("That ride has already ended.");
+        }
+        return ride;
+    }
+
+    private Instant arrivedAt(RideRequest ride) {
+        return tripRepository.findByRideRequestId(ride.getId()).map(Trip::getArrivedAt).orElse(null);
+    }
+
     private Money feeFor(RideRequest ride, CancelledBy by, Instant now) {
         Currency currency = Currency.getInstance(ride.getCurrency());
         return cancellationPolicyRepository

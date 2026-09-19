@@ -536,6 +536,18 @@ public class ShuttleService {
     }
 
     /** Materialised on first use, so an unbooked route does not fill the table with empty days. */
+    /**
+     * Every departure the timetable runs on a day, including ones nothing has sold on yet - ops
+     * needs to crew the empty 07:15 too. Created on first look, exactly as a first booking would.
+     */
+    @Transactional
+    public List<ShuttleTrip> departuresOn(LocalDate serviceDate) {
+        return scheduleRepository.findRunning().stream()
+                .filter(schedule -> schedule.runsOn(serviceDate.getDayOfWeek()))
+                .map(schedule -> departureFor(schedule.getId(), serviceDate))
+                .toList();
+    }
+
     private ShuttleTrip departureFor(String scheduleId, LocalDate serviceDate) {
         ShuttleSchedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new NotFoundException("No such departure."));

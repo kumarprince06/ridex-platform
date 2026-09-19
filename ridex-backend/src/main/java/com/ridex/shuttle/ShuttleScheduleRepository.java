@@ -11,4 +11,9 @@ public interface ShuttleScheduleRepository extends JpaRepository<ShuttleSchedule
     List<ShuttleSchedule> findByRouteIdAndActiveTrueOrderByDepartureTimeAsc(String routeId);
 
     List<ShuttleSchedule> findByRouteIdOrderByDepartureTimeAsc(String routeId);
+
+    /** Schedules that actually run: switched on, on a route that is switched on. */
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT s FROM ShuttleSchedule s WHERE s.active = true AND s.route.active = true")
+    List<ShuttleSchedule> findRunning();
 }

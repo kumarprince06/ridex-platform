@@ -55,6 +55,7 @@ public class AdminShuttleService {
     private final ShuttleBookingRepository shuttleBookingRepository;
     private final ShuttleCrew shuttleCrew;
     private final ShuttleRunService shuttleRunService;
+    private final ShuttleService shuttleService;
 
     /** The list. Counts only - the full route comes back when somebody opens one. */
     @Transactional(readOnly = true)
@@ -303,14 +304,13 @@ public class AdminShuttleService {
      * seat sold so far has been on a bus with nobody driving it.
      */
     /**
-     * Every departure running on one date, with who is on each.
-     *
-     * <p>A departure exists only once its first seat sells, so an empty day here means nobody has
-     * booked - not that the schedule is wrong.
+     * Every departure the timetable runs on one date, sold or not, with who is on each. The empty
+     * ones matter as much: they still need a driver.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public java.util.List<AdminDepartureResponse> departures(LocalDate serviceDate) {
-        return shuttleTripRepository.findByServiceDateOrderByDepartsAtAsc(serviceDate).stream()
+        return shuttleService.departuresOn(serviceDate).stream()
+                .sorted(java.util.Comparator.comparing(ShuttleTrip::getDepartsAt))
                 .map(this::toDeparture)
                 .toList();
     }

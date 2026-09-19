@@ -9,19 +9,17 @@ import {
   type Departure,
 } from '../api/admin';
 import { useQuery } from '../api/useQuery';
-import { Button, Card, PageHeader, Pill, stateTone, Table } from '../components/ui';
+import { Button, Card, Grid, PageHeader, Pill, StatTile, stateTone, Table } from '../components/ui';
 
-/** Today, in the browser's own zone - the operator is standing in it. */
+/** Today, in the browser's own zone - the operator is standing in it (not UTC's date). */
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 /**
- * Departures as they are running: who is on the 08:15, and who is driving it.
- *
- * <p>Separate from the routes screen, which is about what the platform runs. This one is about one
- * day, and it is the only place the assign endpoint can be reached from a departure rather than
- * from an id typed out of another page.
+ * The day's shuttles as a board: every timetable departure, sold or not, with its live state,
+ * seats and crew. Click a card for its passengers.
  */
 export function ShuttleOpsPage() {
   const [date, setDate] = useState(today());
@@ -30,19 +28,18 @@ export function ShuttleOpsPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const { data, loading, error, refetch } = useQuery(() => listDepartures(date), [date]);
+  const departures = data ?? [];
+  const running = departures.filter((row) => row.runStatus === 'RUNNING');
+  const late = running.filter((row) => row.delayMinutes > 0);
+  const uncrewed = departures.filter((row) => !row.driverId && row.runStatus !== 'COMPLETED');
 
   return (
     <>
       <PageHeader
-        title="Shuttle departures"
-        subtitle="A departure appears here once its first seat sells."
+        title={date === today() ? 'Today' : date}
+        subtitle="Every departure on the timetable, whether or not a seat has sold."
         actions={
-          <input
-            type="date"
-            className="input"
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-          />
+          <input type="date" className="input" value={date} onChange={(event) => setDate(event.target.value)} />
         }
       />
 
@@ -51,85 +48,65 @@ export function ShuttleOpsPage() {
           <span className="cell-muted">{notice}</span>
         </Card>
       ) : null}
+      {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
 
-      <Card title={loading ? 'Loading...' : `${data?.length ?? 0} departures on ${date}`}>
-        <Table<Departure>
-          columns={[
-            {
-              key: 'departsAt',
-              header: 'Departs',
-              render: (row) => (
-                <span className="cell-strong">
-                  {clockTime(row.departsAt)}
+      <Grid columns={4}>
+        <StatTile label="Departures" value={String(departures.length)} note={loading ? 'Loading...' : 'On the timetable'} />
+        <StatTile label="Running now" value={String(running.length)} note="Started, not finished" tone="primary" />
+        <StatTile label="Running late" value={String(late.length)} note="Behind the timetable" tone={late.length ? 'warning' : 'default'} />
+        <StatTile label="Need a driver" value={String(uncrewed.length)} note="Nobody rostered yet" tone={uncrewed.length ? 'warning' : 'default'} />
+      </Grid>
+
+      {!loading && departures.length === 0 ? (
+        <Card>
+          <p className="cell-muted">No shuttle runs on this date.</p>
+        </Card>
+      ) : null}
+
+      <div className="board">
+        {departures.map((row) => (
+          <button
+            key={row.shuttleTripId}
+            type="button"
+            className={open === row.shuttleTripId ? 'board-card open' : 'board-card'}
+            onClick={() => setOpen(open === row.shuttleTripId ? null : row.shuttleTripId)}
+          >
+            <div className="board-top">
+              <span className="board-time">{clockTime(row.departsAt)}</span>
+              <RunState row={row} />
+            </div>
+            <div className="board-route">{row.routeName}</div>
+            <div className="board-seats">
+              <div className="board-bar">
+                <span style={{ width: `${Math.min(100, (row.seatsSold / Math.max(1, row.seatCapacity)) * 100)}%` }} />
+              </div>
+              <span className="cell-muted">
+                {row.seatsSold}/{row.seatCapacity} sold{row.boarded ? ` · ${row.boarded} on board` : ''}
+              </span>
+            </div>
+            <div className="board-crew">
+              {row.driverId ? (
+                <span className="cell-muted">
+                  {row.driverName} · {row.registrationNumber}
                 </span>
-              ),
-            },
-            { key: 'routeName', header: 'Route', render: (row) => row.routeName },
-            {
-              key: 'occupancy',
-              header: 'Seats',
-              render: (row) => (
-                <>
-                  {row.seatsSold} / {row.seatCapacity}
-                  {row.seatsCancelled ? (
-                    <span className="cell-muted"> · {row.seatsCancelled} cancelled</span>
-                  ) : null}
-                </>
-              ),
-            },
-            { key: 'boarded', header: 'Boarded', align: 'right', render: (row) => row.boarded },
-            {
-              key: 'run',
-              header: 'Run',
-              render: (row) =>
-                row.runStatus === 'RUNNING' ? (
-                  <>
-                    <Pill tone="success">Live</Pill>
-                    <span className="cell-muted">
-                      {' '}
-                      {row.currentStop ? `at ${row.currentStop}` : 'started'}
-                      {row.delayMinutes > 0 ? ` · ${row.delayMinutes} min late` : ''}
-                    </span>
-                  </>
-                ) : row.runStatus === 'COMPLETED' ? (
-                  <Pill>Done</Pill>
-                ) : (
-                  <span className="cell-muted">Scheduled</span>
-                ),
-            },
-            {
-              key: 'crew',
-              header: 'Crew',
-              render: (row) =>
-                row.driverId ? (
-                  <>
-                    {row.driverName}
-                    <span className="cell-muted"> · {row.registrationNumber}</span>
-                  </>
-                ) : (
-                  <Pill tone="warning">Nobody driving</Pill>
-                ),
-            },
-            {
-              key: 'actions',
-              header: '',
-              align: 'right',
-              render: (row) => (
-                <span className="row-actions">
-                  <Button onClick={() => setOpen(open === row.shuttleTripId ? null : row.shuttleTripId)}>
-                    {open === row.shuttleTripId ? 'Hide seats' : 'Seats'}
-                  </Button>
-                  <Button variant="primary" onClick={() => setAssigning(row)}>
-                    {row.driverId ? 'Swap crew' : 'Assign crew'}
-                  </Button>
-                </span>
-              ),
-            },
-          ]}
-          rows={data ?? []}
-          empty={error ?? 'Nothing has sold for this date yet.'}
-        />
-      </Card>
+              ) : (
+                <Pill tone="warning">Nobody driving</Pill>
+              )}
+              <span
+                role="button"
+                tabIndex={0}
+                className="board-link"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setAssigning(row);
+                }}
+              >
+                {row.driverId ? 'Swap crew' : 'Assign crew'}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
 
       {data
         ?.filter((departure) => departure.shuttleTripId === open)
@@ -189,6 +166,7 @@ export function ShuttleOpsPage() {
       {assigning ? (
         <AssignCrew
           departure={assigning}
+          serviceDate={date}
           onCancel={() => setAssigning(null)}
           onDone={(message) => {
             setAssigning(null);
@@ -210,10 +188,12 @@ export function ShuttleOpsPage() {
  */
 function AssignCrew({
   departure,
+  serviceDate,
   onCancel,
   onDone,
 }: {
   departure: Departure;
+  serviceDate: string;
   onCancel: () => void;
   onDone: (message: string) => void;
 }) {
@@ -227,8 +207,6 @@ function AssignCrew({
     () => (driverId ? driverVehicles(driverId) : Promise.resolve([])),
     [driverId],
   );
-
-  const serviceDate = departure.departsAt.slice(0, 10);
 
   async function submit() {
     setBusy(true);
@@ -297,4 +275,21 @@ function AssignCrew({
       </span>
     </Card>
   );
+}
+
+function RunState({ row }: { row: Departure }) {
+  if (row.runStatus === 'RUNNING') {
+    return (
+      <span className="board-state">
+        <Pill tone={row.delayMinutes > 0 ? 'warning' : 'success'}>
+          {row.delayMinutes > 0 ? `${row.delayMinutes} min late` : 'On time'}
+        </Pill>
+        <span className="cell-muted">{row.currentStop ? `at ${row.currentStop}` : 'started'}</span>
+      </span>
+    );
+  }
+  if (row.runStatus === 'COMPLETED') return <Pill>Done</Pill>;
+  // Half an hour past its time and never started: the driver did not run it.
+  const missed = Date.now() > new Date(row.departsAt).getTime() + 30 * 60 * 1000;
+  return missed ? <Pill tone="danger">Did not run</Pill> : <Pill tone="default">Scheduled</Pill>;
 }

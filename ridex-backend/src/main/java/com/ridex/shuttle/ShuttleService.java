@@ -23,6 +23,7 @@ import com.ridex.rider.domain.RiderProfile;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
+import com.ridex.payment.CancellationSettlement;
 import com.ridex.shared.money.Money;
 import com.ridex.shared.util.OtpGenerator;
 import com.ridex.shared.util.UlidGenerator;
@@ -54,6 +55,7 @@ public class ShuttleService {
     private final ShuttleCrew shuttleCrew;
     private final ShuttlePaymentService shuttlePayments;
     private final PointsService pointsService;
+    private final CancellationSettlement cancellationSettlement;
     private final ShuttleStopEventRepository stopEventRepository;
 
     /** How long a picked seat is held while the rider pays for it. */
@@ -319,6 +321,15 @@ public class ShuttleService {
             pointsService.creditCancelledShuttleSeat(rider.getUser().getId(), credit,
                     booking.getId());
             booking.setPaymentStatus("POINTS_CREDITED");
+            // What the rider forfeits is split like a ride's late-cancel fee: most of it to the
+            // driver rostered on the run, the rest to the platform. Nobody rostered, the platform keeps it.
+            long forfeited = booking.getFareMinor() - booking.getDiscountMinor() - credit;
+            String driverId = booking.getShuttleTrip().getDriverId();
+            if (forfeited > 0 && driverId != null) {
+                cancellationSettlement.shareWithDriver(driverId,
+                        Money.of(forfeited, java.util.Currency.getInstance(booking.getCurrency())),
+                        "SHUTTLE_BOOKING", booking.getId());
+            }
         } else {
             // Nothing was captured. The open order is closed so it stops counting as a fare owed.
             shuttlePayments.voidShuttlePayment(booking.getId(), "Seat cancelled before payment");

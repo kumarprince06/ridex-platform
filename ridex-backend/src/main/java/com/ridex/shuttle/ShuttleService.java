@@ -391,10 +391,12 @@ public class ShuttleService {
      */
     @Transactional
     public void settlePaid(ShuttleBooking booking) {
-        // The hold ran out before the money did, and the seat may already be someone else's.
+        // The hold ran out before the money did, and the seat may already be someone else's. The
+        // whole amount comes back as points, the same way every other shuttle refund does.
         if ("CANCELLED".equals(booking.getStatus())) {
-            shuttlePayments.refundShuttlePayment(booking.getId(), "Paid after the seat hold expired");
-            booking.setPaymentStatus("REFUNDED");
+            pointsService.creditCancelledShuttleSeat(booking.getRider().getUser().getId(),
+                    booking.getFareMinor() - booking.getDiscountMinor(), booking.getId());
+            booking.setPaymentStatus("POINTS_CREDITED");
             bookingRepository.save(booking);
             return;
         }

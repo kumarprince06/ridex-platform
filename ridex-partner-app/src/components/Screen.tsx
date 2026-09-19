@@ -35,7 +35,11 @@ export function Screen({ children, onBack, title, headerRight, footer, scroll = 
   const refresh = onRefresh
     ? () => {
         setRefreshing(true);
-        void Promise.resolve(onRefresh()).finally(() => setRefreshing(false));
+        // Held for a beat even when the data is instant, or the mark vanishes before it lands.
+        const shown = new Promise((resolve) => setTimeout(resolve, 1000));
+        void Promise.all([Promise.resolve(onRefresh()).catch(() => undefined), shown]).finally(() =>
+          setRefreshing(false),
+        );
       }
     : undefined;
   const body = <View style={styles.body}>{children}</View>;

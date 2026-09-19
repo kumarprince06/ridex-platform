@@ -67,7 +67,8 @@ export function BrandRefresh({ visible }: { visible: boolean }) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    top: 8,
+    // Below the header, where the pull happens, not tucked under the status bar.
+    top: 110,
     alignSelf: 'center',
     width: SIZE,
     height: SIZE,

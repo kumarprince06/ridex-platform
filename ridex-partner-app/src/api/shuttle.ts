@@ -46,7 +46,7 @@ export function departureManifest(shuttleTripId: string) {
 
 /**
  * Checks one passenger in against the code they show. Returns the refreshed manifest, so the
- * counts move with it - and a cash seat is settled server-side by the same call.
+ * counts move with it. Seats are prepaid online, so there is nothing to collect at the door.
  */
 export function boardPassenger(shuttleTripId: string, bookingId: string, boardingCode: string) {
   return request<Manifest>(

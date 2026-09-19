@@ -29,7 +29,8 @@ export function ShuttleDepartureScreen({ navigation, route }: Props) {
   const manifest = boarded ?? data;
 
   return (
-    <Screen onRefresh={() => refetch()}
+    // Cleared once the reload lands, so the fresh manifest wins without flashing the pre-boarding one.
+    <Screen onRefresh={() => refetch().then(() => setBoarded(null))}
       title="Departure"
       onBack={() => (checkingIn ? setCheckingIn(null) : navigation.goBack())}
     >

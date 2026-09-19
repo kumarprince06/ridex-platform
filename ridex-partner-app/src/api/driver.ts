@@ -158,6 +158,15 @@ export function cancellationReasons() {
 }
 
 /** Ends the rider's ride with a stated reason, rather than leaving them watching the map. */
+/** What cancelling now would cost the driver for this reason - the same rules the cancel applies. */
+export type CancellationQuote = { currency: string; penaltyMinor: number; free: boolean; note: string };
+
+export function cancellationQuote(rideId: string, reasonCode: string) {
+  return request<CancellationQuote>(
+    `/api/v1/driver/rides/${rideId}/cancellation-quote?reasonCode=${encodeURIComponent(reasonCode)}`,
+  );
+}
+
 export function cancelRide(rideId: string, reasonCode: string, reason?: string) {
   return request<void>(`/api/v1/driver/rides/${rideId}/cancel`, {
     method: 'POST',

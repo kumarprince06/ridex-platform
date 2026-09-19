@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { cancelRide, cancellationReasons } from '../api/driver';
+import { cancelRide, cancellationQuote, cancellationReasons } from '../api/driver';
 import { ApiError } from '../api/problem';
 import { useQuery } from '../api/useQuery';
+import { money } from '../lib/format';
 import { Screen, ScreenTitle } from '../components/Screen';
 import { SwipeAction } from '../components/SwipeAction';
 import { RootScreenProps } from '../navigation/types';
@@ -25,6 +26,12 @@ export function CancelTripScreen({ navigation, route }: Props) {
   const [detail, setDetail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Re-quoted per reason: a no-show after waiting is free, the same cancel for a flat tyre is not.
+  const { data: quote } = useQuery(
+    () => (rideId && reason ? cancellationQuote(rideId, reason) : Promise.resolve(null)),
+    [rideId, reason],
+  );
 
   const chosen = reasons?.find((option) => option.code === reason);
   const ready = chosen != null && (!chosen.needsDetail || detail.trim().length > 0);
@@ -105,6 +112,15 @@ export function CancelTripScreen({ navigation, route }: Props) {
         />
       ) : null}
 
+      {quote && reason ? (
+        <View style={[styles.cost, quote.free ? styles.costFree : styles.costCharged]}>
+          <Text style={styles.costTitle}>
+            {quote.free ? 'No charge for this cancellation' : `Cancelling now costs ${money(quote.penaltyMinor, quote.currency)}`}
+          </Text>
+          <Text style={styles.costNote}>{quote.note}</Text>
+        </View>
+      ) : null}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.warning}>
@@ -121,6 +137,30 @@ export function CancelTripScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  cost: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    gap: 2,
+  },
+  costFree: {
+    backgroundColor: colors.successSurface,
+    borderColor: colors.success,
+  },
+  costCharged: {
+    backgroundColor: colors.dangerSurface,
+    borderColor: colors.danger,
+  },
+  costTitle: {
+    ...type.button,
+    fontSize: 15,
+    color: colors.text,
+  },
+  costNote: {
+    ...type.caption,
+    color: colors.textMuted,
+  },
   detail: {
     ...type.body,
     color: colors.text,

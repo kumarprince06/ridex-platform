@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
-import { payOffWallet, type Wallet } from '../api/wallet';
+import { payOffWallet, TOP_UP_PENDING, type Wallet } from '../api/wallet';
 import { money } from '../lib/format';
 import { colors, radius, spacing, type } from '../theme';
 import { Button } from './Button';
@@ -24,9 +24,16 @@ export function WalletDueCard({ wallet, onPaid }: { wallet: Wallet | null; onPai
     setBusy(true);
     setError(null);
     try {
-      if (await payOffWallet()) {
-        onPaid();
+      const paid = await payOffWallet();
+      if (!paid) {
+        return;
       }
+      // Still owing what it did: the gateway has the payment as PROCESSING, not settled.
+      if (paid.balanceMinor < 0 && paid.balanceMinor <= wallet!.balanceMinor) {
+        setError(TOP_UP_PENDING);
+        return;
+      }
+      onPaid();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.userMessage : caught instanceof Error ? caught.message : 'Payment failed.');
     } finally {

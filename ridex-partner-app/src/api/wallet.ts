@@ -15,6 +15,11 @@ export type Wallet = {
   blocked: boolean;
 };
 
+/** Shown when the payment went through but the wallet has not caught up with it yet. */
+export const TOP_UP_PENDING = "Payment received - we're confirming it; your balance updates shortly.";
+
+const CONFIRM_BACKOFF_MS = [1000, 2000, 4000];
+
 type TopUpCheckout = { topUpId: string; orderId: string; keyId: string; amountMinor: number; currency: string };
 
 export function getWallet() {
@@ -61,14 +66,23 @@ export async function payOffWallet(): Promise<Wallet | null> {
     return null;
   }
 
-  try {
-    return await request<Wallet>(`/api/v1/driver/wallet/top-ups/${checkout.topUpId}/confirm`, {
-      method: 'POST',
-      body: { gatewayPaymentId: paymentId },
-    });
-  } catch (caught) {
-    throw caught instanceof ApiError
-      ? caught
-      : new Error('Payment taken, but confirming it failed. Check your wallet in a moment.');
+  // The money is already taken, so a flaky confirm is retried rather than leaving the driver
+  // blocked; the server-side webhook settles it if every try fails.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await request<Wallet>(`/api/v1/driver/wallet/top-ups/${checkout.topUpId}/confirm`, {
+        method: 'POST',
+        body: { gatewayPaymentId: paymentId },
+      });
+    } catch (caught) {
+      const transient = !(caught instanceof ApiError) || caught.status === 0 || caught.status >= 500;
+      if (!transient) {
+        throw caught;
+      }
+      if (attempt >= CONFIRM_BACKOFF_MS.length) {
+        throw new Error(TOP_UP_PENDING);
+      }
+      await new Promise((resolve) => setTimeout(resolve, CONFIRM_BACKOFF_MS[attempt]));
+    }
   }
 }

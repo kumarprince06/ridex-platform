@@ -27,7 +27,26 @@ public interface PaymentProvider {
 
     ProviderEvent parseWebhook(String payload);
 
-    record ProviderPayment(String providerPaymentId, String status, String failureReason) {
+    /**
+     * orderId and amountMinor are what the gateway says the payment was for; null and 0 when it
+     * does not say. A caller crediting money checks both, or one captured payment could be
+     * replayed against any order.
+     */
+    record ProviderPayment(String providerPaymentId, String status, String failureReason,
+            String orderId, long amountMinor) {
+
+        public ProviderPayment(String providerPaymentId, String status, String failureReason) {
+            this(providerPaymentId, status, failureReason, null, 0);
+        }
+
+        /**
+         * Whether this payment was made against our order for our amount. A provider that reports
+         * no order (cash) has nothing to replay; one that does must match, or a payment captured on
+         * a cheap order could settle an expensive one.
+         */
+        public boolean isFor(String expectedOrderId, long expectedAmountMinor) {
+            return orderId == null || (orderId.equals(expectedOrderId) && amountMinor == expectedAmountMinor);
+        }
     }
 
     record ProviderRefund(String providerRefundId, String status) {

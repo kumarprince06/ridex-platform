@@ -1,6 +1,6 @@
 # RideX — ERD
 
-**48 tables**, one platform database, no organisation column anywhere (ADR-001).
+**49 tables**, one platform database, no organisation column anywhere (ADR-001).
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java erd > docs/09-Project-ERD.md
 ```
 
-Generated on 2026-09-19 from `88b8a0e`.
+Generated on 2026-09-19 from `df39c38`.
 
 ## How to read it
 
@@ -706,6 +706,20 @@ erDiagram
       varchar_26 updated_by
       timestamptz updated_at
     }
+    DRIVER_WALLET_TOPUPS {
+      varchar_26 id
+      varchar_26 driver_id
+      varchar_3 currency
+      bigint amount_minor
+      varchar_20 provider
+      varchar_100 provider_order_id
+      varchar_100 provider_payment_id
+      varchar_20 status
+      varchar_500 failure_reason
+      timestamptz created_at
+      timestamptz paid_at
+      varchar_100 idempotency_key
+    }
 ```
 
 ## Across modules
@@ -714,6 +728,7 @@ Relationships whose two ends live in different sections above:
 
 - `driver_earnings` → `driver_profiles` (Money → Riders and drivers)
 - `driver_payouts` → `driver_profiles` (Money → Riders and drivers)
+- `driver_wallet_topups` → `driver_profiles` (Other → Riders and drivers)
 - `ride_offers` → `driver_profiles` (Rides and dispatch → Riders and drivers)
 - `ride_ratings` → `driver_profiles` (Rides and dispatch → Riders and drivers)
 - `shuttle_trips` → `driver_profiles` (Shuttle → Riders and drivers)

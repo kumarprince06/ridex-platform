@@ -1,6 +1,6 @@
 # RideX — API Contract
 
-Every endpoint the backend serves: **142** across 28 controllers.
+Every endpoint the backend serves: **146** across 29 controllers.
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java api > docs/10-API-Contract.md
 ```
 
-Generated on 2026-09-19 from `88b8a0e`.
+Generated on 2026-09-19 from `df39c38`.
 
 ## Conventions
 
@@ -148,7 +148,8 @@ Generated on 2026-09-19 from `88b8a0e`.
 | POST | `/api/v1/driver/onboarding/submit` | DRIVER | Submit for review |
 | GET | `/api/v1/driver/ratings` | DRIVER | The stars riders have given this driver, with whatever they wrote |
 | GET | `/api/v1/driver/cancellation-reasons` | DRIVER | The reasons a driver may give, from the server, so the app cannot invent one |
-| POST | `/api/v1/driver/rides/{rideId}/cancel` | DRIVER | Ends the rider's ride with a stated reason, rather than leaving them watching the map |
+| GET | `/api/v1/driver/rides/{rideId}/cancellation-quote` | DRIVER | What cancelling now would cost for this reason, shown before the driver swipes |
+| POST | `/api/v1/driver/rides/{rideId}/cancel` | DRIVER | Cancel ride |
 | POST | `/api/v1/driver/rides/{rideId}/rate-rider` | DRIVER | What the rider was like to carry |
 | GET | `/api/v1/driver/payout-account` | DRIVER | Payout account |
 | PUT | `/api/v1/driver/payout-account` | DRIVER | Set payout account |
@@ -303,4 +304,12 @@ Generated on 2026-09-19 from `88b8a0e`.
 | POST | `/api/v1/driver/vehicles` | DRIVER | Added as PENDING_REVIEW. Operations decides whether it may carry passengers |
 | POST | `/api/v1/driver/vehicles/{vehicleId}/deactivate` | DRIVER | Deactivate |
 | POST | `/api/v1/driver/vehicles/{vehicleId}/reactivate` | DRIVER | Puts a car the driver took off the road back on it, without a second review |
+
+## DriverWallet
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/api/v1/driver/wallet` | DRIVER | The balance, the limit below which offers stop, and what clearing it would take |
+| POST | `/api/v1/driver/wallet/top-ups` | DRIVER | Opens checkout for everything owed |
+| POST | `/api/v1/driver/wallet/top-ups/{topUpId}/confirm` | DRIVER | Called after checkout closes; the gateway is asked whether the money arrived |
 

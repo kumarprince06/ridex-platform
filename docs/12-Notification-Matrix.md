@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java notifications > docs/12-Notification-Matrix.md
 ```
 
-Generated on 2026-09-19 from `88b8a0e`.
+Generated on 2026-09-19 from `df39c38`.
 
 ## How a message gets out
 

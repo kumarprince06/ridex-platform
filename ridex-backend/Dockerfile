@@ -19,7 +19,9 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Nothing here needs root. An application that is compromised should not also own its filesystem.
-RUN addgroup -S ridex && adduser -S ridex -G ridex
+# The documents dir is created and owned here so the volume mounted over it inherits ridex, not root.
+RUN addgroup -S ridex && adduser -S ridex -G ridex \
+    && mkdir -p /var/ridex/documents && chown -R ridex:ridex /var/ridex
 USER ridex
 
 COPY --from=build --chown=ridex:ridex /build/target/*.jar app.jar

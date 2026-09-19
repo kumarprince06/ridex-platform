@@ -31,12 +31,19 @@ services:
       RIDEX_MAIL_USERNAME: ${RIDEX_MAIL_USERNAME}
       RIDEX_MAIL_PASSWORD: ${RIDEX_MAIL_PASSWORD}
       RIDEX_MAIL_FROM: ${RIDEX_MAIL_FROM}
+      # Hosted relays want both; the app defaults them off for Mailpit.
+      RIDEX_MAIL_AUTH: ${RIDEX_MAIL_AUTH:-true}
+      RIDEX_MAIL_STARTTLS: ${RIDEX_MAIL_STARTTLS:-true}
+      RIDEX_DOCUMENTS_DIR: /var/ridex/documents
       # Test keys on purpose: checkout opens, the test card works, nobody is ever charged.
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       ORS_API_KEY: ${ORS_API_KEY}
+    # Driver KYC uploads live on disk; without a volume every redeploy deletes them.
+    volumes:
+      - documents:/var/ridex/documents
     # No ports. Caddy is the only way in, so the API cannot be reached over plain HTTP.
     expose:
       - "8080"
@@ -79,5 +86,6 @@ services:
 
 volumes:
   pgdata:
+  documents:
   caddy_data:
   caddy_config:

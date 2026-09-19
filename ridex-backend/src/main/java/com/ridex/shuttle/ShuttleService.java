@@ -621,8 +621,7 @@ public class ShuttleService {
                 booking.getDiscountMinor(),
                 booking.getPassId(),
                 booking.getStatus(),
-                // From the row, not the one-shot value: a ticket reopened later still has to show
-                // the code and its QR, which is the whole point of keeping the ticket.
+                // From the row, so a reopened ticket still shows its code.
                 booking.getBoardingCode() != null ? booking.getBoardingCode() : boardingCode,
                 shuttleCrew.of(booking.getShuttleTrip().getDriverId(),
                         booking.getShuttleTrip().getVehicleId(),
@@ -632,6 +631,8 @@ public class ShuttleService {
                 creditIfCancelled(booking),
                 checkout == null ? null : new ShuttleBookingResponse.Checkout(
                         checkout.gatewayOrderId(), checkout.gatewayKeyId(),
-                        checkout.amountMinor(), checkout.currency()));
+                        checkout.amountMinor(), checkout.currency()),
+                booking.getShuttleTrip().getStatus(),
+                booking.getBoardedAt() != null);
     }
 }

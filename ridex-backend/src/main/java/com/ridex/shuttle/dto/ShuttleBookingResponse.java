@@ -37,7 +37,10 @@ public record ShuttleBookingResponse(
          */
         long creditIfCancelledMinor,
         /** Present only on a fresh booking that still has to be paid for. */
-        Checkout checkout) {
+        Checkout checkout,
+        // The departure's run: SCHEDULED, RUNNING or COMPLETED.
+        String tripStatus,
+        boolean boarded) {
 
     /**
      * What the app needs to open Razorpay, and nothing it should not have. The amount comes from

@@ -114,6 +114,11 @@ public class ShuttleRunService {
         return publish(trip, "FINISHED");
     }
 
+    // For the ops view, which already holds the trip.
+    ShuttleLiveResponse snapshot(ShuttleTrip trip) {
+        return stateOf(trip, "SNAPSHOT");
+    }
+
     @Transactional(readOnly = true)
     public ShuttleLiveResponse forDriver(String driverUserId, String tripId) {
         return stateOf(requireOwnTrip(driverUserId, tripId), "SNAPSHOT");

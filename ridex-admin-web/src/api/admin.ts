@@ -448,6 +448,9 @@ export type Departure = {
   driverName: string | null;
   vehicle: string | null;
   registrationNumber: string | null;
+  runStatus: 'SCHEDULED' | 'RUNNING' | 'COMPLETED';
+  currentStop: string | null;
+  delayMinutes: number;
   seats: {
     bookingId: string;
     seatLabel: string;

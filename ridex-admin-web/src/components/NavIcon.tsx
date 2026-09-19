@@ -22,6 +22,7 @@ const PATHS: Record<string, string> = {
   templates: 'M3 5h18v14H3z M3 9l9 5 9-5',
   flags: 'M5 21V4h13l-2.5 4L18 12H5',
   audit: 'M6 3h9l5 5v13H6z M14 3v6h6 M9 13h7 M9 17h5',
+  settings: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9 7 7 M17 17l2.1 2.1 M4.9 19.1 7 17 M17 7l2.1-2.1',
   staff: 'M8 21a6 6 0 0 1 12 0 M14 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8 M4 21a5 5 0 0 1 4-4.9',
 };
 

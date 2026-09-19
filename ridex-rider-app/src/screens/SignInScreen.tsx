@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { ApiError } from '../api/problem';
 import { useSession } from '../auth/session';
@@ -10,7 +9,7 @@ import { Button } from '../components/Button';
 import { Screen, ScreenTitle } from '../components/Screen';
 import { TextField } from '../components/TextField';
 import { RootStackParamList } from '../navigation/types';
-import { colors, radius, spacing, type } from '../theme';
+import { colors, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SignIn'>;
 
@@ -72,23 +71,6 @@ export function SignInScreen({ navigation }: Props) {
 
       <Button label={busy ? 'Signing in...' : 'Sign In'} onPress={onSignIn} disabled={busy} />
 
-      <View style={styles.dividerRow}>
-        <View style={styles.rule} />
-        <Text style={styles.dividerLabel}>or continue with</Text>
-        <View style={styles.rule} />
-      </View>
-
-      <View style={styles.socialRow}>
-        <View style={styles.socialButton}>
-          <Ionicons name="logo-google" size={17} color={colors.text} />
-          <Text style={styles.socialLabel}>Google</Text>
-        </View>
-        <View style={styles.socialButton}>
-          <Ionicons name="logo-apple" size={17} color={colors.text} />
-          <Text style={styles.socialLabel}>Apple</Text>
-        </View>
-      </View>
-
       <Text style={styles.footerText}>
         Don&apos;t have an account?{' '}
         <Text style={styles.footerLink} onPress={() => navigation.navigate('CreateAccount')}>
@@ -116,42 +98,6 @@ const styles = StyleSheet.create({
   forgot: {
     ...type.label,
     color: colors.primary,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginVertical: spacing.xl,
-  },
-  rule: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerLabel: {
-    ...type.caption,
-    color: colors.textMuted,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  socialButton: {
-    flex: 1,
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  socialLabel: {
-    ...type.button,
-    fontSize: 15,
-    color: colors.text,
   },
   footerText: {
     ...type.body,

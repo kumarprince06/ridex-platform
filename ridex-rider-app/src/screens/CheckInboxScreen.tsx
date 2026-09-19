@@ -46,7 +46,7 @@ export function CheckInboxScreen({ navigation, route }: Props) {
         <Text style={styles.title}>Check your inbox</Text>
         <Text style={styles.body}>
           We&apos;ve sent a 6-digit code to <Text style={styles.email}>{email}</Text>. It expires
-          in 15 minutes.
+          in 10 minutes.
         </Text>
 
         <Text style={styles.resend}>

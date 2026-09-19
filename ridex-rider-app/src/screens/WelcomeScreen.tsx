@@ -55,8 +55,20 @@ export function WelcomeScreen({ navigation }: Props) {
           />
 
           <Text style={styles.legal}>
-            By continuing, you agree to our <Text style={styles.legalLink}>Terms</Text> &amp;{' '}
-            <Text style={styles.legalLink}>Privacy Policy</Text>
+            By continuing, you agree to our{' '}
+            <Text
+              style={styles.legalLink}
+              onPress={() => navigation.navigate('Legal', { slug: 'rider-terms' })}
+            >
+              Terms
+            </Text>{' '}
+            &amp;{' '}
+            <Text
+              style={styles.legalLink}
+              onPress={() => navigation.navigate('Legal', { slug: 'privacy-policy' })}
+            >
+              Privacy Policy
+            </Text>
           </Text>
         </View>
       </SafeAreaView>
@@ -80,8 +92,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   brandMark: {
-    width: 38,
-    height: 28,
+    width: 34,
+    height: 34,
     resizeMode: 'contain',
   },
   brandName: {

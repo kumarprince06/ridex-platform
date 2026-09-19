@@ -7,24 +7,62 @@ import { myTickets, statusLabel } from '../api/support';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { FAQS } from '../data/mock';
 import { when } from '../lib/format';
 import { RootStackParamList } from '../navigation/types';
 import { colors, IconName, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'HelpSupport'>;
 
+// Email only: the backend configures a support address but no helpline number.
 const CHANNELS: { icon: IconName; tone: string; title: string; detail: string; url: string }[] = [
-  { icon: 'mail', tone: '#E0B252', title: 'Email us', detail: 'Reply in 24h', url: 'mailto:support@ridex.local' },
-  { icon: 'call', tone: '#5FD68A', title: 'Call support', detail: '24/7 helpline', url: 'tel:+911800000000' },
+  { icon: 'mail', tone: '#E0B252', title: 'Email us', detail: 'support@ridex.app', url: 'mailto:support@ridex.app' },
+];
+
+// Written against how the backend actually behaves; amounts are left out because ops can change them.
+const FAQS: { question: string; answer: string }[] = [
+  {
+    question: 'How do I cancel a ride?',
+    answer:
+      'Tap Cancel on the ride screen and pick a reason. Cancelling is free while we are still finding a driver and for the first 2 minutes after one is assigned. After that a cancellation fee may apply - you will see the exact amount before you confirm, and it is added to your next fare.',
+  },
+  {
+    question: 'What if my driver does not show up?',
+    answer:
+      'You can cancel with "Waiting too long" or "Driver is not moving". If you were charged a fee for a driver who never arrived, open the trip and tap Report Issue with the Fare dispute category and we will review it.',
+  },
+  {
+    question: 'How do I pay for a ride?',
+    answer:
+      'Choose Cash or Online (UPI or card) when you book. The final fare is priced from the actual trip once the driver ends it. Cash goes to the driver; online payments open a secure checkout after the trip.',
+  },
+  {
+    question: 'How do points work?',
+    answer:
+      'You earn points on completed rides and through referrals, and can spend them on a ride or shuttle seat at checkout. If a ride is cancelled, the points it used come back to you.',
+  },
+  {
+    question: 'Can I cancel a shuttle seat?',
+    answer:
+      'Yes, up to 30 minutes before departure. A seat you paid for online returns 80% of what you paid as points. Within 30 minutes of departure a seat can no longer be cancelled.',
+  },
+  {
+    question: 'How do I report a lost item?',
+    answer:
+      'Open the trip from My Rides, tap Report Issue and choose Lost item. Describe what you left behind and our team will contact the driver.',
+  },
+  {
+    question: 'Is RideX available 24/7?',
+    answer:
+      'You can book at any time. Whether a car is available depends on drivers online near you. Shuttles run on their published timetable.',
+  },
 ];
 
 export function HelpSupportScreen({ navigation }: Props) {
   const [openFaq, setOpenFaq] = useState<string | null>(null);
-  const { data: tickets } = useQuery(myTickets);
+  const { data: tickets, refetch } = useQuery(myTickets);
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Help & Support">
+    <Screen onBack={() => navigation.goBack()} title="Help & Support" onRefresh={refetch}>
       <View style={styles.grid}>
         {CHANNELS.map((channel) => (
           <Pressable
@@ -71,7 +109,7 @@ export function HelpSupportScreen({ navigation }: Props) {
 
       <Text style={styles.sectionLabel}>FREQUENTLY ASKED</Text>
 
-      {FAQS.map((question) => {
+      {FAQS.map(({ question, answer }) => {
         const open = openFaq === question;
 
         return (
@@ -92,10 +130,7 @@ export function HelpSupportScreen({ navigation }: Props) {
             </View>
 
             {open ? (
-              <Text style={styles.faqAnswer}>
-                Answer copy lands here once support content is written. The accordion behaviour is
-                real; only the text is a placeholder.
-              </Text>
+              <Text style={styles.faqAnswer}>{answer}</Text>
             ) : null}
           </Pressable>
         );

@@ -58,18 +58,10 @@ export function MapCanvas({
   const PICKUP: [number, number] | null = pickupCoord ?? coord;
   const DESTINATION: [number, number] | null = destinationCoord ?? null;
 
-  /**
-   * A route is drawn only when both of its ends are real.
-   *
-   * The offset destination this used to invent drew a confident line to a place nobody was going,
-   * and a denied location fix drew it across a city the rider is not in. An empty map says "not
-   * known yet", which is true; a wrong line says something false.
-   */
+  // Only draw a route when both ends are real points, never a guessed one.
   const hasRoute = showRoute && PICKUP !== null && DESTINATION !== null;
 
-  // Road geometry when the router answers, the straight line between the pins until then. The
-  // map must draw something the moment it mounts - a blank map while a request is in flight looks
-  // like a broken map.
+  // Road geometry once the router answers; a straight line until then.
   const [road, setRoad] = useState<LngLat[] | null>(null);
 
   useEffect(() => {
@@ -104,13 +96,13 @@ export function MapCanvas({
         touchPitch={false}
       >
         <Camera
-          // key, so the camera re-mounts and recentres once the device position arrives instead
-          // of staying on the fallback centre it opened with.
-          key={pickupCoord ? 'trip' : coord ? 'located' : 'fallback'}
-          initialViewState={{
-            center: hasRoute ? midpoint(PICKUP!, DESTINATION!) : here,
-            zoom: hasRoute ? 12.5 : 14.5,
-          }}
+          // Re-keyed so it refits once the location or the road geometry arrives.
+          key={`${pickupCoord ? 'trip' : coord ? 'located' : 'fallback'}:${road?.length ?? 0}`}
+          initialViewState={
+            hasRoute
+              ? { bounds: boundsOf([...line, ...(driver ? [driver] : [])]), padding: FIT_PADDING }
+              : { center: here, zoom: 14.5 }
+          }
         />
 
         {hasRoute ? (
@@ -178,9 +170,13 @@ export function MapCanvas({
   );
 }
 
-/** Keeps both ends of the route on screen without asking MapLibre to fit bounds. */
-function midpoint(a: [number, number], b: [number, number]): [number, number] {
-  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+// Room around the route so the pins and labels aren't clipped at the edges.
+const FIT_PADDING = { top: 56, right: 40, bottom: 40, left: 40 };
+
+function boundsOf(points: LngLat[]): [number, number, number, number] {
+  const lngs = points.map((point) => point[0]);
+  const lats = points.map((point) => point[1]);
+  return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
 }
 
 const styles = StyleSheet.create({

@@ -396,6 +396,7 @@ public class RideRequestService {
                 ride.getCancellationReason(),
                 pickupCodeFor(ride),
                 driverFor(ride),
-                ride.getRequestedAt());
+                ride.getRequestedAt(),
+                tripRepository.findByRideRequestId(ride.getId()).map(Trip::getStartedAt).orElse(null));
     }
 }

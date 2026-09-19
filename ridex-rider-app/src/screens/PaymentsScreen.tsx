@@ -2,13 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { money } from '../lib/format';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { applyReferral, getPoints, reasonLabel } from '../api/points';
 import { useQuery } from '../api/useQuery';
 import { ApiError } from '../api/problem';
 import { BrandLoader } from '../components/BrandLoader';
+import { useBrandRefresh } from '../components/BrandRefresh';
 import { Button } from '../components/Button';
 import { SectionLabel } from '../components/SectionLabel';
 import { TextField } from '../components/TextField';
@@ -16,6 +17,7 @@ import { colors, radius, spacing, type } from '../theme';
 
 export function PaymentsScreen() {
   const { data: points, loading, error, refetch } = useQuery(getPoints, []);
+  const pull = useBrandRefresh(refetch);
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
@@ -44,13 +46,7 @@ export function PaymentsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         // Pull to refresh, because a balance is the one screen people re-open expecting a change.
-        refreshControl={
-          <RefreshControl
-            refreshing={loading && points != null}
-            onRefresh={refetch}
-            tintColor={colors.primary}
-          />
-        }
+        refreshControl={pull.control}
       >
         <View style={styles.header}>
           <Text style={styles.heading}>Rewards</Text>
@@ -150,6 +146,7 @@ export function PaymentsScreen() {
           </>
         )}
       </ScrollView>
+      {pull.overlay}
     </SafeAreaView>
   );
 }

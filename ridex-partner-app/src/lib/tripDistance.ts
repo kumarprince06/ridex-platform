@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import * as SecureStore from 'expo-secure-store';
 
 /** Metres. Earth's mean radius - good to a fraction of a percent at city scale. */
 const EARTH_RADIUS_M = 6371000;
@@ -36,8 +37,17 @@ function metresBetween(a: Coords, b: Coords): number {
  * the chord and the road differ by centimetres per step; map matching is worth it only if the
  * bound the server applies starts catching honest trips.
  */
-export function trackTripDistance() {
+export function trackTripDistance(tripId?: string) {
   let metres = 0;
+  // Kept per trip so an app relaunch mid-trip continues the odometer instead of restarting at 0.
+  const key = tripId ? `ridex.tripDistance.${tripId}` : null;
+  if (key) {
+    SecureStore.getItemAsync(key)
+      .then((stored) => {
+        metres += Number(stored) || 0;
+      })
+      .catch(() => undefined);
+  }
   let last: Coords | null = null;
   let subscription: Location.LocationSubscription | null = null;
   let stopped = false;
@@ -57,6 +67,9 @@ export function trackTripDistance() {
       if (step >= MIN_STEP_M) {
         metres += step;
         last = fix.coords;
+        if (key) {
+          void SecureStore.setItemAsync(key, String(metres)).catch(() => undefined);
+        }
       }
     },
   )
@@ -78,5 +91,7 @@ export function trackTripDistance() {
       subscription?.remove();
       subscription = null;
     },
+    /** Once the trip is completed, so the stored total does not outlive it. */
+    forget: () => (key ? SecureStore.deleteItemAsync(key).catch(() => undefined) : Promise.resolve()),
   };
 }

@@ -13,11 +13,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type Props = NativeStackScreenProps<RootStackParamList, 'ShuttleRoutes'>;
 
 export function ShuttleRoutesScreen({ navigation }: Props) {
-  const { data, loading, error } = useQuery(listRoutes, []);
+  const { data, loading, error, refetch } = useQuery(listRoutes, []);
   const routes = data ?? [];
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Shuttle">
+    <Screen onBack={() => navigation.goBack()} title="Shuttle" onRefresh={refetch}>
       <ScreenTitle
         title="Commuter routes"
         subtitle="A fixed route, a booked seat and a fare that never surges."

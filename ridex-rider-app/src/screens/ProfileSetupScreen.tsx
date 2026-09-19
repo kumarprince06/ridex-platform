@@ -1,8 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ApiError } from '../api/problem';
+import { splitFullName, updateProfile } from '../api/profile';
+import { useSession } from '../auth/session';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import { StepProgress } from '../components/StepProgress';
@@ -25,15 +27,37 @@ function initialsOf(name: string) {
 }
 
 export function ProfileSetupScreen({ navigation, route }: Props) {
+  const { refreshProfile } = useSession();
   const [displayName, setDisplayName] = useState(route.params.fullName);
+  const [phone, setPhone] = useState(route.params.phone ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onContinue() {
+    setBusy(true);
+    setError(null);
+    try {
+      await updateProfile({ ...splitFullName(displayName), phone: phone.trim() });
+      await refreshProfile();
+      navigation.navigate('SaveLocations');
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.userMessage : 'Could not save your details.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Screen
       footer={
         <>
-          <Button label="Continue" onPress={() => navigation.navigate('PersonalDetails')} />
+          <Button
+            label={busy ? 'Saving...' : 'Continue'}
+            disabled={busy || displayName.trim().length === 0}
+            onPress={() => void onContinue()}
+          />
           <Pressable
-            onPress={() => navigation.navigate('PersonalDetails')}
+            onPress={() => navigation.navigate('SaveLocations')}
             style={styles.skipWrap}
             accessibilityRole="button"
           >
@@ -49,15 +73,20 @@ export function ProfileSetupScreen({ navigation, route }: Props) {
       <View style={styles.avatarBlock}>
         <View style={styles.avatar}>
           <Text style={styles.initials}>{initialsOf(displayName)}</Text>
-          {/* Static: no image picker wired up until the app talks to storage. */}
-          <View style={styles.cameraChip}>
-            <Ionicons name="camera" size={15} color={colors.onPrimary} />
-          </View>
         </View>
-        <Text style={styles.avatarHint}>Tap to add a profile photo</Text>
       </View>
 
       <TextField label="Display Name" value={displayName} onChangeText={setDisplayName} autoCapitalize="words" />
+      <TextField
+        label="Phone Number"
+        icon="call"
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+        style={styles.field}
+      />
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </Screen>
   );
 }
@@ -85,23 +114,13 @@ const styles = StyleSheet.create({
     fontSize: 34,
     color: colors.text,
   },
-  cameraChip: {
-    position: 'absolute',
-    right: -2,
-    bottom: 2,
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.bg,
+  field: {
+    marginTop: spacing.lg,
   },
-  avatarHint: {
-    ...type.caption,
-    color: colors.textMuted,
-    marginTop: spacing.md,
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.lg,
   },
   skipWrap: {
     alignSelf: 'center',

@@ -51,3 +51,27 @@ export async function fetchRoute(from: LngLat, to: LngLat, signal?: AbortSignal)
 export function describeRoute(route: Route) {
   return `${distance(route.distance)} · ${minutes(route.duration)}`;
 }
+
+/** Road geometry through every point in order - a shuttle's route through all its stops. */
+export async function fetchRouteThrough(points: LngLat[], signal?: AbortSignal): Promise<LngLat[] | null> {
+  if (points.length < 2) {
+    return null;
+  }
+  const path = points.map(([lng, lat]) => `${lng},${lat}`).join(';');
+  const response = await fetch(`${ENDPOINT}/${path}?overview=full&geometries=geojson&steps=false`, { signal });
+  if (!response.ok) {
+    return null;
+  }
+  const body = (await response.json()) as { code?: string; routes?: { geometry: { coordinates: LngLat[] } }[] };
+  return body.code === 'Ok' ? (body.routes?.[0]?.geometry.coordinates ?? null) : null;
+}
+
+/** Compass bearing from a to b, degrees clockwise from north. */
+export function bearing(a: LngLat, b: LngLat): number {
+  const toRad = Math.PI / 180;
+  const [lng1, lat1] = [a[0] * toRad, a[1] * toRad];
+  const [lng2, lat2] = [b[0] * toRad, b[1] * toRad];
+  const y = Math.sin(lng2 - lng1) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lng2 - lng1);
+  return (Math.atan2(y, x) / toRad + 360) % 360;
+}

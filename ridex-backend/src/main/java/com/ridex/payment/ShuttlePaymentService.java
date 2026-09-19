@@ -168,16 +168,19 @@ public class ShuttlePaymentService {
         });
     }
 
-    /** Records the fare a driver collected in cash for a seat, once the passenger is on board. */
+    /** Hands a seat payment back: the money arrived after the seat it was for had gone. */
     @Transactional
-    public void settleShuttleCash(String bookingId) {
+    public void refundShuttlePayment(String bookingId, String reason) {
         paymentRepository.findByShuttleBookingId(bookingId).ifPresent(payment -> {
-            if (payment.getMethod() != PaymentMethod.CASH
-                    || payment.getStatus() == PaymentStatus.SUCCEEDED) {
+            if (payment.getStatus() != PaymentStatus.SUCCEEDED) {
                 return;
             }
-            payment.setStatus(PaymentStatus.SUCCEEDED);
-            payment.setPaidAt(Instant.now());
+            providers.forMethod(payment.getMethod()).refundPayment(payment.getProviderPaymentId(),
+                    Money.of(payment.getNetAmountMinor(), java.util.Currency.getInstance(payment.getCurrency())),
+                    "refund:" + payment.getId());
+            // Refunds settle later; the refund.processed webhook confirms it, this records the intent.
+            payment.setStatus(PaymentStatus.REFUNDED);
+            payment.setFailureReason(reason);
             paymentRepository.save(payment);
         });
     }

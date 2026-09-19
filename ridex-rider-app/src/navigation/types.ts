@@ -2,6 +2,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import type { LegalSlug } from '../api/legal';
 import type { ShuttleBooking } from '../api/shuttle';
 
 /** The four persistent destinations behind the bottom bar. */
@@ -27,10 +28,10 @@ export type RootStackParamList = {
   CheckInbox: { email: string };
   NewPassword: { email: string };
   CreateAccount: undefined;
-  VerifyOtp: { email: string; password?: string };
-  Verified: undefined;
-  ProfileSetup: { fullName: string };
-  PersonalDetails: undefined;
+  // Name and phone ride along to ProfileSetup: the profile only exists once the account is signed in.
+  VerifyOtp: { email: string; password?: string; fullName?: string; phone?: string };
+  Verified: { fullName?: string; phone?: string } | undefined;
+  ProfileSetup: { fullName: string; phone?: string };
   SaveLocations: undefined;
 
   MainTabs: NavigatorScreenParams<TabParamList>;
@@ -81,7 +82,7 @@ export type RootStackParamList = {
   RideCompleted: { destination: string; rideId?: string };
   RateDriver: { rideId?: string };
   CancelRide: { rideId?: string };
-  RideCancelled: undefined;
+  RideCancelled: { rideId?: string } | undefined;
 
   // Shuttle: fixed routes and chosen seats, not dispatch. There are no offers and no driver
   // search - the vehicle is already going, and the question is whether a seat on it is free.
@@ -103,6 +104,7 @@ export type RootStackParamList = {
    * re-fetch it from - passing the id would lose the one thing this screen exists to show.
    */
   ShuttleBooked: { booking: ShuttleBooking };
+  ShuttleTracking: { booking: ShuttleBooking };
 
   TripDetails: { rideId: string };
   TripReceipt: { rideId: string };
@@ -115,6 +117,7 @@ export type RootStackParamList = {
   Settings: undefined;
   PrivacySecurity: undefined;
   HelpSupport: undefined;
+  Legal: { slug: LegalSlug };
 };
 
 /**

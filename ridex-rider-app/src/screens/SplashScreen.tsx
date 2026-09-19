@@ -71,9 +71,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mark: {
-    // The app icon's RX mark, at its own 853:633 aspect.
+    // The app icon's RX mark, square like the partner app's.
     width: 108,
-    height: 80,
+    height: 108,
     resizeMode: 'contain',
   },
   name: {

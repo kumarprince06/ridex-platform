@@ -62,6 +62,8 @@ export type Ride = {
   pickupCode: string | null;
   driver: RideDriver | null;
   requestedAt: string;
+  /** When the driver started the trip; null before that. */
+  startedAt: string | null;
 };
 
 export type CancellationQuote = { currency: string; feeMinor: number; free: boolean };
@@ -157,7 +159,8 @@ export function cancelRide(rideId: string, reasonCode: string, reason?: string) 
 /** What settling a finished trip needs: the gateway order, or nothing when it was paid in cash. */
 export type RidePayment = {
   paymentId: string;
-  method: PaymentMethod;
+  // Wider than what the app sends: NONE is a fare points covered, CARD comes from the gateway.
+  method: PaymentMethod | 'CARD' | 'NONE';
   status: string;
   currency: string;
   amountMinor: number;
@@ -167,6 +170,17 @@ export type RidePayment = {
   /** True when there is nothing left to pay - cash handed over, or the gateway already cleared. */
   settled: boolean;
 };
+
+const METHOD_LABELS: Record<RidePayment['method'], string> = {
+  CASH: 'Cash',
+  UPI: 'Online',
+  CARD: 'Card',
+  NONE: '—',
+};
+
+export function paymentMethodLabel(method: RidePayment['method']): string {
+  return METHOD_LABELS[method];
+}
 
 export function ridePayment(rideId: string) {
   return request<RidePayment>(`/api/v1/rides/${rideId}/payment`);

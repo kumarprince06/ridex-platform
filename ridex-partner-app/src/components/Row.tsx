@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
+import { countLabel } from '../api/notifications';
 import { colors, IconName, radius, spacing, type } from '../theme';
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
   tone?: string;
   /** Small pill on the right, as on "Payment Methods — Default". */
   badge?: string;
-  /** Red count bubble, as on "Notifications — 3". */
+  /** Red count bubble, as on "Notifications — 3". Hidden at zero, "9+" above nine. */
   count?: number;
   /** Replaces the chevron entirely - used for the toggle rows in Settings. */
   accessory?: ReactNode;
@@ -59,9 +60,9 @@ export function Row({
         </View>
       ) : null}
 
-      {count !== undefined ? (
+      {count ? (
         <View style={styles.count}>
-          <Text style={styles.countText}>{count}</Text>
+          <Text style={styles.countText}>{countLabel(count)}</Text>
         </View>
       ) : null}
 

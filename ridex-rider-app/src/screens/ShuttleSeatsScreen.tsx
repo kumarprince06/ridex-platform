@@ -1,16 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { clockTime, money } from '../lib/format';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getPoints, spendableNow } from '../api/points';
 import { ApiError } from '../api/problem';
 import { payForSeat } from '../api/shuttleCheckout';
-import { bookSeat, seatMap, type Seat, type ShuttlePaymentMethod } from '../api/shuttle';
+import { bookSeat, seatMap } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { BrandLoader } from '../components/BrandLoader';
 import { Screen, ScreenTitle } from '../components/Screen';
+import { ShuttleSeatMap } from '../components/ShuttleSeatMap';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -27,11 +28,22 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
   );
 
   const [chosen, setChosen] = useState<string | null>(null);
-  const [method, setMethod] = useState<ShuttlePaymentMethod>('UPI');
   const [usePoints, setUsePoints] = useState(false);
   const { data: points } = useQuery(getPoints, []);
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
+  const [autoPicked, setAutoPicked] = useState(false);
+
+  // A seat is picked up front so booking is one tap; the rider can still tap another.
+  useEffect(() => {
+    if (data && !chosen) {
+      const free = data.seats.find((seat) => seat.available);
+      if (free) {
+        setChosen(free.label);
+        setAutoPicked(true);
+      }
+    }
+  }, [data, chosen]);
 
   // What the toggle takes off, the way the server will work it out: capped by the balance, by what
   // one journey may spend, and by the fare. Shown before the tap, not on the ticket afterwards.
@@ -54,7 +66,7 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         boardingStopId,
         alightingStopId,
         seatLabel: chosen,
-        paymentMethod: method,
+        paymentMethod: 'UPI',
         // The whole balance is offered; the server takes only what this fare can absorb.
         redeemPoints: usePoints && points ? spendableNow(points).points : undefined,
       });
@@ -87,20 +99,18 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
 
   const departsAt = new Date(data.departsAt);
 
-  // Chunked into rows exactly as the labels were generated, so what is drawn matches what the
-  // server will accept.
-  const rows: Seat[][] = [];
-  for (let index = 0; index < data.seats.length; index += data.seatsPerRow) {
-    rows.push(data.seats.slice(index, index + data.seatsPerRow));
-  }
 
   return (
     <Screen
+      onRefresh={refetch}
       onBack={() => navigation.goBack()}
       title="Pick a seat"
       footer={
         <>
           {bookError ? <Text style={styles.error}>{bookError}</Text> : null}
+          {autoPicked && chosen && !bookError ? (
+            <Text style={styles.autoPicked}>Seat {chosen} picked for you. Tap any free seat to change it.</Text>
+          ) : null}
           {discountMinor > 0 && data?.fareMinor != null ? (
             <Text style={styles.discountNote}>
               {money(data.fareMinor, data.currency ?? 'INR')} fare ·{' '}
@@ -114,10 +124,8 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
                 : !chosen
                   ? 'Choose a seat'
                   : payableMinor == null
-                    ? method === 'CASH'
-                      ? `Book seat ${chosen}`
-                      : `Pay & book seat ${chosen}`
-                    : `${method === 'CASH' ? 'Book' : 'Pay'} ${money(payableMinor, data?.currency ?? 'INR')} · seat ${chosen}`
+                    ? `Pay & book seat ${chosen}`
+                    : `Pay ${money(payableMinor, data?.currency ?? 'INR')} · seat ${chosen}`
             }
             disabled={!chosen || booking}
             onPress={confirm}
@@ -134,39 +142,16 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         {data.seatsAvailable} of {data.seatCapacity} free on your leg
       </Text>
 
-      <View style={styles.bus}>
-        {/* The front, so the rider can tell which end is which. A grid with no orientation is a
-            spreadsheet, and "4A" means nothing without knowing where row 1 is. */}
-        <View style={styles.front}>
-          <Ionicons name="car-sport-outline" size={18} color={colors.textMuted} />
-          <Text style={styles.frontLabel}>Front</Text>
-        </View>
-
-        {rows.map((seats, rowIndex) => (
-          <View key={rowIndex} style={styles.row}>
-            {seats.map((seat, seatIndex) => (
-              <View key={seat.label} style={styles.seatSlot}>
-                <SeatButton
-                  seat={seat}
-                  chosen={chosen === seat.label}
-                  onPress={() => setChosen(seat.label)}
-                />
-                {/* The gangway. Drawn between the seats it separates, not as a column of its own,
-                    so a part-filled last row still lines up with the ones above it. */}
-                {data.aisleAfter > 0 && seatIndex === data.aisleAfter - 1 ? (
-                  <View style={styles.aisle} />
-                ) : null}
-              </View>
-            ))}
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.legend}>
-        <Legend style={styles.seatFree} label="Free" />
-        <Legend style={styles.seatChosen} label="Yours" />
-        <Legend style={styles.seatTaken} label="Taken" />
-      </View>
+      <ShuttleSeatMap
+        seats={data.seats}
+        seatsPerRow={data.seatsPerRow}
+        aisleAfter={data.aisleAfter}
+        chosen={chosen}
+        onChoose={(label) => {
+          setChosen(label);
+          setAutoPicked(false);
+        }}
+      />
 
       {/* Only when there is something to spend: a toggle that can take nothing off is worse
           than no toggle. A balance below one rupee's worth counts as nothing. */}
@@ -201,103 +186,20 @@ export function ShuttleSeatsScreen({ navigation, route }: Props) {
         </Pressable>
       ) : null}
 
-      <Text style={styles.payLabel}>PAY WITH</Text>
-      <View style={styles.methods}>
-        <MethodButton
-          icon="phone-portrait-outline"
-          label="Online"
-          note="Pay now"
-          selected={method === 'UPI'}
-          onPress={() => setMethod('UPI')}
-        />
-        <MethodButton
-          icon="cash-outline"
-          label="Cash"
-          note="Pay the driver"
-          selected={method === 'CASH'}
-          onPress={() => setMethod('CASH')}
-        />
-      </View>
     </Screen>
   );
 }
 
-function MethodButton({
-  icon,
-  label,
-  note,
-  selected,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  note: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      style={({ pressed }) => [
-        styles.method,
-        selected && styles.methodSelected,
-        pressed && styles.pressed,
-      ]}
-    >
-      <Ionicons name={icon} size={18} color={selected ? colors.primary : colors.textMuted} />
-      <Text style={[styles.methodLabel, selected && styles.methodLabelSelected]}>{label}</Text>
-      <Text style={styles.methodNote}>{note}</Text>
-    </Pressable>
-  );
-}
-
-function SeatButton({
-  seat,
-  chosen,
-  onPress,
-}: {
-  seat: Seat;
-  chosen: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!seat.available}
-      accessibilityRole="button"
-      accessibilityLabel={`Seat ${seat.label}, ${seat.available ? 'free' : 'taken'}`}
-      accessibilityState={{ selected: chosen, disabled: !seat.available }}
-      style={[
-        styles.seat,
-        seat.available ? styles.seatFree : styles.seatTaken,
-        chosen && styles.seatChosen,
-      ]}
-    >
-      <Text
-        style={[
-          styles.seatLabel,
-          !seat.available && styles.seatLabelTaken,
-          chosen && styles.seatLabelChosen,
-        ]}
-      >
-        {seat.label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function Legend({ style, label }: { style: object; label: string }) {
-  return (
-    <View style={styles.legendItem}>
-      <View style={[styles.legendSwatch, style]} />
-      <Text style={styles.legendLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
+  autoPicked: {
+    ...type.caption,
+    color: colors.text,
+    textAlign: 'center',
+    backgroundColor: colors.amberSurface,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   discountNote: {
     ...type.caption,
     color: colors.textMuted,
@@ -329,40 +231,6 @@ const styles = StyleSheet.create({
     ...type.caption,
     color: colors.textMuted,
   },
-  payLabel: {
-    ...type.eyebrow,
-    color: colors.textMuted,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  methods: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  method: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  methodSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.surfaceAlt,
-  },
-  methodLabel: {
-    ...type.button,
-    fontSize: 14,
-    color: colors.text,
-  },
-  methodLabelSelected: { color: colors.primary },
-  methodNote: {
-    ...type.caption,
-    color: colors.textMuted,
-  },
   pressed: { opacity: 0.75 },
   spinner: {
     flexGrow: 1,
@@ -384,94 +252,5 @@ const styles = StyleSheet.create({
     ...type.caption,
     color: colors.textMuted,
     marginBottom: spacing.lg,
-  },
-  /* Rounded at the top like a cabin, so the grid reads as a vehicle rather than a table. */
-  bus: {
-    alignSelf: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderTopLeftRadius: radius.lg * 2,
-    borderTopRightRadius: radius.lg * 2,
-    borderBottomLeftRadius: radius.md,
-    borderBottomRightRadius: radius.md,
-    backgroundColor: colors.surface,
-  },
-  front: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-  },
-  frontLabel: {
-    ...type.caption,
-    color: colors.textMuted,
-  },
-  row: {
-    flexDirection: 'row',
-    marginBottom: spacing.sm,
-  },
-  seatSlot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  aisle: {
-    width: spacing.xl,
-  },
-  seat: {
-    width: 42,
-    height: 42,
-    marginHorizontal: 3,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  seatFree: {
-    backgroundColor: colors.surfaceAlt,
-    borderColor: colors.border,
-  },
-  seatTaken: {
-    backgroundColor: 'transparent',
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-  },
-  seatChosen: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  seatLabel: {
-    ...type.caption,
-    fontSize: 12,
-    color: colors.text,
-  },
-  seatLabelTaken: {
-    color: colors.textFaint,
-  },
-  seatLabelChosen: {
-    color: colors.onPrimary,
-  },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    marginTop: spacing.lg,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  legendSwatch: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  legendLabel: {
-    ...type.caption,
-    color: colors.textMuted,
   },
 });

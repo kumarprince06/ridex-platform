@@ -30,7 +30,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ShuttlePasses'>;
  */
 export function ShuttlePassesScreen({ navigation, route }: Props) {
   const { routeId, routeName } = route.params;
-  const { data: products } = useQuery(() => listPassProducts(routeId), [routeId]);
+  const { data: products, refetch: refetchProducts } = useQuery(() => listPassProducts(routeId), [routeId]);
   const { data: held, refetch } = useQuery(listPasses);
   const { data: points } = useQuery(getPoints);
 
@@ -71,7 +71,7 @@ export function ShuttlePassesScreen({ navigation, route }: Props) {
   const mine = (held ?? []).filter((pass) => pass.routeName === routeName);
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Passes">
+    <Screen onBack={() => navigation.goBack()} title="Passes" onRefresh={() => Promise.all([refetch(), refetchProducts()])}>
       {mine.length ? <Text style={styles.sectionLabel}>YOUR PASSES</Text> : null}
 
       {mine.map((pass) => (

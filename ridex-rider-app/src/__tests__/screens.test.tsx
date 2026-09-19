@@ -18,7 +18,7 @@ const PARAMS: Record<string, object> = {
   CheckInbox: { email: 'rider@example.com' },
   VerifyOtp: { email: 'rider@example.com', password: 'not-a-real-password' },
   ProfileSetup: { fullName: 'Ada Rider' },
-  PersonalDetails: { fullName: 'Ada Rider' },
+  Legal: { slug: 'rider-terms' },
   RoutePreview: { destination: 'Midtown Tower' },
   ChooseRide: { destination: 'Midtown Tower' },
   FareEstimate: { destination: 'Midtown Tower', tierId: 'comfort' },
@@ -63,6 +63,7 @@ const PARAMS: Record<string, object> = {
     },
   },
 };
+PARAMS.ShuttleTracking = PARAMS.ShuttleBooked;
 
 function makeNavigation() {
   return {

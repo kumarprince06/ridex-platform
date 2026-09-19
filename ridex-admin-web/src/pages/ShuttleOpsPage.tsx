@@ -79,6 +79,25 @@ export function ShuttleOpsPage() {
             },
             { key: 'boarded', header: 'Boarded', align: 'right', render: (row) => row.boarded },
             {
+              key: 'run',
+              header: 'Run',
+              render: (row) =>
+                row.runStatus === 'RUNNING' ? (
+                  <>
+                    <Pill tone="success">Live</Pill>
+                    <span className="cell-muted">
+                      {' '}
+                      {row.currentStop ? `at ${row.currentStop}` : 'started'}
+                      {row.delayMinutes > 0 ? ` · ${row.delayMinutes} min late` : ''}
+                    </span>
+                  </>
+                ) : row.runStatus === 'COMPLETED' ? (
+                  <Pill>Done</Pill>
+                ) : (
+                  <span className="cell-muted">Scheduled</span>
+                ),
+            },
+            {
               key: 'crew',
               header: 'Crew',
               render: (row) =>

@@ -54,8 +54,11 @@ public interface ShuttleBookingRepository extends JpaRepository<ShuttleBooking, 
             + "AND b.rider.user.id = :userId AND b.status <> 'CANCELLED'")
     boolean isRiderOn(@Param("tripId") String tripId, @Param("userId") String userId);
 
-    /** The manifest. Cancelled seats are excluded - nobody is waiting at that stop for them. */
+    /**
+     * The manifest. Cancelled seats are out - nobody is waiting for them - and so are seats still
+     * in checkout: prepaid only, so an unpaid hold is not a passenger yet.
+     */
     @Query("SELECT b FROM ShuttleBooking b WHERE b.shuttleTrip.id = :tripId "
-            + "AND b.status <> 'CANCELLED' ORDER BY b.seatLabel ASC")
+            + "AND b.status <> 'CANCELLED' AND b.paymentStatus <> 'PENDING' ORDER BY b.seatLabel ASC")
     List<ShuttleBooking> manifestFor(@Param("tripId") String tripId);
 }

@@ -7,17 +7,18 @@ import { useQuery } from '../api/useQuery';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
 import { ToggleRow } from '../components/ToggleRow';
-import { useDevicePreferences } from '../lib/preferences';
 import { RootStackParamList } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
-const ABOUT_LINKS = ['Terms of Service', 'Privacy Policy', 'Open Source Licenses'];
+// Open Source Licenses is gone: there is no screen behind it yet.
+const ABOUT_LINKS = [
+  { label: 'Terms of Service', slug: 'rider-terms' },
+  { label: 'Privacy Policy', slug: 'privacy-policy' },
+] as const;
 
 export function SettingsScreen({ navigation }: Props) {
-  const { preferences: device, set: setDevice } = useDevicePreferences();
-
   // The server decides whether to push, so these live there. Held locally as well so a switch
   // moves the moment it is tapped rather than after a round trip.
   const { data: served } = useQuery(getPreferences);
@@ -37,20 +38,6 @@ export function SettingsScreen({ navigation }: Props) {
 
   return (
     <Screen onBack={() => navigation.goBack()} title="Settings">
-      <SectionLabel>PRIVACY</SectionLabel>
-      <ToggleRow
-        title="Background Location"
-        subtitle="Track location when app is closed"
-        value={device.backgroundLocation}
-        onValueChange={(value) => setDevice({ backgroundLocation: value })}
-      />
-      <ToggleRow
-        title="Data Optimization"
-        subtitle="Reduce data usage on metered connections"
-        value={device.dataSaver}
-        onValueChange={(value) => setDevice({ dataSaver: value })}
-      />
-
       <SectionLabel>NOTIFICATIONS</SectionLabel>
       <ToggleRow
         title="Push notifications"
@@ -60,7 +47,7 @@ export function SettingsScreen({ navigation }: Props) {
       />
       <ToggleRow
         title="Promotions"
-        subtitle="Deals, promo codes, and offers"
+        subtitle="Offers and bonus points"
         value={promotions}
         onValueChange={(value) => change({ promotions: value })}
       />
@@ -73,11 +60,12 @@ export function SettingsScreen({ navigation }: Props) {
 
       {ABOUT_LINKS.map((link) => (
         <Pressable
-          key={link}
+          key={link.slug}
+          onPress={() => navigation.navigate('Legal', { slug: link.slug })}
           accessibilityRole="button"
           style={({ pressed }) => [styles.aboutRow, pressed && styles.pressed]}
         >
-          <Text style={styles.aboutLabel}>{link}</Text>
+          <Text style={styles.aboutLabel}>{link.label}</Text>
         </Pressable>
       ))}
     </Screen>

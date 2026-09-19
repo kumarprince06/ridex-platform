@@ -2,19 +2,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { money, when } from '../lib/format';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import {
+  getReceipt,
   getRide,
   isCancelled,
   isLive,
+  paymentMethodLabel,
   rideRoute,
   rideStatusLabel,
   ridePayment,
 } from '../api/rides';
 import { payForRide } from '../api/rideCheckout';
+import { ApiError } from '../api/problem';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
+import { DriverCard } from '../components/DriverCard';
 import { MapCanvas } from '../components/MapCanvas';
 import { PickupPass } from '../components/PickupPass';
 import { RouteStops } from '../components/RouteStops';
@@ -27,15 +31,17 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TripDetails'>;
 
 export function TripDetailsScreen({ navigation, route }: Props) {
   const { rideId } = route.params;
-  const { data: ride, loading, error } = useQuery(() => getRide(rideId), [rideId]);
+  const { data: ride, loading, error, refetch } = useQuery(() => getRide(rideId), [rideId]);
 
-  // A rider who closed the gateway on the completion screen still owes the fare, and an unpaid
-  // fare blocks their next booking. This is where they come back to it.
+  // A rider who closed checkout still owes the fare, and this is where they come back to pay it.
   const { data: payment, refetch: refetchPayment } = useQuery(
     () => ridePayment(rideId).catch(() => null),
     [rideId],
   );
+  const { data: receipt, refetch: refetchReceipt } = useQuery(() => getReceipt(rideId).catch(() => null), [rideId]);
+  const refreshAll = () => Promise.all([refetch(), refetchPayment(), refetchReceipt()]);
   const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const outstanding = payment != null && !payment.settled;
 
   async function pay() {
@@ -43,9 +49,14 @@ export function TripDetailsScreen({ navigation, route }: Props) {
       return;
     }
     setPaying(true);
+    setPayError(null);
     try {
       await payForRide(rideId, payment);
       refetchPayment();
+    } catch (caught) {
+      setPayError(
+        caught instanceof ApiError ? caught.userMessage : caught instanceof Error ? caught.message : 'Payment failed.',
+      );
     } finally {
       setPaying(false);
     }
@@ -64,16 +75,30 @@ export function TripDetailsScreen({ navigation, route }: Props) {
   }
 
   const cancelled = isCancelled(ride.status);
+  const completed = ride.status === 'COMPLETED';
+  // What was actually charged, once the trip priced itself from the real distance and time.
+  const charged = receipt?.chargedTotalMinor ?? ride.quotedFareMinor;
+  const lines = receipt?.chargedLines ?? ride.fareLines;
   const live = isLive(ride.status);
 
   return (
     <Screen
+      onRefresh={refreshAll}
       onBack={() => navigation.goBack()}
       title="Trip Details"
       headerRight={
-        <View style={styles.chip}>
+        <Pressable
+          onPress={() =>
+            void Share.share({
+              message: `My RideX trip on ${when(ride.requestedAt)}: ${ride.pickupAddress ?? 'Pickup'} → ${ride.destinationAddress ?? 'Destination'}, ${money(charged, ride.currency)} (${rideStatusLabel(ride.status)}).`,
+            })
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Share trip"
+          style={styles.chip}
+        >
           <Ionicons name="share-outline" size={18} color={colors.text} />
-        </View>
+        </Pressable>
       }
     >
       {/* MapCanvas fills its parent absolutely, so it needs a sized box to live in. */}
@@ -112,15 +137,26 @@ export function TripDetailsScreen({ navigation, route }: Props) {
             pickup={{ name: ride.pickupAddress ?? 'Pickup', detail: 'Pickup' }}
             dropoff={{ name: ride.destinationAddress ?? 'Destination', detail: 'Drop-off' }}
           />
-          <Text style={styles.fare}>{money(ride.quotedFareMinor, ride.currency)}</Text>
+          <Text style={styles.fare}>{money(charged, ride.currency)}</Text>
         </View>
       </View>
 
-      {/* The fare breakdown, not a driver card: the endpoint carries no driver, and "why am I
-          paying this" is the question this screen is actually opened to answer. */}
-      {ride.fareLines.length > 0 ? (
+      {ride.driver ? (
+        <View style={styles.driver}>
+          <DriverCard
+            name={ride.driver.name}
+            phone={live ? ride.driver.phone : null}
+            rating={ride.driver.rating}
+            vehicle={ride.driver.vehicle}
+            plate={ride.driver.registrationNumber}
+          />
+        </View>
+      ) : null}
+
+      {lines.length > 0 ? (
         <View style={styles.card}>
-          {ride.fareLines.map((line) => (
+          <Text style={styles.cardTitle}>{completed ? 'Fare' : 'Quoted fare'}</Text>
+          {lines.map((line) => (
             <View key={line.type + line.label} style={styles.lineRow}>
               <Text style={styles.lineLabel}>{line.label}</Text>
               <Text style={styles.lineAmount}>{money(line.amountMinor, ride.currency)}</Text>
@@ -130,6 +166,23 @@ export function TripDetailsScreen({ navigation, route }: Props) {
             <View style={styles.lineRow}>
               <Text style={styles.lineLabel}>Points redeemed</Text>
               <Text style={styles.lineAmount}>{ride.redeemedPoints}</Text>
+            </View>
+          ) : null}
+          <View style={[styles.lineRow, styles.totalRow]}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalAmount}>{money(charged, ride.currency)}</Text>
+          </View>
+          {receipt && receipt.differenceMinor !== 0 ? (
+            <Text style={styles.reason}>
+              Quoted {money(receipt.quotedTotalMinor, ride.currency)} · priced from the actual trip
+            </Text>
+          ) : null}
+          {payment ? (
+            <View style={styles.lineRow}>
+              <Text style={styles.lineLabel}>Payment</Text>
+              <Text style={[styles.lineAmount, !payment.settled && styles.due]}>
+                {paymentMethodLabel(payment.method)} · {payment.settled ? 'Paid' : 'Due'}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -149,6 +202,8 @@ export function TripDetailsScreen({ navigation, route }: Props) {
         </View>
       ) : null}
 
+      {payError ? <Text style={styles.payError}>{payError}</Text> : null}
+
       <View style={styles.actions}>
         <Button
           label="Report Issue"
@@ -162,8 +217,7 @@ export function TripDetailsScreen({ navigation, route }: Props) {
             onPress={() => void pay()}
             style={styles.flex}
           />
-        ) : ride.status === 'COMPLETED' ? (
-          /* A receipt exists only once the trip was actually charged. */
+        ) : completed ? (
           <Button
             label="View Receipt"
             onPress={() => navigation.navigate('TripReceipt', { rideId: ride.id })}
@@ -266,10 +320,43 @@ const styles = StyleSheet.create({
     ...type.body,
     color: colors.text,
   },
+  payError: {
+    ...type.body,
+    color: colors.danger,
+    marginBottom: spacing.sm,
+  },
   reason: {
     ...type.caption,
     color: colors.textMuted,
     marginTop: spacing.xs,
+  },
+  driver: {
+    marginBottom: spacing.md,
+  },
+  cardTitle: {
+    ...type.button,
+    fontSize: 15,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  totalRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  totalLabel: {
+    ...type.button,
+    fontSize: 15,
+    color: colors.text,
+  },
+  totalAmount: {
+    ...type.button,
+    fontSize: 16,
+    color: colors.text,
+  },
+  due: {
+    color: colors.amber,
   },
   actions: {
     flexDirection: 'row',

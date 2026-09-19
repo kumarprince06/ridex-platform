@@ -32,12 +32,12 @@ export function TripInProgressScreen({ navigation, route }: Props) {
   // Started on mount, not on the swipe: the distance is everything between the two.
   const odometer = useRef<ReturnType<typeof trackTripDistance> | null>(null);
   useEffect(() => {
-    odometer.current = trackTripDistance();
+    odometer.current = trackTripDistance(route.params?.tripId);
     return () => {
       odometer.current?.stop();
       odometer.current = null;
     };
-  }, []);
+  }, [route.params?.tripId]);
 
   async function onComplete() {
     const tripId = route.params?.tripId;
@@ -51,9 +51,12 @@ export function TripInProgressScreen({ navigation, route }: Props) {
     try {
       // What the phone actually measured between pickup and here. Zero means the device never
       // gave a usable fix; the server falls back to the quoted route rather than pricing at zero.
-      const durationSeconds = Math.round((Date.now() - startedAt.current) / 1000);
+      // The server's start time survives an app relaunch; the mount time is only a fallback.
+      const started = trip?.startedAt ? Date.parse(trip.startedAt) : startedAt.current;
+      const durationSeconds = Math.round((Date.now() - started) / 1000);
       const metres = odometer.current?.metres() ?? 0;
       const completed = await completeTrip(tripId, metres, Math.max(60, durationSeconds));
+      void odometer.current?.forget();
       navigation.replace('TripCompleted', {
         tripId,
         fareMinor: completed.finalFareMinor ?? undefined,

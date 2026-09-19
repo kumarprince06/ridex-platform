@@ -304,8 +304,11 @@ public class AuthService {
     /** The caller's live devices, newest first. Scoped to the caller - never takes a user id. */
     @Transactional(readOnly = true)
     public List<SessionResponse> listSessions(String callerUserId, String currentRefreshTokenHash) {
+        Instant now = Instant.now();
         return refreshTokenRepository.findByUserIdAndRevokedAtIsNullOrderByLastUsedAtDesc(callerUserId)
                 .stream()
+                // Expired rows wait for the nightly purge; they are not signed in anywhere.
+                .filter(token -> token.isLiveAt(now))
                 .map(token -> new SessionResponse(
                         token.getId(),
                         token.getUserAgent(),

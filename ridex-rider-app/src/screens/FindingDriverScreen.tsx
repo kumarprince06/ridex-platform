@@ -3,10 +3,12 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ApiError } from '../api/problem';
 import { cancelRide } from '../api/rides';
 import { useRideStatus } from '../api/rideStatus';
 import { MapCanvas } from '../components/MapCanvas';
 import { PulseRings } from '../components/PulseRings';
+import { SCREEN_FOR } from '../lib/journey';
 import { Sheet } from '../components/Sheet';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -26,8 +28,12 @@ export function FindingDriverScreen({ navigation, route }: Props) {
 
   // Searching and found are the same screen: same map, same sheet, same cancel affordance. Only
   // the badge and the copy change, so this is a state rather than a second route.
-  const found = ride?.status === 'DRIVER_ASSIGNED';
+  // Any post-assignment status counts: a quick driver can be at the pickup before the next poll.
+  const next = ride ? SCREEN_FOR[ride.status] : undefined;
+  const found = next != null;
   const [gaveUp, setGaveUp] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const skeletonClock = useRef(new Animated.Value(0)).current;
   const searching = !found && !gaveUp;
 
@@ -53,29 +59,40 @@ export function FindingDriverScreen({ navigation, route }: Props) {
   }, [searching, skeletonClock]);
 
   useEffect(() => {
-    if (!found) {
+    if (!next) {
       return;
     }
     const timer = setTimeout(
-      () => navigation.replace('DriverAssigned', { destination, rideId }),
+      () => navigation.replace(next, { destination, rideId }),
       FOUND_HOLD_MS,
     );
     return () => clearTimeout(timer);
-  }, [found, navigation, destination, rideId]);
+  }, [next, navigation, destination, rideId]);
 
   useEffect(() => {
     // The server gives up after four widening waves. Saying so beats a spinner that never stops.
     if (ride?.status === 'EXPIRED' || ride?.status === 'CANCELLED_BY_SYSTEM') {
       setGaveUp(true);
+    } else if (ride?.status === 'CANCELLED_BY_DRIVER' || ride?.status === 'CANCELLED_BY_RIDER') {
+      navigation.replace('RideCancelled', { rideId });
     }
-  }, [ride?.status]);
+  }, [ride?.status, navigation, rideId]);
 
   async function onCancel() {
-    if (rideId) {
-      // Best effort: a failed cancel must not trap the rider on this screen.
-      await cancelRide(rideId, 'Cancelled while searching').catch(() => undefined);
+    if (!rideId) {
+      navigation.goBack();
+      return;
     }
-    navigation.goBack();
+    // Stays put on failure: leaving would hide a search that is still live and may still match.
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await cancelRide(rideId, 'PLANS_CHANGED');
+      navigation.goBack();
+    } catch (caught) {
+      setCancelError(caught instanceof ApiError ? caught.userMessage : 'Could not cancel the request.');
+      setCancelling(false);
+    }
   }
 
   return (
@@ -145,12 +162,15 @@ export function FindingDriverScreen({ navigation, route }: Props) {
           </>
         )}
 
+        {cancelError ? <Text style={styles.cancelError}>{cancelError}</Text> : null}
+
         <Pressable
           onPress={gaveUp ? () => navigation.goBack() : onCancel}
+          disabled={cancelling}
           accessibilityRole="button"
           style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
         >
-          <Text style={styles.cancelText}>{gaveUp ? 'Try again' : 'Cancel Request'}</Text>
+          <Text style={styles.cancelText}>{gaveUp ? 'Try again' : cancelling ? 'Cancelling...' : 'Cancel Request'}</Text>
         </Pressable>
       </Sheet>
     </View>
@@ -224,6 +244,12 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.75,
+  },
+  cancelError: {
+    ...type.body,
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   cancelText: {
     ...type.button,

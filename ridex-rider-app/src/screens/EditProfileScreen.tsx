@@ -1,10 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/problem';
-import { getProfile, updateProfile } from '../api/profile';
+import { getProfile, splitFullName, updateProfile } from '../api/profile';
 import { useQuery } from '../api/useQuery';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -38,15 +37,7 @@ export function EditProfileScreen({ navigation }: Props) {
     setSaving(true);
     setSaveError(null);
     try {
-      // One name field, two columns. Everything past the first space is the last name, which is
-      // wrong for some names and right for most - the alternative is asking twice.
-      const trimmed = name.trim();
-      const cut = trimmed.indexOf(' ');
-      await updateProfile({
-        firstName: cut === -1 ? trimmed : trimmed.slice(0, cut),
-        lastName: cut === -1 ? '' : trimmed.slice(cut + 1).trim(),
-        phone: phone.trim(),
-      });
+      await updateProfile({ ...splitFullName(name), phone: phone.trim() });
       await refreshProfile();
       navigation.goBack();
     } catch (caught) {
@@ -76,14 +67,9 @@ export function EditProfileScreen({ navigation }: Props) {
         />
       }
     >
+      {/* No photo upload endpoint yet, so no "Change Photo" either. */}
       <View style={styles.avatarBlock}>
-        <View>
-          <Avatar name={name} size={92} brand />
-          <View style={styles.cameraChip}>
-            <Ionicons name="camera" size={15} color={colors.onPrimary} />
-          </View>
-        </View>
-        <Text style={styles.changePhoto}>Change Photo</Text>
+        <Avatar name={name} size={92} brand />
       </View>
 
       {error || saveError ? <Text style={styles.error}>{saveError ?? error}</Text> : null}
@@ -125,25 +111,6 @@ const styles = StyleSheet.create({
   avatarBlock: {
     alignItems: 'center',
     marginBottom: spacing.xl,
-  },
-  cameraChip: {
-    position: 'absolute',
-    right: -2,
-    bottom: 0,
-    width: 30,
-    height: 30,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.bg,
-  },
-  changePhoto: {
-    ...type.button,
-    fontSize: 14,
-    color: colors.primary,
-    marginTop: spacing.md,
   },
   spaced: {
     marginTop: spacing.lg,

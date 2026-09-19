@@ -28,7 +28,12 @@ export function CreateAccountScreen({ navigation }: Props) {
       await register(email.trim(), password);
       // Name and phone are not part of registration - they go to the profile after the account is
       // verified and signed in, which is the first moment there is a profile to write them to.
-      navigation.navigate('VerifyOtp', { email: email.trim(), password });
+      navigation.navigate('VerifyOtp', {
+        email: email.trim(),
+        password,
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+      });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.userMessage : 'Could not create the account.');
     } finally {

@@ -9,7 +9,7 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Verified'>;
 
-export function VerifiedScreen({ navigation }: Props) {
+export function VerifiedScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.center}>
@@ -29,7 +29,12 @@ export function VerifiedScreen({ navigation }: Props) {
       <View style={styles.footer}>
         <Button
           label="Continue to Setup"
-          onPress={() => navigation.navigate('ProfileSetup', { fullName: 'Alex Johnson' })}
+          onPress={() =>
+            navigation.navigate('ProfileSetup', {
+              fullName: route.params?.fullName ?? '',
+              phone: route.params?.phone,
+            })
+          }
         />
       </View>
     </SafeAreaView>

@@ -87,10 +87,16 @@ export type ShuttleBooking = {
   crew: Crew | null;
   /** PAID, or PENDING while the seat is held for a rider who has not paid yet. */
   paymentStatus: string;
+  /** The departure's run: SCHEDULED, RUNNING or COMPLETED. */
+  tripStatus: string;
+  boarded: boolean;
+  boardedAt: string | null;
+  /** When the shuttle reached the rider's drop-off stop. */
+  alightedAt: string | null;
   /** Cancellation closes here - half an hour before departure. */
   cancellableUntil: string;
   /**
-   * What cancelling right now would credit back as points, in money terms. Zero for cash, a pass,
+   * What cancelling right now would credit back as points, in money terms. Zero for a pass,
    * or once the cutoff has passed.
    */
   creditIfCancelledMinor: number;
@@ -166,8 +172,8 @@ export function seatMap(
   return request<SeatMap>(`/api/v1/shuttle/departures/${scheduleId}/seats?${query}`);
 }
 
-/** How the seat is paid for. Cash is handed to the driver; UPI opens checkout at booking. */
-export type ShuttlePaymentMethod = 'CASH' | 'UPI';
+/** Seats are prepaid online; checkout opens at booking. */
+export type ShuttlePaymentMethod = 'UPI';
 
 export function bookSeat(booking: {
   scheduleId: string;
@@ -249,4 +255,11 @@ export function toServiceDate(date: Date): string {
 export function runsOn(daysOfWeek: string, date: Date): boolean {
   const isoDay = date.getDay() === 0 ? 7 : date.getDay();
   return daysOfWeek.split(',').includes(String(isoDay));
+}
+
+/** How a seat ended, once its shuttle got the rider there or finished the run. Null while it's still ahead. */
+export function shuttleOutcome(booking: ShuttleBooking): 'COMPLETED' | 'MISSED' | null {
+  if (booking.status === 'CANCELLED') return null;
+  if (!booking.alightedAt && booking.tripStatus !== 'COMPLETED') return null;
+  return booking.boarded ? 'COMPLETED' : 'MISSED';
 }

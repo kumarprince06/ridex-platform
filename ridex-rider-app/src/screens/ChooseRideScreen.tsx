@@ -12,7 +12,7 @@ import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
 import { RouteStops } from '../components/RouteStops';
 import { lookFor } from '../lib/rideTypes';
-import { FALLBACK_CENTER, useCurrentLocation } from '../lib/location';
+import { useCurrentLocation } from '../lib/location';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
@@ -22,28 +22,41 @@ export function ChooseRideScreen({ navigation, route }: Props) {
   const { destination, destinationCoord, pickup: chosenPickup } = route.params;
   const { coord } = useCurrentLocation();
   const here = useCurrentAddress();
-  // The rider is the pickup unless they named one. Until the device answers, the map's own
-  // fallback centre is the only honest stand-in - a fixed city would price a trip nobody takes.
-  const pickup = chosenPickup?.coord ?? coord ?? FALLBACK_CENTER;
+  // The rider is the pickup unless they named one. No fix yet means no quote: a stand-in city
+  // would price, and book, a trip from somewhere the rider is not.
+  const pickup = chosenPickup?.coord ?? coord;
   const [options, setOptions] = useState<EstimateOption[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        if (!destinationCoord) {
-          setError('Pick a destination from the search results to price this trip.');
+    if (!destinationCoord) {
+      setError('Pick a destination from the search results to price this trip.');
+      return;
+    }
+    if (!pickup) {
+      return;
+    }
+    // A newer pickup fix re-prices; the older answer must not land on top of it.
+    let cancelled = false;
+    setError(null);
+    estimate(pickup, destinationCoord)
+      .then((priced) => {
+        if (cancelled) {
           return;
         }
-        const priced = await estimate(pickup, destinationCoord);
         setOptions(priced);
         setSelectedId(priced[0]?.estimateId ?? null);
-      } catch (caught) {
-        setError(caught instanceof ApiError ? caught.userMessage : 'Could not price this trip.');
-      }
-    })();
-  }, [destinationCoord, pickup[0], pickup[1]]);
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setError(caught instanceof ApiError ? caught.userMessage : 'Could not price this trip.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [destinationCoord, pickup?.[0], pickup?.[1]]);
 
   const selected = options?.find((option) => option.estimateId === selectedId) ?? null;
   // The server priced every option; anything the local mock adds is presentation only.
@@ -52,7 +65,7 @@ export function ChooseRideScreen({ navigation, route }: Props) {
     <View style={styles.root}>
       <MapCanvas
         showRoute
-        pickupCoord={pickup}
+        pickupCoord={pickup ?? undefined}
         destinationCoord={destinationCoord}
       />
 
@@ -88,6 +101,11 @@ export function ChooseRideScreen({ navigation, route }: Props) {
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {!pickup && !error ? (
+          <Text style={styles.locating}>
+            Finding your location… Turn on location services if this takes more than a moment.
+          </Text>
+        ) : null}
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           {(options ?? []).map((option, index) => {
@@ -137,10 +155,17 @@ export function ChooseRideScreen({ navigation, route }: Props) {
         </ScrollView>
 
         <Button
-          label={selected ? `Continue with ${selected.displayName}` : 'Pricing your trip...'}
-          disabled={!selected}
+          label={
+            selected
+              ? `Continue with ${selected.displayName}`
+              : pickup
+                ? 'Pricing your trip...'
+                : 'Finding your location...'
+          }
+          disabled={!selected || !pickup}
           onPress={() =>
             selected &&
+            pickup &&
             navigation.navigate('FareEstimate', {
               destination,
               tierId: selected.rideTypeCode,
@@ -161,6 +186,11 @@ const styles = StyleSheet.create({
   error: {
     ...type.body,
     color: colors.danger,
+    marginTop: spacing.sm,
+  },
+  locating: {
+    ...type.body,
+    color: colors.textMuted,
     marginTop: spacing.sm,
   },
   root: {

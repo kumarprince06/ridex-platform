@@ -66,7 +66,7 @@ export function SavedPlacesScreen({ navigation }: Props) {
   const places = data ?? [];
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Saved Places">
+    <Screen onBack={() => navigation.goBack()} title="Saved Places" onRefresh={refetch}>
       {loading ? <Text style={styles.note}>Loading...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {notice ? <Text style={styles.error}>{notice}</Text> : null}

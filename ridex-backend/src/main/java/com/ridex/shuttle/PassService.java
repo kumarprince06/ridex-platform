@@ -133,11 +133,23 @@ public class PassService {
 
         var status = shuttlePayments.confirmPassPayment(passId, gatewayPaymentId);
         if (status == PaymentStatus.SUCCEEDED) {
-            pass.setStatus("ACTIVE");
-            passRepository.save(pass);
+            activate(pass);
         }
 
         return toResponse(pass, null);
+    }
+
+    /** Called by the webhook too, for a rider who paid and closed the app before confirming. */
+    @Transactional
+    public void activatePaid(String passId) {
+        passRepository.findById(passId).ifPresent(this::activate);
+    }
+
+    private void activate(Pass pass) {
+        if ("PENDING_PAYMENT".equals(pass.getStatus())) {
+            pass.setStatus("ACTIVE");
+            passRepository.save(pass);
+        }
     }
 
     private PassResponse toResponse(Pass pass) {

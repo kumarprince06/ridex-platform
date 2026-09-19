@@ -22,7 +22,7 @@ const MIN_DESCRIPTION = 10;
  * written into the app drifts from the queues the people answering them work.
  */
 export function ReportIssueScreen({ navigation, route }: Props) {
-  const { data: categories } = useQuery(listCategories);
+  const { data: categories, error: categoriesError } = useQuery(listCategories);
   const [category, setCategory] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
@@ -70,6 +70,7 @@ export function ReportIssueScreen({ navigation, route }: Props) {
       <Text style={styles.intro}>Tell us what happened and we&apos;ll look into it right away.</Text>
 
       <Text style={styles.sectionLabel}>CATEGORY</Text>
+      {categoriesError ? <Text style={styles.error}>{categoriesError}</Text> : null}
       <View style={styles.grid}>
         {categories?.map((item) => {
           const selected = category === item.code;

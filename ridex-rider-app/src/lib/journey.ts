@@ -22,7 +22,7 @@ export type JourneyScreen =
  * because a timer on this phone ran out. A rider watching a countdown that has nothing to do with
  * the car outside is being told a story.
  */
-const SCREEN_FOR: Partial<Record<RideStatus, JourneyScreen>> = {
+export const SCREEN_FOR: Partial<Record<RideStatus, JourneyScreen>> = {
   DRIVER_ASSIGNED: 'DriverAssigned',
   DRIVER_ARRIVING: 'DriverApproaching',
   DRIVER_AT_PICKUP: 'DriverArrived',
@@ -53,7 +53,7 @@ export function useJourney(
     // A driver cancellation or a system one ends the ride wherever the rider happens to be
     // standing, so it is its own screen rather than a step in the chain.
     if (status === 'CANCELLED_BY_DRIVER' || status === 'CANCELLED_BY_SYSTEM') {
-      navigation.replace('RideCancelled');
+      navigation.replace('RideCancelled', { rideId });
       return;
     }
 

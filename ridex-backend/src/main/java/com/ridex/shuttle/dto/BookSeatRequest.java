@@ -17,9 +17,8 @@ public record BookSeatRequest(
         String seatLabel,
 
         /**
-         * How the seat is paid for, chosen at booking. CASH is collected by the driver at the
-         * door; anything else opens checkout there and then, because a seat is inventory and
-         * holding it for somebody who has not paid costs another rider their journey.
+         * How the seat is paid for online. Seats are prepaid, so CASH is refused: a seat is
+         * inventory, and holding it for somebody who has not paid costs another rider their journey.
          */
         PaymentMethod paymentMethod,
 

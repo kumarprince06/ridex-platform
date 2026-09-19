@@ -129,11 +129,7 @@ public class DriverWalletService {
                         || !confirmed.isFor(topUp.getProviderOrderId(), topUp.getAmountMinor())) {
                     throw new ValidationException("That payment is not for this top-up.");
                 }
-                topUp.setStatus("SUCCEEDED");
-                topUp.setProviderPaymentId(gatewayPaymentId);
-                topUp.setPaidAt(Instant.now());
-                ledger.credit(LedgerAccountType.DRIVER, driverId, Money.of(topUp.getAmountMinor(), CURRENCY),
-                        "WALLET_TOPUP", "WALLET_TOPUP", topUp.getId(), "wallet-topup:" + topUp.getId());
+                credit(topUp, gatewayPaymentId);
             }
             case "FAILED" -> {
                 topUp.setStatus("FAILED");
@@ -143,6 +139,29 @@ public class DriverWalletService {
         }
         topUps.save(topUp);
         return wallet(driverId);
+    }
+
+    /**
+     * The webhook's route to the same credit, for a driver whose app never sent the confirm call.
+     * The ledger key is the same, so a webhook and a confirm racing each other credit once.
+     */
+    @Transactional
+    public void settleFromWebhook(String orderId, String gatewayPaymentId, long amountMinor) {
+        topUps.findByProviderOrderId(orderId)
+                .filter(topUp -> !"SUCCEEDED".equals(topUp.getStatus()))
+                .filter(topUp -> topUp.getAmountMinor() == amountMinor)
+                .ifPresent(topUp -> {
+                    credit(topUp, gatewayPaymentId);
+                    topUps.save(topUp);
+                });
+    }
+
+    private void credit(DriverWalletTopUp topUp, String gatewayPaymentId) {
+        topUp.setStatus("SUCCEEDED");
+        topUp.setProviderPaymentId(gatewayPaymentId);
+        topUp.setPaidAt(Instant.now());
+        ledger.credit(LedgerAccountType.DRIVER, topUp.getDriverId(), Money.of(topUp.getAmountMinor(), CURRENCY),
+                "WALLET_TOPUP", "WALLET_TOPUP", topUp.getId(), "wallet-topup:" + topUp.getId());
     }
 
     private WalletResponse wallet(String driverId) {

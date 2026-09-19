@@ -3,7 +3,6 @@ import { money, when } from '../lib/format';
 import { useState } from 'react';
 import {
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,9 +17,10 @@ import {
   rideStatusLabel,
   type Ride,
 } from '../api/rides';
-import { listBookings, type ShuttleBooking } from '../api/shuttle';
+import { listBookings, shuttleOutcome, type ShuttleBooking } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { BrandLoader } from '../components/BrandLoader';
+import { useBrandRefresh } from '../components/BrandRefresh';
 import { Chip } from '../components/Chip';
 import { RouteStops } from '../components/RouteStops';
 import { TabScreenProps } from '../navigation/types';
@@ -36,9 +36,10 @@ export function MyRidesScreen({ navigation }: Props) {
   // Shuttle seats are booked through a different endpoint, but a rider does not think of them as
   // a different thing: they are trips they paid for, and they belong on the same list.
   const { data: shuttle, refetch: refetchShuttle } = useQuery(listBookings, []);
+  // Only a pull shows the loader; the quiet refetch on every tab focus shouldn't flash it.
+  const pull = useBrandRefresh(() => Promise.all([refetch(), refetchShuttle()]));
 
-  // Filtered here rather than server-side: the endpoint returns this rider's own history, which
-  // is tens of rows, not the thousands that would make a round trip worth it.
+  // Filtered on the phone - it's one rider's history, a few dozen rows.
   const rides = (data ?? []).filter((ride) => {
     if (filter === 'Completed') return ride.status === 'COMPLETED';
     if (filter === 'Cancelled') return isCancelled(ride.status);
@@ -46,7 +47,7 @@ export function MyRidesScreen({ navigation }: Props) {
   });
 
   const seats = (shuttle ?? []).filter((booking) => {
-    if (filter === 'Completed') return booking.status === 'BOARDED';
+    if (filter === 'Completed') return shuttleOutcome(booking) != null;
     if (filter === 'Cancelled') return booking.status === 'CANCELLED';
     return true;
   });
@@ -71,16 +72,7 @@ export function MyRidesScreen({ navigation }: Props) {
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading && data != null}
-            onRefresh={() => {
-              refetch();
-              refetchShuttle();
-            }}
-            tintColor={colors.primary}
-          />
-        }
+        refreshControl={pull.control}
       >
         {loading && data == null ? <BrandLoader size={72} label="Loading your rides" style={styles.spinner} /> : null}
 
@@ -115,6 +107,7 @@ export function MyRidesScreen({ navigation }: Props) {
           />
         ))}
       </ScrollView>
+      {pull.overlay}
     </SafeAreaView>
   );
 }
@@ -127,6 +120,9 @@ export function MyRidesScreen({ navigation }: Props) {
  */
 function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: () => void }) {
   const cancelled = booking.status === 'CANCELLED';
+  const outcome = shuttleOutcome(booking);
+  const badge = cancelled ? 'Cancelled' : outcome === 'COMPLETED' ? 'Completed' : outcome === 'MISSED' ? 'Missed' : `Seat ${booking.seatLabel}`;
+  const bad = cancelled || outcome === 'MISSED';
 
   return (
     <Pressable
@@ -135,15 +131,13 @@ function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: (
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={styles.cardTop}>
-        <View style={[styles.status, cancelled && styles.statusCancelled]}>
+        <View style={[styles.status, bad && styles.statusCancelled]}>
           <Ionicons
-            name={cancelled ? 'close' : 'bus'}
+            name={bad ? 'close' : outcome ? 'checkmark' : 'bus'}
             size={11}
-            color={cancelled ? colors.danger : colors.primary}
+            color={bad ? colors.danger : colors.primary}
           />
-          <Text style={[styles.statusText, cancelled && styles.statusTextCancelled]}>
-            {cancelled ? 'Cancelled' : `Seat ${booking.seatLabel}`}
-          </Text>
+          <Text style={[styles.statusText, bad && styles.statusTextCancelled]}>{badge}</Text>
         </View>
         <Text style={styles.tier}>{booking.routeName}</Text>
         <Text style={styles.fare}>
@@ -155,9 +149,13 @@ function ShuttleCard({ booking, onPress }: { booking: ShuttleBooking; onPress: (
         compact
         pickup={{ name: booking.boardingStopName }}
         dropoff={{ name: booking.alightingStopName }}
+        style={styles.stops}
       />
 
-      <Text style={styles.when}>{when(booking.departsAt)}</Text>
+      <View style={styles.cardFooter}>
+        <Text style={styles.when}>{when(booking.departsAt)}</Text>
+        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+      </View>
     </Pressable>
   );
 }

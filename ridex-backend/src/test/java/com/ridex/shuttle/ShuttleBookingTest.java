@@ -18,15 +18,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.ridex.payment.PaymentProvider;
 import com.ridex.payment.PaymentProviders;
 
 import com.ridex.auth.UserRepository;
@@ -61,6 +56,9 @@ class ShuttleBookingTest {
     @Autowired private PassProductRepository passProductRepository;
     @Autowired private RiderProfileService riderProfileService;
     @Autowired private UserRepository userRepository;
+    @Autowired private ShuttleBookingRepository bookingRepository;
+    @Autowired private com.ridex.payment.PaymentRepository paymentRepository;
+    @Autowired private com.ridex.payment.PaymentWebhookService webhooks;
 
     private Route route;
     private ShuttleSchedule schedule;
@@ -70,15 +68,7 @@ class ShuttleBookingTest {
 
     @BeforeEach
     void setUp() {
-        PaymentProvider gateway = mock(PaymentProvider.class);
-        when(gateway.name()).thenReturn("RAZORPAY");
-        when(gateway.createPaymentIntent(any(), anyString(), anyString()))
-                .thenAnswer(call -> new PaymentProvider.ProviderPayment(
-                        "order_" + call.getArgument(1), "REQUIRES_ACTION", null));
-        when(gateway.confirmPayment(anyString()))
-                .thenAnswer(call -> new PaymentProvider.ProviderPayment(
-                        call.getArgument(0), "SUCCEEDED", null));
-        when(paymentProviders.forMethod(any())).thenReturn(gateway);
+        FakeGateway.install(paymentProviders);
 
         route = new Route();
         // Wide enough not to collide: these tests commit, so yesterday's rows are still here.
@@ -236,7 +226,7 @@ class ShuttleBookingTest {
     void travellingBackwardsAlongTheRouteIsRefused() {
         assertThatThrownBy(() -> shuttleService.book(newRider(), new BookSeatRequest(
                 schedule.getId(), serviceDate.toString(), last.getId(), first.getId(), "1C",
-                PaymentMethod.CASH, null)))
+                PaymentMethod.UPI, null)))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -245,6 +235,41 @@ class ShuttleBookingTest {
         // A twelve-seater has no 9D, and selling one strands somebody at the roadside.
         assertThatThrownBy(() -> shuttleService.book(newRider(), request("9D")))
                 .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void aSeatPaidButNeverConfirmedByTheAppIsConfirmedByTheWebhook() {
+        var booking = shuttleService.book(newRider(), request("3A"));
+        String order = paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getProviderPaymentId();
+
+        webhooks.handle(captured("pay_" + booking.id(), order, 6000), "evt_" + booking.id());
+
+        assertThat(bookingRepository.findById(booking.id()).orElseThrow().getPaymentStatus()).isEqualTo("PAID");
+    }
+
+    @Test
+    void aSeatPaidAfterItsHoldRanOutIsRefundedNotReinstated() {
+        var booking = shuttleService.book(newRider(), request("3B"));
+        String order = paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getProviderPaymentId();
+        var held = bookingRepository.findById(booking.id()).orElseThrow();
+        held.setHoldExpiresAt(java.time.Instant.now().minusSeconds(1));
+        bookingRepository.save(held);
+        shuttleService.releaseExpiredHolds();
+
+        webhooks.handle(captured("pay_" + booking.id(), order, 6000), "evt_" + booking.id());
+
+        var after = bookingRepository.findById(booking.id()).orElseThrow();
+        assertThat(after.getStatus()).isEqualTo("CANCELLED");
+        assertThat(after.getPaymentStatus()).isEqualTo("REFUNDED");
+        assertThat(paymentRepository.findByShuttleBookingId(booking.id()).orElseThrow().getStatus())
+                .isEqualTo(com.ridex.payment.domain.PaymentStatus.REFUNDED);
+    }
+
+    private static String captured(String paymentId, String orderId, long amount) {
+        return """
+                {"event":"payment.captured","payload":{"payment":{"entity":
+                {"id":"%s","order_id":"%s","amount":%d,"status":"captured"}}}}
+                """.formatted(paymentId, orderId, amount);
     }
 
     private PassProduct weeklyPass() {
@@ -259,9 +284,9 @@ class ShuttleBookingTest {
     }
 
     private BookSeatRequest request(String seat) {
-        // Cash keeps these tests off the gateway: what they are about is seat inventory.
+        // What these tests are about is seat inventory, not payment.
         return new BookSeatRequest(schedule.getId(), serviceDate.toString(),
-                first.getId(), last.getId(), seat, PaymentMethod.CASH, null);
+                first.getId(), last.getId(), seat, PaymentMethod.UPI, null);
     }
 
     private String newRider() {

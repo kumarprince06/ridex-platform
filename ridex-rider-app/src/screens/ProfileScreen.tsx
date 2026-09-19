@@ -2,35 +2,47 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { unreadCount } from '../api/notifications';
+import { getPoints } from '../api/points';
 import { listRides } from '../api/rides';
+import { listBookings, shuttleOutcome } from '../api/shuttle';
 import { useQuery } from '../api/useQuery';
 import { Avatar } from '../components/Avatar';
+import { useBrandRefresh } from '../components/BrandRefresh';
 import { Row } from '../components/Row';
 import { SectionLabel } from '../components/SectionLabel';
 import { TabScreenProps } from '../navigation/types';
 import { useSession } from '../auth/session';
-import { money } from '../lib/format';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = TabScreenProps<'Profile'>;
 
 export function ProfileScreen({ navigation }: Props) {
-  const { profile } = useSession();
+  const { profile, signOut } = useSession();
   // Falls back to the placeholder until the profile has loaded, or the header jumps on first paint.
   const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Your account';
 
   // Counted from the rider's own rides, so every figure here is one the server actually sent.
-  const { data: rides } = useQuery(listRides, []);
+  const { data: rides, refetch: refetchRides } = useQuery(listRides, []);
+  const { data: unread, refetch: refetchUnread } = useQuery(unreadCount, []);
+  const { data: seats, refetch: refetchSeats } = useQuery(listBookings, []);
+  const { data: points, refetch: refetchPoints } = useQuery(getPoints, []);
+  const pull = useBrandRefresh(() => Promise.all([refetchRides(), refetchUnread(), refetchSeats(), refetchPoints()]));
   const completed = (rides ?? []).filter((ride) => ride.status === 'COMPLETED');
-  const saved = completed.reduce((sum, ride) => sum + ride.discountMinor, 0);
+  // Shuttle trips the rider actually took count as trips too.
+  const trips = completed.length + (seats ?? []).filter((seat) => shuttleOutcome(seat) === 'COMPLETED').length;
   const stats = [
-    { icon: 'car' as const, tone: '#E0785A', value: String(completed.length), label: 'Total Trips' },
-    { icon: 'wallet' as const, tone: '#E0B252', value: money(saved, completed[0]?.currency ?? 'INR'), label: 'Saved' },
+    { icon: 'car' as const, tone: '#E0785A', value: String(trips), label: 'Total Trips' },
+    { icon: 'sparkles' as const, tone: '#E0B252', value: points ? String(points.balance) : '–', label: 'Points' },
   ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={pull.control}
+      >
         <Text style={styles.heading}>Profile</Text>
 
         <View style={styles.identity}>
@@ -44,7 +56,7 @@ export function ProfileScreen({ navigation }: Props) {
             <Text style={styles.name}>{fullName}</Text>
             <Text style={styles.email}>{profile?.email ?? ""}</Text>
             <View style={styles.ratingRow}>
-              <Text style={styles.trips}>{completed.length} trips</Text>
+              <Text style={styles.trips}>{trips} trips</Text>
             </View>
           </View>
 
@@ -72,7 +84,7 @@ export function ProfileScreen({ navigation }: Props) {
         <Row
           icon="person-outline"
           title="Edit Profile"
-          subtitle="Name, photo, contact"
+          subtitle="Name, phone, email"
           tone="#5FB8D6"
           onPress={() => navigation.navigate('EditProfile')}
         />
@@ -97,20 +109,20 @@ export function ProfileScreen({ navigation }: Props) {
           title="Notifications"
           subtitle="Ride updates, offers"
           tone="#E0B252"
-          count={3}
+          count={unread?.unread}
           onPress={() => navigation.navigate('Notifications')}
         />
         <Row
           icon="settings-outline"
           title="App Settings"
-          subtitle="Language, theme, units"
+          subtitle="Notifications, terms, privacy"
           tone="#8FA0BF"
           onPress={() => navigation.navigate('Settings')}
         />
         <Row
           icon="lock-closed"
           title="Privacy & Security"
-          subtitle="Data, password, 2FA"
+          subtitle="Password, signed-in devices"
           tone="#5FD68A"
           onPress={() => navigation.navigate('PrivacySecurity')}
         />
@@ -131,12 +143,14 @@ export function ProfileScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('ReportIssue')}
         />
 
-        <Pressable accessibilityRole="button" style={styles.signOut}>
+        {/* RootNavigator sees signedIn drop and resets to Welcome. */}
+        <Pressable onPress={() => void signOut()} accessibilityRole="button" style={styles.signOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </Pressable>
 
         <Text style={styles.version}>RideX v0.1.0 · © RideX Technologies</Text>
       </ScrollView>
+      {pull.overlay}
     </SafeAreaView>
   );
 }

@@ -27,6 +27,7 @@ import com.ridex.shuttle.dto.FareMatrixRequest;
 import com.ridex.shuttle.dto.FareRequest;
 import com.ridex.shuttle.dto.RouteRequest;
 import com.ridex.shuttle.dto.ScheduleRequest;
+import com.ridex.shuttle.dto.ShuttleLiveResponse;
 import com.ridex.shuttle.dto.StopRequest;
 import com.ridex.vehicle.DriverVehicleRepository;
 import com.ridex.vehicle.domain.DriverVehicle;
@@ -53,6 +54,7 @@ public class AdminShuttleService {
     private final DriverEligibility driverEligibility;
     private final ShuttleBookingRepository shuttleBookingRepository;
     private final ShuttleCrew shuttleCrew;
+    private final ShuttleRunService shuttleRunService;
 
     /** The list. Counts only - the full route comes back when somebody opens one. */
     @Transactional(readOnly = true)
@@ -342,6 +344,7 @@ public class AdminShuttleService {
                         booking.getBoardedAt()))
                 .toList();
 
+        ShuttleLiveResponse live = shuttleRunService.snapshot(trip);
         return new AdminDepartureResponse(
                 trip.getId(),
                 trip.getSchedule().getId(),
@@ -355,6 +358,10 @@ public class AdminShuttleService {
                 crew == null ? null : crew.driverName(),
                 crew == null ? null : crew.vehicle(),
                 crew == null ? null : crew.registrationNumber(),
+                trip.getStatus(),
+                live.stops().stream().filter(stop -> "CURRENT".equals(stop.state()))
+                        .map(ShuttleLiveResponse.Stop::name).findFirst().orElse(null),
+                live.delayMinutes(),
                 seats);
     }
 

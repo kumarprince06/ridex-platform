@@ -22,22 +22,31 @@ export function RideOfferScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     // Fetched rather than passed through params: the countdown must come from the server's
     // expiry, and a param could be minutes stale if the app was backgrounded.
-    void liveOffers().then((offers) => {
-      const found = offers.find((item) => item.offerId === route.params?.offerId) ?? offers[0] ?? null;
-      setOffer(found);
-      if (found) {
-        const remaining = Math.round((new Date(found.expiresAt).getTime() - Date.now()) / 1000);
-        setSecondsLeft(Math.max(0, remaining));
-      }
-    });
-  }, [route.params?.offerId]);
+    setLoadError(null);
+    liveOffers()
+      .then((offers) => {
+        const found = offers.find((item) => item.offerId === route.params?.offerId) ?? offers[0] ?? null;
+        setOffer(found);
+        if (found) {
+          const remaining = Math.round((new Date(found.expiresAt).getTime() - Date.now()) / 1000);
+          setSecondsLeft(Math.max(0, remaining));
+        }
+      })
+      .catch((caught) =>
+        setLoadError(caught instanceof ApiError ? caught.userMessage : 'Could not load the offer.'),
+      );
+  }, [route.params?.offerId, attempt]);
 
   async function onAccept() {
     if (!offer) return;
     setBusy(true);
+    setError(null);
     try {
       // The accept response carries the trip: every later action - arrive, start, complete - is
       // against that id, and without it the driver has a ride they cannot drive.
@@ -47,9 +56,12 @@ export function RideOfferScreen({ navigation, route }: Props) {
         tripId: accepted.tripId ?? undefined,
       });
     } catch (caught) {
-      // "That ride has already been taken" is the 409 from the claim: somebody was faster.
       setError(caught instanceof ApiError ? caught.userMessage : 'Could not accept.');
-      setTimeout(() => navigation.replace('OfferLost'), 1200);
+      // Only a lost race (409 taken/expired, 404 offer gone) ends the offer; anything else - a
+      // dropped connection, a 5xx - leaves it on screen to try again while the timer runs.
+      if (caught instanceof ApiError && (caught.status === 409 || caught.status === 404)) {
+        setTimeout(() => navigation.replace('OfferLost'), 1200);
+      }
     } finally {
       setBusy(false);
     }
@@ -91,6 +103,11 @@ export function RideOfferScreen({ navigation, route }: Props) {
             secondsLeft={Math.max(0, secondsLeft)}
             totalSeconds={WINDOW_SECONDS}
           />
+        ) : loadError ? (
+          <View style={styles.loadError}>
+            <Text style={styles.error}>{loadError}</Text>
+            <Button label="Try again" variant="secondary" onPress={() => setAttempt((n) => n + 1)} />
+          </View>
         ) : (
           <Text style={styles.loading}>Loading the offer...</Text>
         )}
@@ -117,6 +134,9 @@ export function RideOfferScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  loadError: {
+    gap: spacing.sm,
+  },
   loading: {
     ...type.body,
     color: colors.textMuted,

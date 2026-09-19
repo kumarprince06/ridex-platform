@@ -1,10 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import * as authApi from '../api/auth';
 import { setSessionExpiredHandler } from '../api/client';
 import { ApiError } from '../api/problem';
 import { getProfile, type DriverProfile } from '../api/profile';
 import { setDuty } from '../api/driver';
+import { registerForPush, unregisterPush } from '../api/push';
 import { clearTokens, loadTokens } from './tokens';
 
 type SessionState = {
@@ -22,7 +23,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [profile, setProfile] = useState<DriverProfile | null>(null);
 
+  // The token this device registered, so sign-out can take it back off the account.
+  const pushToken = useRef<string | null>(null);
+
   const signOut = useCallback(async () => {
+    if (pushToken.current) {
+      await unregisterPush(pushToken.current).catch(() => undefined);
+      pushToken.current = null;
+    }
+
     const tokens = await loadTokens();
     if (tokens) {
       // Off duty first, while the token still works: a signed-out phone must not stay in dispatch.
@@ -43,7 +52,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(
     async (email: string, password: string) => {
       await authApi.login(email, password);
-      return refreshProfile();
+      const signedIn = await refreshProfile();
+      // Best effort: a denied permission must not turn a successful sign-in into a failed one.
+      pushToken.current = await registerForPush().catch(() => null);
+      return signedIn;
     },
     [refreshProfile],
   );
@@ -67,6 +79,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             return clearTokens();
           }
         });
+        // Only for a session that survived the check, and not awaited so the splash never waits on it.
+        if (await loadTokens()) {
+          registerForPush().then((token) => (pushToken.current = token), () => undefined);
+        }
       }
       setReady(true);
     })();

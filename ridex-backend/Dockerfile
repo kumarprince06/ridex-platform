@@ -19,7 +19,9 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Nothing here needs root. An application that is compromised should not also own its filesystem.
-RUN addgroup -S ridex && adduser -S ridex -G ridex
+# The documents dir is created and owned here so the volume mounted over it inherits ridex, not root.
+RUN addgroup -S ridex && adduser -S ridex -G ridex \
+    && mkdir -p /var/ridex/documents && chown -R ridex:ridex /var/ridex
 USER ridex
 
 COPY --from=build --chown=ridex:ridex /build/target/*.jar app.jar
@@ -31,8 +33,10 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
 
 EXPOSE 8080
 
+# The timetable is Kolkata wall-clock time and Hibernate reads schedule times in the JVM's zone, so
+# the container runs in it - on UTC every seeded 07:15 departure would read as 01:45.
 # Container-aware by default on 21: the JVM reads the cgroup limit rather than the host's RAM.
 # MaxRAMPercentage leaves room for metaspace, threads and the OS inside a small box.
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Djava.security.egd=file:/dev/./urandom"
+ENV JAVA_OPTS="-Duser.timezone=Asia/Kolkata -XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Djava.security.egd=file:/dev/./urandom"
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

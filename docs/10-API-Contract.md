@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java api > docs/10-API-Contract.md
 ```
 
-Generated on 2026-09-19 from `5b2d025`.
+Generated on 2026-09-19 from `19561a8`.
 
 ## Conventions
 

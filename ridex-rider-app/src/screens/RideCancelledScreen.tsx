@@ -3,13 +3,23 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { getRide } from '../api/rides';
+import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
+import { money } from '../lib/format';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideCancelled'>;
 
-export function RideCancelledScreen({ navigation }: Props) {
+export function RideCancelledScreen({ navigation, route }: Props) {
+  const rideId = route.params?.rideId;
+  const { data: ride } = useQuery(
+    () => (rideId ? getRide(rideId).catch(() => null) : Promise.resolve(null)),
+    [rideId],
+  );
+  const fee = ride?.cancellationFeeMinor ?? 0;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.center}>
@@ -21,9 +31,14 @@ export function RideCancelledScreen({ navigation }: Props) {
 
         <Text style={styles.title}>Ride Cancelled</Text>
         <Text style={styles.body}>
-          Your ride has been cancelled. No charge has been applied.
+          Your ride has been cancelled.
+          {ride
+            ? fee > 0
+              ? ` A ${money(fee, ride.currency)} cancellation fee applies and will be added to your next fare.`
+              : ' No charge has been applied.'
+            : ''}
         </Text>
-        <Text style={styles.reference}>Reference: RX-CANCEL-2026-3847</Text>
+        {ride ? <Text style={styles.reference}>Trip #{ride.id.slice(-8)}</Text> : null}
 
         <Button
           label="Find a New Ride"

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { countLabel, unreadCount } from '../api/notifications';
 import { listRides } from '../api/rides';
 import { useQuery } from '../api/useQuery';
 import { MapCanvas } from '../components/MapCanvas';
@@ -14,6 +15,8 @@ export function HomeScreen({ navigation }: Props) {
   // Where this rider has actually been, newest first. One address appears once however many
   // times it was ridden to - a list of the same trip four times is not a shortcut.
   const { data: rides } = useQuery(listRides, []);
+  // Refetched on every return to Home, so it clears after the rider reads the feed.
+  const unread = useQuery(unreadCount, []).data?.unread ?? 0;
   const recent = (rides ?? [])
     .filter((ride) => ride.destinationAddress)
     .filter(
@@ -38,11 +41,15 @@ export function HomeScreen({ navigation }: Props) {
           <Pressable
             onPress={() => navigation.navigate('Notifications')}
             accessibilityRole="button"
-            accessibilityLabel="Notifications"
+            accessibilityLabel={unread ? `Notifications, ${unread} unread` : 'Notifications'}
             style={styles.bell}
           >
             <Ionicons name="notifications-outline" size={19} color={colors.text} />
-            <View style={styles.bellDot} />
+            {unread > 0 ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{countLabel(unread)}</Text>
+              </View>
+            ) : null}
           </Pressable>
         </View>
       </SafeAreaView>
@@ -164,14 +171,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bellDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 8,
-    right: 9,
-    width: 8,
-    height: 8,
-    borderRadius: radius.pill,
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
     backgroundColor: colors.danger,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    ...type.caption,
+    fontSize: 10,
+    lineHeight: 12,
+    color: colors.text,
   },
   sheet: {
     marginTop: 'auto',

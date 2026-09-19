@@ -54,6 +54,7 @@ public class ShuttleService {
     private final ShuttleCrew shuttleCrew;
     private final ShuttlePaymentService shuttlePayments;
     private final PointsService pointsService;
+    private final ShuttleStopEventRepository stopEventRepository;
 
     /** How long a picked seat is held while the rider pays for it. */
     private static final java.time.Duration HOLD = java.time.Duration.ofMinutes(10);
@@ -172,6 +173,10 @@ public class ShuttleService {
      */
     @Transactional
     public ShuttleBookingResponse book(String riderUserId, BookSeatRequest request) {
+        // Seats are prepaid: a no-show on a cash seat keeps somebody else off the bus for nothing.
+        if (request.methodOrDefault() == PaymentMethod.CASH) {
+            throw new ValidationException("Shuttle seats are paid for online when you book.");
+        }
         RiderProfile rider = riderProfileRepository.findByUserId(riderUserId)
                 .orElseThrow(() -> new NotFoundException("No rider profile for this account."));
 
@@ -269,24 +274,14 @@ public class ShuttleService {
             Money gross = Money.of(booking.getFareMinor(), currency);
             Money discount = Money.of(booking.getDiscountMinor(), currency);
 
-            if (method == PaymentMethod.CASH) {
-                // Nothing to authorise - the money changes hands at the door. The seat is confirmed
-                // now, and the fare is settled when the driver checks the passenger in.
-                booking.setPaymentStatus("CASH_DUE");
-                bookingRepository.save(booking);
-                shuttlePayments.startShuttlePayment(booking.getId(), rider, gross, discount, method);
-                confirmBooking(booking);
-            } else {
-                // An online seat is held, not confirmed, until the money arrives. The row is
-                // already BOOKED so nobody else can take it - the constraints that stop a double
-                // sale are scoped to that status - and the hold releases it if checkout is
-                // abandoned.
-                booking.setPaymentStatus("PENDING");
-                booking.setHoldExpiresAt(Instant.now().plus(HOLD));
-                bookingRepository.save(booking);
-                checkout = shuttlePayments.startShuttlePayment(booking.getId(), rider, gross,
-                        discount, method);
-            }
+            // The seat is held, not confirmed, until the money arrives. The row is already BOOKED
+            // so nobody else can take it - the constraints that stop a double sale are scoped to
+            // that status - and the hold releases it if checkout is abandoned.
+            booking.setPaymentStatus("PENDING");
+            booking.setHoldExpiresAt(Instant.now().plus(HOLD));
+            bookingRepository.save(booking);
+            checkout = shuttlePayments.startShuttlePayment(booking.getId(), rider, gross,
+                    discount, method);
         } else {
             confirmBooking(booking);
         }
@@ -379,7 +374,7 @@ public class ShuttleService {
 
         var status = shuttlePayments.confirmShuttlePayment(bookingId, gatewayPaymentId);
         if (status == PaymentStatus.SUCCEEDED) {
-            confirmBooking(booking);
+            settlePaid(booking);
         }
 
         return toResponse(booking,
@@ -395,15 +390,24 @@ public class ShuttleService {
      * confirmation call is made - which is most of the reason webhooks exist.
      */
     @Transactional
+    public void settlePaid(ShuttleBooking booking) {
+        // The hold ran out before the money did, and the seat may already be someone else's.
+        if ("CANCELLED".equals(booking.getStatus())) {
+            shuttlePayments.refundShuttlePayment(booking.getId(), "Paid after the seat hold expired");
+            booking.setPaymentStatus("REFUNDED");
+            bookingRepository.save(booking);
+            return;
+        }
+        confirmBooking(booking);
+    }
+
+    @Transactional
     public void confirmBooking(ShuttleBooking booking) {
         if ("PAID".equals(booking.getPaymentStatus())) {
             return;
         }
 
-        // A cash seat is confirmed but not paid for; that stays true until the driver collects.
-        if (!"CASH_DUE".equals(booking.getPaymentStatus())) {
-            booking.setPaymentStatus("PAID");
-        }
+        booking.setPaymentStatus("PAID");
         booking.setHoldExpiresAt(null);
         bookingRepository.save(booking);
 
@@ -479,7 +483,6 @@ public class ShuttleService {
         boolean paid = "PAID".equals(booking.getPaymentStatus());
         String paymentStatus = booking.getPassId() != null ? "Covered by pass"
                 : paid ? "Paid"
-                : "CASH_DUE".equals(booking.getPaymentStatus()) ? "Pay on board"
                 : "Unpaid";
 
         StringBuilder payload = new StringBuilder(booking.getId())
@@ -502,9 +505,7 @@ public class ShuttleService {
 
         if (payment != null) {
             payload.append("Paid with|")
-                    .append(payment.method() == PaymentMethod.CASH
-                            ? "Cash to the driver"
-                            : payment.method() + " · " + payment.provider())
+                    .append(payment.method() + " · " + payment.provider())
                     .append('\n');
             // The gateway's own id. Without it a disputed charge is an amount and a date.
             if (payment.reference() != null) {
@@ -621,8 +622,7 @@ public class ShuttleService {
                 booking.getDiscountMinor(),
                 booking.getPassId(),
                 booking.getStatus(),
-                // From the row, not the one-shot value: a ticket reopened later still has to show
-                // the code and its QR, which is the whole point of keeping the ticket.
+                // From the row, so a reopened ticket still shows its code.
                 booking.getBoardingCode() != null ? booking.getBoardingCode() : boardingCode,
                 shuttleCrew.of(booking.getShuttleTrip().getDriverId(),
                         booking.getShuttleTrip().getVehicleId(),
@@ -632,6 +632,21 @@ public class ShuttleService {
                 creditIfCancelled(booking),
                 checkout == null ? null : new ShuttleBookingResponse.Checkout(
                         checkout.gatewayOrderId(), checkout.gatewayKeyId(),
-                        checkout.amountMinor(), checkout.currency()));
+                        checkout.amountMinor(), checkout.currency()),
+                booking.getShuttleTrip().getStatus(),
+                booking.getBoardedAt() != null,
+                booking.getBoardedAt(),
+                alightedAt(booking));
+    }
+
+    private Instant alightedAt(ShuttleBooking booking) {
+        // A departure that hasn't run has no stop events, so skip the lookup.
+        if ("SCHEDULED".equals(booking.getShuttleTrip().getStatus())) {
+            return null;
+        }
+        return stopEventRepository
+                .findByShuttleTripIdAndStopId(booking.getShuttleTrip().getId(), booking.getAlightingStopId())
+                .map(ShuttleStopEvent::getArrivedAt)
+                .orElse(null);
     }
 }

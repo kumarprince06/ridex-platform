@@ -8,11 +8,12 @@ import { Screen } from '../components/Screen';
 import { Stars } from '../components/Stars';
 import { rateRider } from '../api/driver';
 import { ApiError } from '../api/problem';
-import { RIDER_RATING_TAGS } from '../data/mock';
 import { RootScreenProps } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'RateRider'>;
+
+const RIDER_RATING_TAGS = ['On time', 'Polite', 'Clear pickup', 'Left it clean', 'Great chat'];
 
 export function RateRiderScreen({ navigation, route }: Props) {
   const riderName = route.params?.riderName ?? 'Your rider';

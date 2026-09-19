@@ -1,6 +1,6 @@
 import { request } from './client';
 import { APP_CONTEXT } from './config';
-import { saveTokens } from '../auth/tokens';
+import { loadTokens, saveTokens } from '../auth/tokens';
 
 export type LoginResponse = {
   accessToken: string;
@@ -75,8 +75,12 @@ export type Session = {
   current: boolean;
 };
 
-export function listSessions() {
-  return request<Session[]>('/api/v1/auth/sessions');
+/** The refresh token goes along so the server can mark which row is this phone. */
+export async function listSessions() {
+  const refreshToken = (await loadTokens())?.refreshToken;
+  return request<Session[]>('/api/v1/auth/sessions', {
+    headers: refreshToken ? { 'X-Refresh-Token': refreshToken } : undefined,
+  });
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {

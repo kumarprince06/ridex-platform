@@ -1,3 +1,5 @@
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '../components/Avatar';
@@ -8,6 +10,7 @@ import { StatTiles } from '../components/StatTiles';
 import { useSession } from '../auth/session';
 import { expiringSoon, listDocuments } from '../api/documents';
 import { getPayoutAccount } from '../api/driver';
+import { unreadCount } from '../api/notifications';
 import { getProfile } from '../api/profile';
 import { listVehicles } from '../api/vehicles';
 import { useQuery } from '../api/useQuery';
@@ -21,6 +24,13 @@ export function AccountScreen({ navigation }: Props) {
   const { data: vehicles, refetch: refetchVehicles } = useQuery(listVehicles);
   const { data: documents, refetch: refetchDocuments } = useQuery(listDocuments);
   const { data: payoutAccount, refetch: refetchPayoutAccount } = useQuery(getPayoutAccount);
+  const { data: unread, refetch: refetchUnread } = useQuery(unreadCount);
+  // A tab stays mounted, so the count is refreshed on return from the feed that clears it.
+  useFocusEffect(
+    useCallback(() => {
+      void refetchUnread();
+    }, [refetchUnread]),
+  );
   const { signOut } = useSession();
   const expiring = expiringSoon(documents ?? []);
   // The car they are approved to drive today, not whichever was added first.
@@ -71,7 +81,7 @@ export function AccountScreen({ navigation }: Props) {
 
       <SectionLabel>ACCOUNT</SectionLabel>
       <Row icon="person" title="Edit profile" onPress={() => navigation.navigate('EditProfile')} />
-      <Row icon="notifications" title="Notifications" onPress={() => navigation.navigate('Notifications')} />
+      <Row icon="notifications" title="Notifications" count={unread?.unread} onPress={() => navigation.navigate('Notifications')} />
       <Row icon="settings" title="Settings" onPress={() => navigation.navigate('Settings')} />
       <Row icon="shield-checkmark" title="Safety" subtitle="Emergency, trip sharing, incident reports" onPress={() => navigation.navigate('Safety')} />
       <Row icon="help-buoy" title="Help and support" onPress={() => navigation.navigate('HelpSupport')} />

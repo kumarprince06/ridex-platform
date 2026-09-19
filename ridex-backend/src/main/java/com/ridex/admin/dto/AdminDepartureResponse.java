@@ -23,6 +23,10 @@ public record AdminDepartureResponse(
         String driverName,
         String vehicle,
         String registrationNumber,
+        // Live run: SCHEDULED, RUNNING or COMPLETED, the last stop reached and how late it is.
+        String runStatus,
+        String currentStop,
+        int delayMinutes,
         List<Seat> seats) {
 
     public record Seat(

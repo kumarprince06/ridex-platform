@@ -114,6 +114,11 @@ public class ShuttleRunService {
         return publish(trip, "FINISHED");
     }
 
+    // For the ops view, which already holds the trip.
+    ShuttleLiveResponse snapshot(ShuttleTrip trip) {
+        return stateOf(trip, "SNAPSHOT");
+    }
+
     @Transactional(readOnly = true)
     public ShuttleLiveResponse forDriver(String driverUserId, String tripId) {
         return stateOf(requireOwnTrip(driverUserId, tripId), "SNAPSHOT");
@@ -197,17 +202,28 @@ public class ShuttleRunService {
         Map<Short, Instant> arrivals = eventRepository.findByShuttleTripIdOrderBySequenceAsc(trip.getId())
                 .stream().collect(Collectors.toMap(ShuttleStopEvent::getSequence, ShuttleStopEvent::getArrivedAt));
         Short current = trip.getCurrentStopSeq();
-        long delaySeconds = delaySeconds(trip, stops, arrivals);
         Instant now = Instant.now();
 
+        // ETAs run from where the shuttle actually is: the last stop it reached (or the start) plus
+        // the timetable gap from there. Works the same whether it is running early or late.
+        RouteStop anchorStop = current == null ? null
+                : stops.stream().filter(stop -> stop.getSequence() == current).findFirst().orElse(null);
+        Instant anchorAt = anchorStop != null && arrivals.containsKey(current) ? arrivals.get(current)
+                : trip.getStartedAt() != null ? latest(trip.getStartedAt(), trip.getDepartsAt())
+                : trip.getDepartsAt();
+        int anchorOffset = anchorStop != null ? anchorStop.getOffsetMinutes() : 0;
+        long delayMinutes = anchorStop != null && arrivals.containsKey(current)
+                ? Duration.between(scheduledAt(trip, anchorStop), arrivals.get(current)).toMinutes()
+                : trip.getStartedAt() != null ? Duration.between(trip.getDepartsAt(), trip.getStartedAt()).toMinutes() : 0;
+
         List<ShuttleLiveResponse.Stop> live = stops.stream().map(stop -> {
-            Instant scheduled = scheduledAt(trip, stop);
             boolean passed = current != null && stop.getSequence() < current;
             boolean here = current != null && stop.getSequence() == current;
-            Instant expected = passed || here ? null : latest(scheduled.plusSeconds(delaySeconds), now);
+            Instant expected = passed || here ? null
+                    : latest(anchorAt.plus(Duration.ofMinutes(stop.getOffsetMinutes() - anchorOffset)), now);
             return new ShuttleLiveResponse.Stop(stop.getId(), stop.getSequence(), stop.getName(),
                     stop.getLatitude().doubleValue(), stop.getLongitude().doubleValue(),
-                    scheduled, expected, arrivals.get(stop.getSequence()),
+                    scheduledAt(trip, stop), expected, arrivals.get(stop.getSequence()),
                     passed ? "PASSED" : here ? "CURRENT" : "UPCOMING");
         }).toList();
 
@@ -217,24 +233,9 @@ public class ShuttleRunService {
                 : null;
 
         return new ShuttleLiveResponse(event, trip.getId(), trip.getSchedule().getRoute().getName(),
-                trip.getStatus(), current, (int) (delaySeconds / 60), vehicle, live);
+                trip.getStatus(), current, (int) Math.max(0, delayMinutes), vehicle, live);
     }
 
-    // How late the run is: at the last stop reached, or at the start if none yet. Never negative -
-    // a shuttle that is early waits at the stop.
-    private long delaySeconds(ShuttleTrip trip, List<RouteStop> stops, Map<Short, Instant> arrivals) {
-        if (trip.getCurrentStopSeq() != null) {
-            RouteStop last = stops.stream().filter(stop -> stop.getSequence() == trip.getCurrentStopSeq())
-                    .findFirst().orElse(null);
-            if (last != null && arrivals.containsKey(last.getSequence())) {
-                return Math.max(0, Duration.between(scheduledAt(trip, last), arrivals.get(last.getSequence())).toSeconds());
-            }
-        }
-        if (trip.getStartedAt() != null) {
-            return Math.max(0, Duration.between(trip.getDepartsAt(), trip.getStartedAt()).toSeconds());
-        }
-        return 0;
-    }
 
     private static Instant scheduledAt(ShuttleTrip trip, RouteStop stop) {
         return trip.getDepartsAt().plus(Duration.ofMinutes(stop.getOffsetMinutes()));

@@ -10,8 +10,10 @@ import tools.jackson.databind.ObjectMapper;
 import com.ridex.payment.domain.Payment;
 import com.ridex.payment.domain.PaymentEvent;
 import com.ridex.payment.domain.PaymentStatus;
+import com.ridex.shuttle.PassService;
 import com.ridex.shuttle.ShuttleBookingRepository;
 import com.ridex.shuttle.ShuttleService;
+import com.ridex.wallet.DriverWalletService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,8 @@ public class PaymentWebhookService {
     private final ObjectMapper objectMapper;
     private final ShuttleService shuttleService;
     private final ShuttleBookingRepository shuttleBookingRepository;
+    private final PassService passService;
+    private final DriverWalletService walletService;
 
     /**
      * Records one verified webhook and applies it.
@@ -65,13 +69,24 @@ public class PaymentWebhookService {
 
         String type = root.path("event").asText("");
         String providerPaymentId = paymentIdIn(root);
+        String orderId = root.path("payload").path("payment").path("entity").path("order_id").asText(null);
 
+        // Until the app confirms, a seat or pass payment row holds the order id, not the payment id -
+        // and the payments this webhook exists for are exactly the ones never confirmed.
         Optional<Payment> payment = providerPaymentId == null
                 ? Optional.empty()
                 : paymentRepository.findByProviderPaymentId(providerPaymentId);
+        if (payment.isEmpty() && orderId != null) {
+            payment = paymentRepository.findByProviderPaymentId(orderId);
+        }
 
         record(eventId, type, payment.map(Payment::getId).orElse(null), payload);
 
+        if (payment.isEmpty() && orderId != null && "payment.captured".equals(type)) {
+            // Wallet top-ups keep their own table; a captured one the app never confirmed is credited here.
+            walletService.settleFromWebhook(orderId, providerPaymentId, amountIn(root));
+            return true;
+        }
         if (payment.isEmpty()) {
             // An order we never created, or a payment against an order id we store instead. Kept
             // for the audit trail; nothing to move.
@@ -79,7 +94,7 @@ public class PaymentWebhookService {
             return true;
         }
 
-        apply(payment.get(), type, root);
+        apply(payment.get(), type, root, providerPaymentId);
         return true;
     }
 
@@ -89,7 +104,7 @@ public class PaymentWebhookService {
      * <p>Gateways deliver out of order. Letting a late "authorized" overwrite a captured payment
      * would reopen a settled trip, so a terminal status is never walked back by a webhook.
      */
-    private void apply(Payment payment, String type, JsonNode root) {
+    private void apply(Payment payment, String type, JsonNode root, String providerPaymentId) {
         PaymentStatus next = switch (type) {
             case "payment.captured" -> PaymentStatus.SUCCEEDED;
             case "payment.failed" -> PaymentStatus.FAILED;
@@ -107,6 +122,21 @@ public class PaymentWebhookService {
             return;
         }
 
+        if (next == PaymentStatus.SUCCEEDED) {
+            // A signed webhook is still checked against what we charged, like the confirm call.
+            if (amountIn(root) != payment.getNetAmountMinor()) {
+                log.warn("Captured amount on payment {} does not match what was charged", payment.getId());
+                return;
+            }
+            if (payment.getStatus() == PaymentStatus.SUCCEEDED || payment.getStatus() == PaymentStatus.REFUNDED) {
+                return;
+            }
+            // Found by its order id: from here on the payment id is what refunds and webhooks name.
+            if (providerPaymentId != null && !providerPaymentId.equals(payment.getProviderPaymentId())) {
+                payment.setProviderPaymentId(providerPaymentId);
+            }
+            payment.setPaidAt(java.time.Instant.now());
+        }
         payment.setStatus(next);
         if (next == PaymentStatus.FAILED) {
             payment.setFailureReason(errorIn(root));
@@ -118,7 +148,10 @@ public class PaymentWebhookService {
         // arrives here and from the app.
         if (next == PaymentStatus.SUCCEEDED && payment.getShuttleBookingId() != null) {
             shuttleBookingRepository.findById(payment.getShuttleBookingId())
-                    .ifPresent(shuttleService::confirmBooking);
+                    .ifPresent(shuttleService::settlePaid);
+        }
+        if (next == PaymentStatus.SUCCEEDED && payment.getPassId() != null) {
+            passService.activatePaid(payment.getPassId());
         }
         log.info("Payment {} is now {} after {}", payment.getId(), next, type);
     }
@@ -142,6 +175,10 @@ public class PaymentWebhookService {
         // A refund event names the payment it refunds, which is the row we hold.
         JsonNode refund = root.path("payload").path("refund").path("entity").path("payment_id");
         return refund.isMissingNode() ? null : refund.asText(null);
+    }
+
+    private static long amountIn(JsonNode root) {
+        return root.path("payload").path("payment").path("entity").path("amount").asLong(-1);
     }
 
     private static String errorIn(JsonNode root) {

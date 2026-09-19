@@ -5,7 +5,9 @@ import {
   addSchedule,
   addStop,
   deleteRoute,
+  getPassPricing,
   getRoute,
+  setPassPricing,
   removeStop,
   updateStop,
   setFareMatrix,
@@ -24,7 +26,7 @@ import { SeatLayout } from '../components/SeatLayout';
 import { Button, Card, DetailList, EmptyState, Grid, PageHeader, Pill, StatTile, Table } from '../components/ui';
 import { dayNames, legsFromRule } from '../lib/shuttle';
 
-const TABS = ['Overview', 'Stops', 'Fares', 'Timetable'] as const;
+const TABS = ['Overview', 'Stops', 'Fares', 'Timetable', 'Passes'] as const;
 type Tab = (typeof TABS)[number];
 
 /** One route, a tab per thing you change about it. */
@@ -105,6 +107,7 @@ export function ShuttleRoutePage() {
       {tab === 'Stops' ? <Stops route={route} busy={busy} act={act} /> : null}
       {tab === 'Fares' ? <Fares route={route} busy={busy} act={act} /> : null}
       {tab === 'Timetable' ? <Timetable route={route} busy={busy} act={act} /> : null}
+      {tab === 'Passes' ? <Passes route={route} busy={busy} act={act} /> : null}
     </>
   );
 }
@@ -514,3 +517,113 @@ function Timetable({ route, busy, act }: { route: ShuttleRoute; busy: boolean; a
     </Card>
   );
 }
+
+/**
+ * Passes for this route: one monthly price, and a discount for each longer plan. A pass covers
+ * every seat on this route only - other routes are still paid for.
+ */
+function Passes({ route, busy, act }: { route: ShuttleRoute; busy: boolean; act: Act }) {
+  const { data: pricing, refetch } = useQuery(() => getPassPricing(route.id), [route.id]);
+  const [monthly, setMonthly] = useState<string | null>(null);
+  const [discounts, setDiscounts] = useState<Record<string, string> | null>(null);
+
+  // A starting point: one full-route trip every working day, less 15% for committing to the month.
+  const longestFare = Math.max(0, ...route.fares.map((fare) => fare.fareMinor));
+  const suggested = Math.round((longestFare * 22 * 0.85) / 100 / 10) * 10;
+
+  const savedMonthly = pricing?.monthlyPriceMinor != null ? String(pricing.monthlyPriceMinor / 100) : '';
+  const monthlyValue = monthly ?? (savedMonthly || String(suggested || ''));
+  const discountOf = (plan: string, fallback: number) =>
+    discounts?.[plan] ?? String(pricing?.plans.find((row) => row.plan === plan && row.priceMinor != null)?.discountPercent ?? fallback);
+  const values = { QUARTERLY: discountOf('QUARTERLY', 5), HALF_YEARLY: discountOf('HALF_YEARLY', 10), YEARLY: discountOf('YEARLY', 15) };
+
+  const rows = (pricing?.plans ?? []).map((plan) => {
+    const discount = plan.plan === 'MONTHLY' ? 0 : Number(values[plan.plan as keyof typeof values] || 0);
+    const price = Math.round((Number(monthlyValue || 0) * plan.months * (100 - discount)) / 100);
+    return { ...plan, discount, price, perMonth: Math.round(price / plan.months) };
+  });
+
+  if (route.fares.length === 0) {
+    return <EmptyState title="Set the fares first">Pass prices are compared against what the trips cost.</EmptyState>;
+  }
+
+  const save = (onSale: boolean) =>
+    act(async () => {
+      await setPassPricing(route.id, {
+        monthlyPriceMinor: Number(monthlyValue) * 100,
+        quarterlyDiscountPercent: Number(values.QUARTERLY || 0),
+        halfYearlyDiscountPercent: Number(values.HALF_YEARLY || 0),
+        yearlyDiscountPercent: Number(values.YEARLY || 0),
+        onSale,
+      });
+      setMonthly(null);
+      setDiscounts(null);
+      await refetch();
+    }, onSale ? 'Passes are on sale for this route.' : 'Passes saved, not on sale.');
+
+  return (
+    <>
+      <Card
+        title="Pass prices"
+        actions={
+          pricing?.onSale ? <Pill tone="success">On sale</Pill> : <Pill tone="muted">Not on sale</Pill>
+        }
+      >
+        <p className="cell-muted">
+          A pass covers every seat on {route.name} for its whole period, so riders book without paying. Other routes are
+          still paid. Longer plans cost less per month.
+        </p>
+        <div className="rule-row">
+          <label className="field">
+            <span className="field-label">Monthly price (₹)</span>
+            <input className="input" type="number" min={1} value={monthlyValue} onChange={(event) => setMonthly(event.target.value)} />
+          </label>
+          {(['QUARTERLY', 'HALF_YEARLY', 'YEARLY'] as const).map((plan) => (
+            <label className="field" key={plan}>
+              <span className="field-label">{plan === 'QUARTERLY' ? 'Quarterly' : plan === 'HALF_YEARLY' ? 'Half-yearly' : 'Yearly'} discount (%)</span>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                max={60}
+                value={values[plan]}
+                onChange={(event) => setDiscounts({ ...values, [plan]: event.target.value })}
+              />
+            </label>
+          ))}
+        </div>
+        {suggested ? (
+          <p className="cell-muted">
+            Suggested monthly price: ₹{suggested} - the whole route (₹{longestFare / 100}) every working day, 15% off.
+          </p>
+        ) : null}
+      </Card>
+
+      <Card title="What riders will see">
+        <Table
+          columns={[
+            { key: 'label', header: 'Plan', render: (row: (typeof rows)[number]) => <span className="cell-strong">{row.label}</span> },
+            { key: 'days', header: 'Valid for', render: (row) => `${row.durationDays} days` },
+            { key: 'price', header: 'Price', align: 'right', render: (row) => <span className="cell-strong">₹{row.price.toLocaleString('en-IN')}</span> },
+            { key: 'perMonth', header: 'Per month', align: 'right', render: (row) => `₹${row.perMonth.toLocaleString('en-IN')}` },
+            { key: 'save', header: 'Saving', align: 'right', render: (row) => (row.discount ? <Pill tone="success">{row.discount}% off</Pill> : '—') },
+            { key: 'active', header: 'Riders holding it', align: 'right', render: (row) => row.activePasses },
+          ]}
+          rows={rows}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+          {pricing?.onSale ? (
+            <Button disabled={busy} onClick={() => save(false)}>
+              Stop selling
+            </Button>
+          ) : null}
+          <Button variant="primary" disabled={busy || !Number(monthlyValue)} onClick={() => save(true)}>
+            {pricing?.onSale ? 'Save prices' : 'Put on sale'}
+          </Button>
+        </div>
+        <p className="cell-muted">Riders who already hold a pass keep the price they paid.</p>
+      </Card>
+    </>
+  );
+}
+

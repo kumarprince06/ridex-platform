@@ -523,6 +523,37 @@ export function updateStop(routeId: string, stopId: string, stop: StopInput) {
   return request<ShuttleRoute>(`${SHUTTLE}/${routeId}/stops/${stopId}`, { method: 'PUT', body: stop });
 }
 
+export type PassPricing = {
+  monthlyPriceMinor: number | null;
+  onSale: boolean;
+  plans: {
+    plan: 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY';
+    label: string;
+    months: number;
+    durationDays: number;
+    priceMinor: number | null;
+    discountPercent: number;
+    activePasses: number;
+  }[];
+};
+
+export function getPassPricing(routeId: string) {
+  return request<PassPricing>(`${SHUTTLE}/${routeId}/passes`);
+}
+
+export function setPassPricing(
+  routeId: string,
+  pricing: {
+    monthlyPriceMinor: number;
+    quarterlyDiscountPercent: number;
+    halfYearlyDiscountPercent: number;
+    yearlyDiscountPercent: number;
+    onSale: boolean;
+  },
+) {
+  return request<PassPricing>(`${SHUTTLE}/${routeId}/passes`, { method: 'PUT', body: pricing });
+}
+
 /** Only a route nobody has booked or bought a pass on. */
 export function deleteRoute(routeId: string) {
   return request<void>(`${SHUTTLE}/${routeId}`, { method: 'DELETE' });

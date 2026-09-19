@@ -449,7 +449,7 @@ public class ShuttleService {
     /**
      * What would be credited back as points if the seat were cancelled right now.
      *
-     * <p>Zero for cash (nothing was taken), for a pass (nothing was charged), and once the cutoff
+     * <p>Zero for a pass (nothing was charged), for an unpaid hold, and once the cutoff
      * has passed - at which point cancelling is refused outright.
      */
     private static long creditIfCancelled(ShuttleBooking booking) {

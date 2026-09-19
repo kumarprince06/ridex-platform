@@ -1,6 +1,6 @@
 # RideX — API Contract
 
-Every endpoint the backend serves: **152** across 29 controllers.
+Every endpoint the backend serves: **153** across 29 controllers.
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java api > docs/10-API-Contract.md
 ```
 
-Generated on 2026-09-19 from `19561a8`.
+Generated on 2026-09-19 from `1be869e`.
 
 ## Conventions
 
@@ -71,6 +71,7 @@ Generated on 2026-09-19 from `19561a8`.
 | GET | `/api/v1/admin/riders/{riderId}` | SUPPORT, OPS_ADMIN, SUPER_ADMIN | Rider |
 | GET | `/api/v1/admin/trips` | SUPPORT, OPS_ADMIN, SUPER_ADMIN | Trips |
 | GET | `/api/v1/admin/payments` | OPS_ADMIN, SUPER_ADMIN | Payments |
+| GET | `/api/v1/admin/staff` | SUPER_ADMIN | Staff |
 | GET | `/api/v1/admin/audit` | SUPER_ADMIN | Audit log |
 
 ## AdminSettings

@@ -12,6 +12,7 @@ import {
 import { ApiError } from '../api/problem';
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
+import { ConfirmSheet } from '../components/ConfirmSheet';
 import { Row } from '../components/Row';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
@@ -35,21 +36,35 @@ export function PrivacySecurityScreen({ navigation }: Props) {
   const history = useQuery(loginHistory);
   const [changing, setChanging] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Signing a device out is asked first: a mis-tap otherwise logs out somebody's other phone.
+  const [confirming, setConfirming] = useState<Session[] | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  async function revoke(session: Session) {
+  async function revoke(targets: Session[]) {
     setNotice(null);
+    setBusy(true);
     try {
-      await revokeSession(session.id);
+      await Promise.all(targets.map((session) => revokeSession(session.id)));
       sessions.refetch();
     } catch (caught) {
       setNotice(caught instanceof ApiError ? caught.userMessage : 'Could not sign that device out.');
+    } finally {
+      setBusy(false);
+      setConfirming(null);
     }
   }
 
-  const devices = sessions.data ?? [];
+  // This phone first, then the rest by last use.
+  const devices = [...(sessions.data ?? [])].sort((a, b) => Number(b.current) - Number(a.current));
+  const others = devices.filter((session) => !session.current);
+  const activity = (history.data ?? []).slice(0, 10);
 
   return (
-    <Screen onBack={() => navigation.goBack()} title="Privacy & Security">
+    <Screen
+      onBack={() => navigation.goBack()}
+      title="Privacy & Security"
+      onRefresh={() => Promise.all([sessions.refetch(), history.refetch()])}
+    >
       <SectionLabel>PASSWORD</SectionLabel>
 
       {changing ? (
@@ -77,24 +92,44 @@ export function PrivacySecurityScreen({ navigation }: Props) {
 
       <SectionLabel>SIGNED IN ON</SectionLabel>
 
-      {devices.length === 0 ? (
+      {sessions.loading && !sessions.data ? (
+        <Text style={styles.muted}>Loading devices…</Text>
+      ) : sessions.error ? (
+        <Text style={styles.muted}>{sessions.error}</Text>
+      ) : devices.length === 0 ? (
         <Text style={styles.muted}>No other devices.</Text>
       ) : (
         <View style={styles.group}>
           {devices.map((session) => (
             <Row
               key={session.id}
-              icon="phone-portrait"
+              icon={isBrowser(session) ? 'globe-outline' : 'phone-portrait'}
               title={session.current ? 'This device' : deviceName(session)}
-              subtitle={`${session.ipAddress ?? 'Unknown address'} · last used ${when(session.lastUsedAt ?? session.createdAt)}`}
-              tone="#8FA0BF"
+              subtitle={sessionDetail(session)}
+              tone={session.current ? colors.primary : '#8FA0BF'}
               // The current device cannot revoke itself: that is what signing out is for, and a
               // row that logs you out while you read it is a trap.
-              onPress={session.current ? undefined : () => void revoke(session)}
+              accessory={
+                session.current ? (
+                  <Text style={styles.here}>Active now</Text>
+                ) : (
+                  <Text style={styles.signOut}>Sign out</Text>
+                )
+              }
+              onPress={session.current ? undefined : () => setConfirming([session])}
             />
           ))}
         </View>
       )}
+
+      {others.length > 1 ? (
+        <Button
+          label="Sign out all other devices"
+          variant="secondary"
+          onPress={() => setConfirming(others)}
+          style={styles.signOutAll}
+        />
+      ) : null}
 
       <SectionLabel>RECENT ACTIVITY</SectionLabel>
 
@@ -102,12 +137,12 @@ export function PrivacySecurityScreen({ navigation }: Props) {
         <Text style={styles.muted}>Nothing recorded yet.</Text>
       ) : null}
 
-      {history.data?.map((event, index) => (
+      {activity.map((event, index) => (
         <View key={`${event.occurredAt}-${index}`} style={styles.event}>
           <Text style={styles.eventType}>{readable(event.eventType)}</Text>
           <Text style={styles.eventMeta}>
             {when(event.occurredAt)}
-            {event.ipAddress ? ` · ${event.ipAddress}` : ''}
+            {address(event.ipAddress) ? ` · ${address(event.ipAddress)}` : ''}
           </Text>
         </View>
       ))}
@@ -125,6 +160,22 @@ export function PrivacySecurityScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('ReportIssue')}
         />
       </View>
+
+      <ConfirmSheet
+        visible={confirming != null}
+        title={confirming && confirming.length > 1 ? 'Sign out all other devices?' : 'Sign out this device?'}
+        body={
+          confirming && confirming.length > 1
+            ? `${confirming.length} devices will need to sign in again. This phone stays signed in.`
+            : `${confirming ? deviceName(confirming[0]) : 'That device'} will need to sign in again.`
+        }
+        confirmLabel="Sign out"
+        cancelLabel="Keep"
+        destructive
+        busy={busy}
+        onConfirm={() => confirming && void revoke(confirming)}
+        onDismiss={() => setConfirming(null)}
+      />
     </Screen>
   );
 }
@@ -203,10 +254,27 @@ function ChangePassword({
 /** A user agent is a paragraph; a device list needs a word. */
 function deviceName(session: Session) {
   const agent = session.userAgent ?? '';
-  if (/android/i.test(agent)) return 'Android device';
+  if (/okhttp|expo|ridex/i.test(agent)) return 'RideX app';
   if (/iphone|ios/i.test(agent)) return 'iPhone';
-  if (/okhttp|expo/i.test(agent)) return 'RideX app';
-  return 'Browser';
+  if (/android/i.test(agent)) return 'Android device';
+  if (/mozilla|chrome|safari/i.test(agent)) return 'Browser';
+  return 'Other device';
+}
+
+function isBrowser(session: Session) {
+  return deviceName(session) === 'Browser';
+}
+
+/** Loopback and private addresses say nothing to a rider, so only a public one is shown. */
+function address(ip: string | null | undefined) {
+  if (!ip || /^(127\.|10\.|192\.168\.|::1$|0:0:0:0:0:0:0:1$)/.test(ip)) return null;
+  return ip;
+}
+
+function sessionDetail(session: Session) {
+  const used = `Last used ${when(session.lastUsedAt ?? session.createdAt)}`;
+  const ip = address(session.ipAddress);
+  return ip ? `${used} · ${ip}` : used;
 }
 
 /** LOGIN_SUCCEEDED reads as shouting. This is the same thing in words. */
@@ -215,6 +283,17 @@ function readable(eventType: string) {
 }
 
 const styles = StyleSheet.create({
+  here: {
+    ...type.caption,
+    color: colors.primary,
+  },
+  signOut: {
+    ...type.caption,
+    color: colors.danger,
+  },
+  signOutAll: {
+    marginTop: spacing.md,
+  },
   group: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,

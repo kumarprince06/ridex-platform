@@ -14,6 +14,7 @@ type Options = {
    * "marathahalli" and overwrites it.
    */
   signal?: AbortSignal;
+  headers?: Record<string, string>;
 };
 
 /** Called when a refresh fails, so the session context can drop the user back to sign-in. */
@@ -51,7 +52,7 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 async function send(path: string, options: Options, accessToken?: string): Promise<Response> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...options.headers };
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }

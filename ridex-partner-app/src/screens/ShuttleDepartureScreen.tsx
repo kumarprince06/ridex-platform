@@ -7,6 +7,7 @@ import { Manifest, Passenger, StopManifest, boardPassenger, departureManifest } 
 import { useQuery } from '../api/useQuery';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
+import { ShuttleRunPanel } from '../components/ShuttleRunPanel';
 import { TextField } from '../components/TextField';
 import { clockTime } from '../lib/format';
 import { RootScreenProps } from '../navigation/types';
@@ -14,21 +15,14 @@ import { colors, radius, spacing, type } from '../theme';
 
 type Props = RootScreenProps<'ShuttleDeparture'>;
 
-// Six, matching the code the server issues and the rider's booking screen shows.
 const CODE_LENGTH = 6;
 
-/**
- * One departure's manifest: who gets on where, who gets off where, and check-in.
- *
- * Grouped by stop rather than one passenger list, because that is the question asked at the door -
- * "how many here?" - and counting a flat list at every stop is how somebody gets left standing.
- */
+/** One departure: the live run controls, then the manifest grouped by stop, and check-in. */
 export function ShuttleDepartureScreen({ navigation, route }: Props) {
   const { shuttleTripId } = route.params;
   const { data, loading, error, refetch } = useQuery(() => departureManifest(shuttleTripId), [shuttleTripId]);
 
-  // The manifest after a check-in. The board call returns the refreshed one, so the counts move
-  // without a second round trip.
+  // Boarding returns the refreshed manifest, so we show that instead of refetching.
   const [boarded, setBoarded] = useState<Manifest | null>(null);
   const [checkingIn, setCheckingIn] = useState<Passenger | null>(null);
 
@@ -58,6 +52,8 @@ export function ShuttleDepartureScreen({ navigation, route }: Props) {
 
       {manifest && !checkingIn ? (
         <>
+          <ShuttleRunPanel shuttleTripId={shuttleTripId} />
+
           <View style={styles.head}>
             <Text style={styles.route}>{manifest.routeName}</Text>
             <Text style={styles.meta}>
@@ -99,7 +95,7 @@ function Stop({
         <Pressable
           key={passenger.bookingId}
           accessibilityRole="button"
-          // A boarded seat is done. Tapping it again is how one code gets used twice.
+          // Already boarded - no second check-in.
           disabled={passenger.boarded}
           onPress={() => onCheckIn(passenger)}
           style={({ pressed }) => [styles.passenger, pressed && styles.pressed]}
@@ -130,13 +126,7 @@ function Stop({
   );
 }
 
-/**
- * Check-in for one seat. The QR is the fast path and the six digits are the fallback - a cracked
- * screen or a dead battery ends with the passenger reading the code out.
- *
- * The code is only carried here. Whether it matches is the server's decision: a phone that decided
- * for itself has verified nothing, and a cash seat is settled by that same call.
- */
+/** Check-in for one seat: scan the QR, or type the six digits. The server checks the code. */
 function CheckIn({
   passenger,
   onBoard,
@@ -158,8 +148,6 @@ function CheckIn({
     try {
       await onBoard(value);
     } catch (caught) {
-      // "That code does not match this seat" and "already on board" both arrive here, and both
-      // are exactly what the driver at the door needs to read.
       setError(caught instanceof ApiError ? caught.userMessage : 'Could not board that passenger.');
       setCode('');
     } finally {

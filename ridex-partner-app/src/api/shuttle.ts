@@ -54,3 +54,54 @@ export function boardPassenger(shuttleTripId: string, bookingId: string, boardin
     { method: 'POST', body: { boardingCode } },
   );
 }
+
+// Live run -----------------------------------------------------------------------------------
+
+export type LiveStop = {
+  id: string;
+  sequence: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  scheduledAt: string;
+  /** Timetable plus the current delay; null once passed. */
+  expectedAt: string | null;
+  arrivedAt: string | null;
+  state: 'PASSED' | 'CURRENT' | 'UPCOMING';
+};
+
+export type ShuttleLive = {
+  event: string;
+  shuttleTripId: string;
+  routeName: string;
+  status: 'SCHEDULED' | 'RUNNING' | 'COMPLETED';
+  currentStopSequence: number | null;
+  delayMinutes: number;
+  vehicle: { latitude: number; longitude: number; heading: number | null; at: string } | null;
+  stops: LiveStop[];
+};
+
+const run = (shuttleTripId: string) => `/api/v1/driver/shuttle/departures/${shuttleTripId}`;
+
+export function departureLive(shuttleTripId: string) {
+  return request<ShuttleLive>(`${run(shuttleTripId)}/live`);
+}
+
+export function startRun(shuttleTripId: string) {
+  return request<ShuttleLive>(`${run(shuttleTripId)}/start`, { method: 'POST' });
+}
+
+export function reportRunLocation(shuttleTripId: string, latitude: number, longitude: number, heading: number | null) {
+  return request<ShuttleLive>(`${run(shuttleTripId)}/location`, {
+    method: 'POST',
+    body: { latitude, longitude, heading },
+  });
+}
+
+export function arriveAtStop(shuttleTripId: string, stopId: string) {
+  return request<ShuttleLive>(`${run(shuttleTripId)}/stops/${stopId}/arrive`, { method: 'POST' });
+}
+
+export function finishRun(shuttleTripId: string) {
+  return request<ShuttleLive>(`${run(shuttleTripId)}/finish`, { method: 'POST' });
+}

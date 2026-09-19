@@ -172,8 +172,9 @@ export function ShuttleRouteMap({ stops, vehicle, boardingSequence, alightingSeq
 }
 
 function stopTime(stop: LiveStop): string {
-  if (stop.arrivedAt) return `Reached ${clockTime(stop.arrivedAt)}`;
-  if (stop.expectedAt) return `Expected ${clockTime(stop.expectedAt)}`;
+  const scheduled = clockTime(stop.scheduledAt);
+  if (stop.arrivedAt) return `Reached ${clockTime(stop.arrivedAt)} · sched ${scheduled}`;
+  if (stop.expectedAt) return `ETA ${clockTime(stop.expectedAt)} · sched ${scheduled}`;
   return `Scheduled ${clockTime(stop.scheduledAt)}`;
 }
 

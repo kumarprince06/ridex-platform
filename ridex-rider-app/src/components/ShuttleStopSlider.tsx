@@ -44,11 +44,14 @@ export function ShuttleStopSlider({ stops, boardingSequence, alightingSequence }
 function StopCard({ stop, tag }: { stop: LiveStop; tag: string | null }) {
   const passed = stop.state === 'PASSED';
   const current = stop.state === 'CURRENT';
+  const actual = stop.arrivedAt ?? stop.expectedAt;
   const time = stop.arrivedAt
     ? `Reached ${clockTime(stop.arrivedAt)}`
     : stop.expectedAt
       ? `ETA ${clockTime(stop.expectedAt)}`
       : clockTime(stop.scheduledAt);
+  // Over a minute behind the timetable reads as late.
+  const late = actual != null && new Date(actual).getTime() - new Date(stop.scheduledAt).getTime() > 60000;
 
   return (
     <View style={[styles.card, current && styles.cardCurrent, passed && styles.cardPassed]}>
@@ -65,7 +68,10 @@ function StopCard({ stop, tag }: { stop: LiveStop; tag: string | null }) {
       <Text style={styles.name} numberOfLines={2}>
         {stop.name}
       </Text>
-      <Text style={[styles.time, current && styles.timeCurrent]}>{current ? 'Shuttle is here' : time}</Text>
+      <Text style={[styles.time, late && styles.timeLate, current && styles.timeCurrent]}>
+        {current ? 'Shuttle is here' : time}
+      </Text>
+      {actual ? <Text style={styles.scheduled}>Scheduled {clockTime(stop.scheduledAt)}</Text> : null}
       {tag ? <Text style={styles.tag}>{tag}</Text> : null}
     </View>
   );
@@ -125,6 +131,14 @@ const styles = StyleSheet.create({
   time: {
     ...type.caption,
     color: colors.textMuted,
+  },
+  timeLate: {
+    color: colors.amber,
+  },
+  scheduled: {
+    ...type.caption,
+    fontSize: 11,
+    color: colors.textFaint,
   },
   timeCurrent: {
     color: colors.primary,

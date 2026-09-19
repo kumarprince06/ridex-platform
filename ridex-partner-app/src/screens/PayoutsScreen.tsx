@@ -4,6 +4,8 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { getEarnings, listPayouts, type PayoutStatus } from '../api/driver';
 import { balance, money } from '../lib/format';
 import { useQuery } from '../api/useQuery';
+import { getWallet } from '../api/wallet';
+import { WalletDueCard } from '../components/WalletDueCard';
 import { Screen } from '../components/Screen';
 import { SectionLabel } from '../components/SectionLabel';
 import { RootScreenProps } from '../navigation/types';
@@ -19,8 +21,9 @@ const TONE: Record<PayoutStatus, { label: string; colour: string; icon: IconName
 };
 
 export function PayoutsScreen({ navigation }: Props) {
-  const { data: payouts, loading, error } = useQuery(listPayouts, []);
-  const { data: earnings } = useQuery(getEarnings, []);
+  const { data: payouts, loading, error, refetch: refetchPayouts } = useQuery(listPayouts, []);
+  const { data: earnings, refetch: refetchEarnings } = useQuery(getEarnings, []);
+  const { data: wallet, refetch: refetchWallet } = useQuery(getWallet, []);
 
   return (
     <Screen onBack={() => navigation.goBack()} title="Payouts">
@@ -35,6 +38,14 @@ export function PayoutsScreen({ navigation }: Props) {
         </Text>
         <Text style={styles.balanceNote}>Transfers are made once operations settles the batch.</Text>
       </View>
+
+      <WalletDueCard
+        wallet={wallet}
+        onPaid={() => {
+          refetchWallet();
+          refetchEarnings();
+        }}
+      />
 
       <SectionLabel>HISTORY</SectionLabel>
 

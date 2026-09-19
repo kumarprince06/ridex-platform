@@ -1,12 +1,92 @@
 .login {
   min-height: 100%;
   display: grid;
+  grid-template-columns: minmax(360px, 5fr) 6fr;
+  background: var(--bg);
+}
+
+/* The brand panel: the console's own colours, with a faint street grid for texture. */
+.login-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-5);
+  padding: 64px 56px;
+  color: #e6edf6;
+  background:
+    radial-gradient(700px 420px at 0% 0%, rgba(46, 231, 199, 0.28), transparent 65%),
+    radial-gradient(600px 380px at 100% 100%, rgba(37, 99, 201, 0.25), transparent 60%),
+    linear-gradient(160deg, #0b1220 0%, #0f1b2d 100%);
+}
+.login-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 30% 40%, #000 30%, transparent 75%);
+  pointer-events: none;
+}
+.login-hero > * {
+  position: relative;
+}
+.login-hero-mark {
+  display: inline-flex;
+  width: 88px;
+  height: 88px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -20px rgba(46, 231, 199, 0.5);
+}
+.login-hero-title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.login-hero-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  font-size: 14px;
+  color: #b7c3d6;
+}
+.login-hero-points li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.login-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2ee7c7;
+  box-shadow: 0 0 0 4px rgba(46, 231, 199, 0.15);
+  flex: none;
+}
+.login-hero-foot {
+  margin: var(--space-5) 0 0;
+  font-size: 12px;
+  color: #6b7a90;
+}
+
+.login-side {
+  display: grid;
   place-items: center;
   padding: var(--space-5);
-  /* A quiet brand wash rather than a flat grey: this is the only screen with nothing else on it. */
   background:
-    radial-gradient(1100px 520px at 12% -10%, rgba(46, 231, 199, 0.16), transparent 60%),
-    radial-gradient(900px 460px at 95% 105%, rgba(37, 99, 201, 0.1), transparent 60%),
+    radial-gradient(700px 400px at 100% 0%, rgba(46, 231, 199, 0.08), transparent 60%),
     var(--bg);
 }
 
@@ -18,6 +98,39 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: var(--space-6);
+}
+
+.password-wrap {
+  position: relative;
+  display: block;
+}
+.password-wrap .field-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 64px;
+}
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--primary-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .login {
+    grid-template-columns: 1fr;
+  }
+  .login-hero {
+    display: none;
+  }
 }
 
 .login-brand {

@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 
 import { ApiError } from '../api/problem';
 import { useSession } from '../auth/session';
-import { Logo } from '../components/Logo';
+import { Logo, LogoMark } from '../components/Logo';
 import './login.css';
 
 export function LoginPage() {
@@ -11,6 +11,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -29,47 +30,83 @@ export function LoginPage() {
 
   return (
     <div className="login">
-      <form className="login-card" onSubmit={onSubmit}>
-        <div className="login-brand">
-          <Logo size={40} subtitle="Console" plate />
+      <aside className="login-hero" aria-hidden="true">
+        <div className="login-hero-mark">
+          <LogoMark size={56} />
         </div>
+        <h2 className="login-hero-title">
+          Every ride and shuttle in the city,
+          <br />
+          on one screen.
+        </h2>
+        <ul className="login-hero-points">
+          <li>
+            <span className="login-dot" />
+            Live map of drivers and running shuttles
+          </li>
+          <li>
+            <span className="login-dot" />
+            Routes, timetables, fares and passes
+          </li>
+          <li>
+            <span className="login-dot" />
+            Payments, payouts and a full audit trail
+          </li>
+        </ul>
+        <p className="login-hero-foot">RideX Transport Solution · Kolkata</p>
+      </aside>
 
-        <h1 className="login-title">Sign in to operations</h1>
-        <p className="login-sub">
-          Staff accounts only. Riders and drivers cannot reach this surface, and the token is
-          granted only the roles this account actually holds.
-        </p>
+      <main className="login-side">
+        <form className="login-card" onSubmit={onSubmit}>
+          <div className="login-brand">
+            <Logo size={40} subtitle="Console" plate />
+          </div>
 
-        <label className="field">
-          <span className="field-label">Email</span>
-          <input
-            className="field-input"
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
-        </label>
+          <h1 className="login-title">Welcome back</h1>
+          <p className="login-sub">Sign in with your staff account. Riders and drivers use the apps.</p>
 
-        <label className="field">
-          <span className="field-label">Password</span>
-          <input
-            className="field-input"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-        </label>
+          <label className="field">
+            <span className="field-label">Email</span>
+            <input
+              className="field-input"
+              type="email"
+              autoComplete="username"
+              placeholder="you@ridex.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
 
-        {error ? <p className="login-error">{error}</p> : null}
+          <label className="field">
+            <span className="field-label">Password</span>
+            <span className="password-wrap">
+              <input
+                className="field-input"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((shown) => !shown)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </span>
+          </label>
 
-        <button className="login-submit" type="submit" disabled={busy}>
-          {busy ? 'Signing in...' : 'Sign in'}
-        </button>
-      </form>
+          {error ? <p className="login-error">{error}</p> : null}
+
+          <button className="login-submit" type="submit" disabled={busy}>
+            {busy ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
+      </main>
     </div>
   );
 }

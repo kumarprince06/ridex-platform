@@ -15,7 +15,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'HelpSupport'>;
 
 // Email only: the backend configures a support address but no helpline number.
 const CHANNELS: { icon: IconName; tone: string; title: string; detail: string; url: string }[] = [
-  { icon: 'mail', tone: '#E0B252', title: 'Email us', detail: 'support@ridex.app', url: 'mailto:support@ridex.app' },
+  { icon: 'mail', tone: '#E0B252', title: 'Email us', detail: 'support@ridex.com', url: 'mailto:support@ridex.com' },
 ];
 
 // Written against how the backend actually behaves; amounts are left out because ops can change them.

@@ -47,4 +47,9 @@ public interface ShuttleTripRepository extends JpaRepository<ShuttleTrip, String
             @Param("seatsPerRow") short seatsPerRow,
             @Param("driverId") String driverId,
             @Param("vehicleId") String vehicleId);
+
+    /** A run in progress on the route: its stops cannot be renumbered under the driver's feet. */
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT COUNT(t) > 0 FROM ShuttleTrip t WHERE t.schedule.route.id = :routeId AND t.status = 'RUNNING'")
+    boolean anyRunningOnRoute(@org.springframework.data.repository.query.Param("routeId") String routeId);
 }

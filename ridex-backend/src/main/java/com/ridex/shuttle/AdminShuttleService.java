@@ -96,57 +96,120 @@ public class AdminShuttleService {
     }
 
     /**
-     * Appends a stop at the end of the route.
-     *
-     * <p>Append-only, because a rider can only travel forwards and the sequence is what says so.
-     * Inserting in the middle would renumber every stop after it, and the fares are keyed on stop
-     * ids that a renumber does not touch - so the fare matrix would quietly describe a different
-     * journey. Rebuild the route instead.
+     * Adds a stop at the end, or straight after another one ({@code afterSequence}, 0 for the very
+     * front). Fares are keyed on stop ids, not positions, so every existing fare still describes the
+     * same journey; bookings are renumbered with the stops so seat overlaps stay exact.
      */
     @Transactional
-    public AdminRouteResponse addStop(String routeId, StopRequest request) {
+    public AdminRouteResponse addStop(String routeId, StopRequest request, Integer afterSequence) {
         Route route = requireRoute(routeId);
         List<RouteStop> existing = routeStopRepository.findByRouteIdOrderBySequenceAsc(routeId);
-
-        if (!existing.isEmpty()) {
-            RouteStop last = existing.get(existing.size() - 1);
-            // Time only runs one way along a route. An offset that goes backwards would make the
-            // arrival board show a stop arriving before the one before it.
-            if (request.offsetMinutes() <= last.getOffsetMinutes()) {
-                throw new ValidationException(
-                        "This stop must be later than %s, which is %d minutes in."
-                                .formatted(last.getName(), last.getOffsetMinutes()));
-            }
+        int after = afterSequence == null ? existing.size() : afterSequence;
+        if (after < 0 || after > existing.size()) {
+            throw new ValidationException("There is no stop %d on this route.".formatted(after));
+        }
+        requireInOrder(existing, after, after + 1, request.offsetMinutes());
+        if (after < existing.size()) {
+            refuseWhileRunning(routeId);
+            routeStopRepository.openGapAfter(routeId, after);
         }
 
         RouteStop stop = new RouteStop();
         stop.setRoute(route);
-        stop.setSequence((short) (existing.size() + 1));
+        stop.setSequence((short) (after + 1));
+        stop.setName(request.name().trim());
+        stop.setLatitude(request.latitude());
+        stop.setLongitude(request.longitude());
+        stop.setOffsetMinutes((short) request.offsetMinutes());
+        routeStopRepository.saveAndFlush(stop);
+        routeStopRepository.renumber(routeId);
+
+        return toResponse(requireRoute(routeId));
+    }
+
+    /**
+     * Removes a route that never carried anyone: its stops, fares, timetable and empty departures go
+     * with it. A route with bookings or passes is refused - hide it from riders instead.
+     */
+    @Transactional
+    public void deleteRoute(String routeId) {
+        Route route = requireRoute(routeId);
+        if (routeRepository.hasRiderHistory(routeId)) {
+            throw new ConflictException(
+                    "Riders have booked %s, so it cannot be deleted. Hide it from riders instead.".formatted(route.getName()));
+        }
+        routeRepository.deleteWithEverything(routeId);
+    }
+
+    /** A stop's name, pin or timing. Its place in the order does not change. */
+    @Transactional
+    public AdminRouteResponse updateStop(String routeId, String stopId, StopRequest request) {
+        List<RouteStop> existing = routeStopRepository.findByRouteIdOrderBySequenceAsc(routeId);
+        RouteStop stop = requireStopOnRoute(routeId, stopId);
+        int index = existing.indexOf(stop);
+        requireInOrder(existing, index, index + 2, request.offsetMinutes());
+
         stop.setName(request.name().trim());
         stop.setLatitude(request.latitude());
         stop.setLongitude(request.longitude());
         stop.setOffsetMinutes((short) request.offsetMinutes());
         routeStopRepository.save(stop);
-
         return toResponse(requireRoute(routeId));
     }
 
-    /** Only the last stop, and only when no fare quotes it. Anything else corrupts the matrix. */
+    /**
+     * Removes a stop and the fares that quote it. Refused for a stop anyone has ever booked: those
+     * tickets and receipts name it, so it stays - rename it or pause the route instead.
+     */
     @Transactional
-    public AdminRouteResponse removeLastStop(String routeId) {
-        List<RouteStop> stops = routeStopRepository.findByRouteIdOrderBySequenceAsc(routeId);
-        if (stops.isEmpty()) {
-            throw new ConflictException("That route has no stops.");
-        }
-
-        RouteStop last = stops.get(stops.size() - 1);
-        if (routeFareRepository.existsByFromStopIdOrToStopId(last.getId(), last.getId())) {
+    public AdminRouteResponse removeStop(String routeId, String stopId) {
+        RouteStop stop = requireStopOnRoute(routeId, stopId);
+        if (shuttleBookingRepository.everUsedStop(stopId)) {
             throw new ConflictException(
-                    "Remove the fares that quote %s before deleting it.".formatted(last.getName()));
+                    "%s has bookings against it, so it cannot be deleted. Rename it or move its pin instead."
+                            .formatted(stop.getName()));
         }
+        refuseWhileRunning(routeId);
 
-        routeStopRepository.delete(last);
+        routeFareRepository.deleteAll(routeFareRepository.findByRouteId(routeId).stream()
+                .filter(fare -> fare.getFromStopId().equals(stopId) || fare.getToStopId().equals(stopId))
+                .toList());
+        routeStopRepository.delete(stop);
+        routeStopRepository.flush();
+        routeStopRepository.renumber(routeId);
         return toResponse(requireRoute(routeId));
+    }
+
+    /**
+     * Minutes only run forwards along a route: a stop must come after the one before it and before
+     * the one after it, or the arrival board shows the shuttle reaching them out of order.
+     *
+     * @param before index in {@code stops} of the stop before (its position, 1-based), 0 for none
+     * @param nextIndex 1-based position of the stop after, beyond the list for none
+     */
+    private static void requireInOrder(List<RouteStop> stops, int before, int nextIndex, int offsetMinutes) {
+        if (before > 0) {
+            RouteStop previous = stops.get(before - 1);
+            if (offsetMinutes <= previous.getOffsetMinutes()) {
+                throw new ValidationException("This stop must be later than %s, which is %d minutes in."
+                        .formatted(previous.getName(), previous.getOffsetMinutes()));
+            }
+        } else if (offsetMinutes != 0 && stops.isEmpty()) {
+            throw new ValidationException("The first stop is where the shuttle leaves from, at 0 minutes.");
+        }
+        if (nextIndex <= stops.size()) {
+            RouteStop next = stops.get(nextIndex - 1);
+            if (offsetMinutes >= next.getOffsetMinutes()) {
+                throw new ValidationException("This stop must be earlier than %s, which is %d minutes in."
+                        .formatted(next.getName(), next.getOffsetMinutes()));
+            }
+        }
+    }
+
+    private void refuseWhileRunning(String routeId) {
+        if (shuttleTripRepository.anyRunningOnRoute(routeId)) {
+            throw new ConflictException("A shuttle is running on this route right now. Change its stops once it finishes.");
+        }
     }
 
     /** Upsert: the pair is unique, so setting the same leg twice is a correction, not a duplicate. */

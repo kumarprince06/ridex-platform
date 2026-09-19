@@ -65,18 +65,32 @@ public class AdminShuttleController {
         return adminShuttleService.update(routeId, request);
     }
 
+    @DeleteMapping("/{routeId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteRoute(@PathVariable String routeId) {
+        adminShuttleService.deleteRoute(routeId);
+    }
+
+    /** Appends, or inserts straight after the stop at position {@code after} (0 for the front). */
     @PostMapping("/{routeId}/stops")
     @ResponseStatus(HttpStatus.CREATED)
     public AdminRouteResponse addStop(@PathVariable String routeId,
+            @RequestParam(required = false) Integer after,
             @Valid @RequestBody StopRequest request) {
-        return adminShuttleService.addStop(routeId, request);
+        return adminShuttleService.addStop(routeId, request, after);
     }
 
-    /** Only the last one. Deleting from the middle would renumber stops the fares are keyed on. */
-    @DeleteMapping("/{routeId}/stops/last")
+    @PutMapping("/{routeId}/stops/{stopId}")
     @ResponseStatus(HttpStatus.OK)
-    public AdminRouteResponse removeLastStop(@PathVariable String routeId) {
-        return adminShuttleService.removeLastStop(routeId);
+    public AdminRouteResponse updateStop(@PathVariable String routeId, @PathVariable String stopId,
+            @Valid @RequestBody StopRequest request) {
+        return adminShuttleService.updateStop(routeId, stopId, request);
+    }
+
+    @DeleteMapping("/{routeId}/stops/{stopId}")
+    @ResponseStatus(HttpStatus.OK)
+    public AdminRouteResponse removeStop(@PathVariable String routeId, @PathVariable String stopId) {
+        return adminShuttleService.removeStop(routeId, stopId);
     }
 
     @PutMapping("/{routeId}/fares")

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import {
   addSchedule,
@@ -33,7 +33,8 @@ type Tab = (typeof TABS)[number];
 export function ShuttleRoutePage() {
   const { routeId = '' } = useParams();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('Overview');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>((TABS as readonly string[]).includes(params.get('tab') ?? '') ? (params.get('tab') as Tab) : 'Overview');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const { data: route, loading, error, refetch } = useQuery(() => getRoute(routeId), [routeId]);

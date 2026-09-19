@@ -70,6 +70,37 @@ public class PassService {
         LocalDate today = LocalDate.now();
         List<PassPricingResponse.Plan> plans = java.util.Arrays.stream(PassPlan.values())
                 .map(plan -> {
+    /** Every route with where its passes stand, for the Shuttle → Passes overview. */
+    @Transactional(readOnly = true)
+    public List<RoutePassSummary> overview(List<Route> routes) {
+        LocalDate today = LocalDate.now();
+        return routes.stream().map(route -> {
+            List<PassProduct> products = passProductRepository.findByRouteId(route.getId());
+            PassProduct monthly = planOf(products, PassPlan.MONTHLY);
+            long active = products.stream().mapToLong(product -> passRepository.countRunning(product.getId(), today)).sum();
+            return new RoutePassSummary(route.getId(), route.getName(),
+                    monthly != null && monthly.isActive(), monthly == null ? null : monthly.getPriceMinor(), active);
+        }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AdminPassResponse> sold(int page, int size) {
+        var passes = passRepository.findAllByOrderByCreatedAtDesc(
+                PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100)));
+        var routeNames = new HashMap<String, String>();
+        return PageResponse.of(passes, pass -> {
+            var user = pass.getRider().getUser();
+            String routeName = routeNames.computeIfAbsent(pass.getRouteId(),
+                    id -> pass.getProduct().getRoute().getName());
+            return new AdminPassResponse(pass.getId(),
+                    user.displayName().orElse(user.getEmail()), user.getEmail(), routeName,
+                    pass.getProduct().getName(), pass.getStartsOn(), pass.getEndsOn(), pass.getRidesUsed(),
+                    pass.getCurrency(), pass.getPricePaidMinor() - pass.getDiscountMinor(),
+                    "ACTIVE".equals(pass.getStatus()) && pass.getEndsOn().isBefore(LocalDate.now()) ? "EXPIRED" : pass.getStatus(),
+                    pass.getCreatedAt());
+        });
+    }
+
                     PassProduct product = planOf(products, plan);
                     return new PassPricingResponse.Plan(plan.name(), plan.label(), plan.months(), plan.days(),
                             product == null ? null : product.getPriceMinor(),

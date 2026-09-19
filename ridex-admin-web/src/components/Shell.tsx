@@ -39,6 +39,7 @@ const SECTIONS: Section[] = [
     tabs: [
       { to: '/shuttle/departures', label: 'Today', permission: 'OPERATIONS' },
       { to: '/shuttle', label: 'Routes', permission: 'OPERATIONS' },
+      { to: '/shuttle/passes', label: 'Passes', permission: 'OPERATIONS' },
     ],
   },
   {

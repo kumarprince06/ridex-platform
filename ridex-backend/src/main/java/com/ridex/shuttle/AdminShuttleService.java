@@ -143,7 +143,17 @@ public class AdminShuttleService {
     }
 
     @Transactional(readOnly = true)
-    public com.ridex.shuttle.dto.PassPricingResponse passPricing(String routeId) {
+    public List<RoutePassSummary> passOverview() {
+        return passService.overview(routeRepository.findAllByOrderByNameAsc());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AdminPassResponse> soldPasses(int page, int size) {
+        return passService.sold(page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PassPricingResponse passPricing(String routeId) {
         requireRoute(routeId);
         return passService.pricing(routeId);
     }

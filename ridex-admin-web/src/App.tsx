@@ -26,6 +26,7 @@ import { RidersPage } from './pages/RidersPage';
 import { ShuttleOpsPage } from './pages/ShuttleOpsPage';
 import { ShuttleNewRoutePage } from './pages/ShuttleNewRoutePage';
 import { ShuttlePage } from './pages/ShuttlePage';
+import { ShuttlePassesPage } from './pages/ShuttlePassesPage';
 import { ShuttleRoutePage } from './pages/ShuttleRoutePage';
 import { StaffPage } from './pages/StaffPage';
 import { TripDetailPage } from './pages/TripDetailPage';
@@ -71,6 +72,7 @@ function Routed() {
         <Route path="pricing" element={<Require permission="OPERATIONS"><PricingPage /></Require>} />
         <Route path="legal" element={<Require permission="OPERATIONS"><LegalPage /></Require>} />
         <Route path="shuttle" element={<Require permission="OPERATIONS"><ShuttlePage /></Require>} />
+        <Route path="shuttle/passes" element={<Require permission="OPERATIONS"><ShuttlePassesPage /></Require>} />
         <Route path="shuttle/routes/new" element={<Require permission="OPERATIONS"><ShuttleNewRoutePage /></Require>} />
         <Route path="shuttle/routes/:routeId" element={<Require permission="OPERATIONS"><ShuttleRoutePage /></Require>} />
         <Route path="shuttle/departures" element={<Require permission="OPERATIONS"><ShuttleOpsPage /></Require>} />

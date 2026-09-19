@@ -572,6 +572,37 @@ export type PassPricing = {
   }[];
 };
 
+export type RoutePassSummary = {
+  routeId: string;
+  routeName: string;
+  onSale: boolean;
+  monthlyPriceMinor: number | null;
+  activePasses: number;
+};
+
+export type SoldPass = {
+  id: string;
+  riderName: string;
+  riderEmail: string;
+  routeName: string;
+  plan: string;
+  startsOn: string;
+  endsOn: string;
+  ridesUsed: number;
+  currency: string;
+  pricePaidMinor: number;
+  status: 'PENDING_PAYMENT' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | string;
+  boughtAt: string;
+};
+
+export function passOverview() {
+  return request<RoutePassSummary[]>('/api/v1/admin/shuttle/passes/overview');
+}
+
+export function listSoldPasses(page = 0, size = DEFAULT_PAGE_SIZE) {
+  return request<Page<SoldPass>>(`/api/v1/admin/shuttle/passes?page=${page}&size=${size}`);
+}
+
 export function getPassPricing(routeId: string) {
   return request<PassPricing>(`${SHUTTLE}/${routeId}/passes`);
 }

@@ -25,6 +25,9 @@ public interface PassRepository extends JpaRepository<Pass, String> {
 
     /** Passes of one product still running - what repricing or withdrawing it would affect. */
     @org.springframework.data.jpa.repository.Query(
+    /** Every pass sold, newest first - the admin list. Unpaid attempts included, marked as such. */
+    Page<Pass> findAllByOrderByCreatedAtDesc(Pageable page);
+
             "SELECT COUNT(p) FROM Pass p WHERE p.product.id = :productId AND p.status = 'ACTIVE' AND p.endsOn >= :today")
     long countRunning(@Param("productId") String productId, @Param("today") LocalDate today);
 }

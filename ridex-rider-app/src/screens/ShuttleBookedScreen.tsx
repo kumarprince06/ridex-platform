@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { clockTime, money, shortDate } from '../lib/format';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { ApiError } from '../api/problem';
-import { cancelBooking, getBooking } from '../api/shuttle';
+import { cancelBooking } from '../api/shuttle';
+import { useShuttleLive } from '../api/shuttleLive';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { payForSeat } from '../api/shuttleCheckout';
 import { Button } from '../components/Button';
 import { MapCanvas } from '../components/MapCanvas';
+import { ShuttleLiveTimeline } from '../components/ShuttleLiveTimeline';
 import { Screen } from '../components/Screen';
 import { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
@@ -18,19 +20,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ShuttleBooked'>;
 
-/**
- * The ticket, shaped like one.
- *
- * <p>Three identical grey cards read as a settings screen. A ticket has one thing on it that
- * matters at the door - the seat and the code - and everything else is smaller and below it.
- */
-/** A quarter of an hour before departure, which is when the server starts sharing the position. */
 const TRACKING_OPENS_MS = 15 * 60 * 1000;
-
-/** And two hours after, by which time every route on the platform has finished its run. */
 const TRACKING_CLOSES_MS = 2 * 60 * 60 * 1000;
-
-const TRACK_POLL_MS = 15000;
 
 export function ShuttleBookedScreen({ navigation, route }: Props) {
   const [booking, setBooking] = useState(route.params.booking);
@@ -42,32 +33,19 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
   const cashDue = booking.paymentStatus === 'CASH_DUE';
   const cancelled = booking.status === 'CANCELLED';
   const departs = new Date(booking.departsAt);
-  // Half an hour before departure the seat can no longer be sold to anybody else, so it stops
-  // being cancellable. The server decides this too; this only keeps the button honest.
+  // The server enforces this too; this just keeps the button honest.
   const cancellable = !cancelled && Date.now() < new Date(booking.cancellableUntil).getTime();
 
-  // From a quarter of an hour before it leaves, the vehicle is worth watching - which is also when
-  // the server starts putting its position on the crew.
+  // Live tracking from 15 min before departure until two hours after.
   const tracking =
     !cancelled && Date.now() > departs.getTime() - TRACKING_OPENS_MS
     && Date.now() < departs.getTime() + TRACKING_CLOSES_MS;
 
-  useEffect(() => {
-    if (!tracking) {
-      return;
-    }
-    // Polled, not pushed: the ticket is open for minutes at a time and a socket for one marker is
-    // not worth its reconnect logic.
-    const refresh = () =>
-      void getBooking(booking.id).then((fresh) => fresh && setBooking(fresh)).catch(() => undefined);
-
-    refresh();
-    const timer = setInterval(refresh, TRACK_POLL_MS);
-    return () => clearInterval(timer);
-  }, [tracking, booking.id]);
-
-  const vehicleAt: [number, number] | undefined =
-    booking.crew?.latitude == null || booking.crew?.longitude == null
+  const { live, connected } = useShuttleLive(booking.id, tracking);
+  const vehicle = live?.trip.vehicle;
+  const vehicleAt: [number, number] | undefined = vehicle
+    ? [vehicle.longitude, vehicle.latitude]
+    : booking.crew?.latitude == null || booking.crew?.longitude == null
       ? undefined
       : [booking.crew.longitude, booking.crew.latitude];
 
@@ -205,6 +183,15 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
           )}
         </View>
       </View>
+
+      {tracking && live?.trip.status ? (
+        <ShuttleLiveTimeline
+          trip={live.trip}
+          boardingSequence={live.boardingSequence}
+          alightingSequence={live.alightingSequence}
+          connected={connected}
+        />
+      ) : null}
 
       {tracking ? (
         <MapCanvas

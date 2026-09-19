@@ -141,7 +141,7 @@ Your wallet balance shows what you owe RideX or what RideX owes you. If your bal
 
 # Cancellations
 
-You may cancel an accepted ride without charge within 60 seconds of accepting it. After that, a cancellation costs Rs 20, taken from your wallet. Cancelling is always free when you report the situation as unsafe. If you wait at the pickup for at least 5 minutes and the rider does not come, you can cancel for a no-show without charge; the rider pays a no-show fee and you receive 80% of it. You also receive 80% of any late-cancellation fee a rider pays for a ride you were driving to.
+You may cancel an accepted ride without charge within 60 seconds of accepting it. After that, a cancellation costs Rs 20, taken from your wallet. Cancelling is always free when you report the situation as unsafe. If you wait at the pickup for at least 5 minutes and the rider does not come, you can cancel for a no-show without charge; the rider pays a no-show fee and you receive 80% of it. You also receive 80% of any late-cancellation fee a rider pays for a ride you were driving to, and 80% of the cancellation charge when a passenger cancels a paid seat on a shuttle run you are rostered on.
 
 # Conduct and safety
 
@@ -178,19 +178,19 @@ If the driver cancels, you are never charged.
 
 # Cancelling a shuttle seat
 
-You can cancel a paid shuttle seat until 30 minutes before the shuttle leaves. 80% of the amount you paid comes back to you as RideX points, which you can spend on your next ride or seat. After that cut-off, seats cannot be cancelled and are not refunded, including if you miss the shuttle.
+You can cancel a paid shuttle seat until 30 minutes before the shuttle leaves. 80% of the amount you paid comes back to you as RideX points, which you can spend on your next ride or seat. The remaining 20% is a cancellation charge, most of which goes to the driver of that shuttle. After the cut-off, seats cannot be cancelled and are not refunded, including if you miss the shuttle.
 
 Seats covered by a pass can be cancelled until the same cut-off; the ride goes back onto your pass.
 
-If RideX cancels a shuttle departure, you get a full refund of what you paid.
+If RideX cancels a shuttle departure, the full amount you paid comes back as points.
 
-# Refunds to your bank or card
+# How refunds are paid
 
-Refunds of online payments go back to the card, UPI or account you paid from, through our payment partner Razorpay. They normally reach you within 5 to 7 working days.
+Refunds are added to your RideX account as points, not paid back to your card, UPI or bank account. Points are credited instantly and are worth the same as money on RideX: 100 points = Rs 1, spent on any ride or shuttle seat.
 
-If you paid for a seat after its 10-minute hold had already ended and the seat was released, the payment is refunded in full automatically.
+If you paid for a seat after its 10-minute hold had already ended and the seat was released, the full amount comes back as points automatically.
 
-If you were charged twice or charged wrongly, report it from the trip in the app or write to support@ridex.com, and we will refund the extra amount once confirmed.
+If you were charged twice or charged wrongly, report it from the trip in the app or write to support@ridex.com, and we will add the extra amount to your account as points once confirmed.
 
 # Passes
 

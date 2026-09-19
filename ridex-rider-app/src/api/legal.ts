@@ -1,6 +1,6 @@
 import { request } from './client';
 
-export type LegalSlug = 'rider-terms' | 'privacy-policy';
+export type LegalSlug = 'rider-terms' | 'privacy-policy' | 'refund-policy';
 
 export type LegalDocument = { slug: LegalSlug; title: string; body: string; updatedAt: string };
 

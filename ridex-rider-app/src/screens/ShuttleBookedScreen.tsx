@@ -292,9 +292,7 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
 function cancelledNote(paymentStatus: string): string {
   switch (paymentStatus) {
     case 'POINTS_CREDITED':
-      return 'This seat is cancelled. The points are in your rewards balance.';
-    case 'REFUNDED':
-      return 'The seat hold ran out before your payment arrived, so the seat was released. Your money is being refunded.';
+      return 'This seat is cancelled. The refund is in your rewards balance as points.';
     case 'EXPIRED':
       return 'The seat hold ran out before it was paid for. Nothing was charged.';
     default:
@@ -306,8 +304,6 @@ function paymentLabel(paymentStatus: string): string {
   switch (paymentStatus) {
     case 'PENDING':
       return 'Not paid yet';
-    case 'REFUNDED':
-      return 'Refunded';
     case 'EXPIRED':
       return 'Not charged';
     case 'POINTS_CREDITED':

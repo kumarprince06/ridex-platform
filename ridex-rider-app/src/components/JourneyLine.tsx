@@ -7,11 +7,13 @@ import { colors } from '../theme';
 const DOT = 18;
 
 /** A dashed track between two stops with a little bus running along it, on a loop. */
-export function JourneyLine() {
+export function JourneyLine({ still = false }: { still?: boolean }) {
   const [width, setWidth] = useState(0);
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // A cancelled or finished ticket isn't going anywhere.
+    if (still) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(progress, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
@@ -21,7 +23,7 @@ export function JourneyLine() {
     );
     loop.start();
     return () => loop.stop();
-  }, [progress]);
+  }, [progress, still]);
 
   return (
     <View style={styles.track} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>

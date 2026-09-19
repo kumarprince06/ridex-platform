@@ -39,7 +39,7 @@ export function ShuttleTrackingScreen({ navigation, route }: Props) {
       footer={
         arrived ? (
           <Button label="Done" onPress={() => navigation.goBack()} />
-        ) : booking.boardingCode ? (
+        ) : booking.boardingCode && booking.paymentStatus === 'PAID' ? (
           <Button label="Show boarding pass" onPress={() => setShowingPass(true)} />
         ) : undefined
       }

@@ -40,7 +40,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
 
   // Tracking from 30 min before departure until two hours after, or until the rider is there.
   const tracking =
-    !cancelled && !outcome && Date.now() > departs.getTime() - TRACKING_OPENS_MS
+    !cancelled && !pending && !outcome && Date.now() > departs.getTime() - TRACKING_OPENS_MS
     && Date.now() < departs.getTime() + TRACKING_CLOSES_MS;
 
   async function pay() {
@@ -84,10 +84,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         <View style={styles.pending}>
           <Ionicons name="close-circle-outline" size={16} color={colors.amber} />
           <Text style={styles.pendingText}>
-            This seat is cancelled.
-            {booking.paymentStatus === 'POINTS_CREDITED'
-              ? ' The points are in your rewards balance.'
-              : ''}
+            {cancelledNote(booking.paymentStatus)}
           </Text>
         </View>
       ) : null}
@@ -115,7 +112,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         >
           <Ionicons name="time-outline" size={16} color={colors.amber} />
           <Text style={styles.pendingText}>
-            Seat held. Pay {money(booking.fareMinor, booking.currency)} to confirm it.
+            Seat held. Pay {money(booking.fareMinor - booking.discountMinor, booking.currency)} to confirm it.
           </Text>
           <Text style={styles.payNow}>{busy ? '…' : 'Pay'}</Text>
         </Pressable>
@@ -146,7 +143,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
           <View style={styles.legs}>
             <Leg label="From" value={booking.boardingStopName} />
             <View style={styles.legLine}>
-              <JourneyLine />
+              <JourneyLine still={cancelled || outcome != null} />
             </View>
             <Leg label="To" value={booking.alightingStopName} align="right" />
           </View>
@@ -160,7 +157,15 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
 
         <View style={styles.codeZone}>
-          {outcome === 'COMPLETED' ? (
+          {cancelled ? (
+            // A dead ticket gets a cross, never a pass that still looks scannable.
+            <View style={styles.void}>
+              <Ionicons name="close-circle" size={44} color={colors.danger} />
+              <Text style={styles.voidText}>Cancelled</Text>
+            </View>
+          ) : pending ? (
+            <Text style={styles.codeLabel}>Your boarding pass appears once the seat is paid for.</Text>
+          ) : outcome === 'COMPLETED' ? (
             // A used ticket shows what happened, not a pass that still looks valid.
             <TripSummary boardedAt={booking.boardedAt} alightedAt={booking.alightedAt} />
           ) : outcome ? null : booking.boardingCode ? (
@@ -174,7 +179,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      {booking.crew ? (
+      {booking.crew && !cancelled ? (
         <View style={styles.crew}>
           <DriverCard
             name={booking.crew.driverName}
@@ -204,7 +209,7 @@ export function ShuttleBookedScreen({ navigation, route }: Props) {
         />
         <FareRow
           label="Payment"
-          value={booking.passId ? 'Pass' : pending ? 'Not paid yet' : 'Paid online'}
+          value={booking.passId ? 'Pass' : paymentLabel(booking.paymentStatus)}
           last
         />
       </View>
@@ -275,6 +280,34 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
       <Text style={styles.summaryValue}>{value}</Text>
     </View>
   );
+}
+
+function cancelledNote(paymentStatus: string): string {
+  switch (paymentStatus) {
+    case 'POINTS_CREDITED':
+      return 'This seat is cancelled. The points are in your rewards balance.';
+    case 'REFUNDED':
+      return 'The seat hold ran out before your payment arrived, so the seat was released. Your money is being refunded.';
+    case 'EXPIRED':
+      return 'The seat hold ran out before it was paid for. Nothing was charged.';
+    default:
+      return 'This seat is cancelled.';
+  }
+}
+
+function paymentLabel(paymentStatus: string): string {
+  switch (paymentStatus) {
+    case 'PENDING':
+      return 'Not paid yet';
+    case 'REFUNDED':
+      return 'Refunded';
+    case 'EXPIRED':
+      return 'Not charged';
+    case 'POINTS_CREDITED':
+      return 'Credited as points';
+    default:
+      return 'Paid online';
+  }
 }
 
 function FareRow({ label, value, strong, credit, last }: { label: string; value: string; strong?: boolean; credit?: boolean; last?: boolean }) {
@@ -414,6 +447,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
     gap: spacing.sm,
+  },
+  void: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  voidText: {
+    ...type.button,
+    fontSize: 16,
+    color: colors.danger,
   },
   codeLabel: {
     ...type.caption,

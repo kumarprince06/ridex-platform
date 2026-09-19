@@ -1,6 +1,6 @@
 # RideX — ERD
 
-**49 tables**, one platform database, no organisation column anywhere (ADR-001).
+**50 tables**, one platform database, no organisation column anywhere (ADR-001).
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java erd > docs/09-Project-ERD.md
 ```
 
-Generated on 2026-09-19 from `df39c38`.
+Generated on 2026-09-19 from `5b2d025`.
 
 ## How to read it
 
@@ -405,6 +405,7 @@ erDiagram
       timestamptz created_at
       bigint version
       smallint seats_per_row
+      timestamptz started_at
     }
     SHUTTLE_BOOKINGS {
       varchar_26 id
@@ -720,6 +721,14 @@ erDiagram
       timestamptz paid_at
       varchar_100 idempotency_key
     }
+    SHUTTLE_STOP_EVENTS {
+      varchar_26 id
+      varchar_26 shuttle_trip_id
+      varchar_26 stop_id
+      smallint sequence
+      timestamptz arrived_at
+      varchar_10 source
+    }
 ```
 
 ## Across modules
@@ -742,6 +751,8 @@ Relationships whose two ends live in different sections above:
 - `ride_requests` → `rider_profiles` (Rides and dispatch → Riders and drivers)
 - `rider_dues` → `rider_profiles` (Money → Riders and drivers)
 - `shuttle_bookings` → `rider_profiles` (Shuttle → Riders and drivers)
+- `shuttle_stop_events` → `route_stops` (Other → Shuttle)
+- `shuttle_stop_events` → `shuttle_trips` (Other → Shuttle)
 - `driver_earnings` → `trips` (Money → Rides and dispatch)
 - `payments` → `trips` (Money → Rides and dispatch)
 - `audit_logs` → `users` (Platform → Identity and access)

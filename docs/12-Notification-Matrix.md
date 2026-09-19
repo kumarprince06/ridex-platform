@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java notifications > docs/12-Notification-Matrix.md
 ```
 
-Generated on 2026-09-19 from `df39c38`.
+Generated on 2026-09-19 from `5b2d025`.
 
 ## How a message gets out
 
@@ -32,6 +32,9 @@ account - a verification code goes to somebody who has none yet, and must.
 | `ACCOUNT_EXISTS` | Email | No | `auth/AuthService` |
 | `SHUTTLE_BOOKED` | Email + Push | Yes | `shuttle/ShuttleService` |
 | `SHUTTLE_INVOICE` | Email + Push | Yes | `shuttle/ShuttleService` |
+| `SHUTTLE_STARTED` | Push | Yes | `shuttle/ShuttleRunService` |
+| `SHUTTLE_TWO_STOPS_AWAY` | Push | Yes | `shuttle/ShuttleRunService` |
+| `SHUTTLE_ARRIVING` | Push | Yes | `shuttle/ShuttleRunService` |
 | `SHUTTLE_BOARDED` | Push | Yes | `shuttle/DriverShuttleService` |
 | `WELCOME` | Email | No | `auth/AuthService` |
 | `DRIVER_UNDER_REVIEW` | Email + Push | Yes | `driver/DriverOnboardingService` |

@@ -1,6 +1,6 @@
 # RideX — API Contract
 
-Every endpoint the backend serves: **146** across 29 controllers.
+Every endpoint the backend serves: **152** across 29 controllers.
 
 Generated from the code rather than maintained by hand:
 
@@ -8,7 +8,7 @@ Generated from the code rather than maintained by hand:
 java tools/DocGen.java api > docs/10-API-Contract.md
 ```
 
-Generated on 2026-09-19 from `df39c38`.
+Generated on 2026-09-19 from `5b2d025`.
 
 ## Conventions
 
@@ -258,6 +258,11 @@ Generated on 2026-09-19 from `df39c38`.
 | GET | `/api/v1/driver/shuttle/departures` | DRIVER | What this driver is running, with each departure's manifest already on it |
 | GET | `/api/v1/driver/shuttle/departures/{shuttleTripId}/manifest` | DRIVER | Manifest |
 | POST | `/api/v1/driver/shuttle/departures/{shuttleTripId}/bookings/{bookingId}/board` | DRIVER | Checks one passenger in |
+| GET | `/api/v1/driver/shuttle/departures/{shuttleTripId}/live` | DRIVER | Live |
+| POST | `/api/v1/driver/shuttle/departures/{shuttleTripId}/start` | DRIVER | Start |
+| POST | `/api/v1/driver/shuttle/departures/{shuttleTripId}/location` | DRIVER | GPS ping while the run is on |
+| POST | `/api/v1/driver/shuttle/departures/{shuttleTripId}/stops/{stopId}/arrive` | DRIVER | Manual backup for when GPS misses a stop |
+| POST | `/api/v1/driver/shuttle/departures/{shuttleTripId}/finish` | DRIVER | Finish |
 
 ## Shuttle
 
@@ -268,6 +273,7 @@ Generated on 2026-09-19 from `df39c38`.
 | GET | `/api/v1/shuttle/departures/{scheduleId}/seats` | RIDER | The seat picker |
 | POST | `/api/v1/shuttle/bookings/{bookingId}/payment/confirm` | RIDER | Called after checkout closes |
 | GET | `/api/v1/shuttle/bookings` | RIDER | The rider's own seats |
+| GET | `/api/v1/shuttle/bookings/{bookingId}/live` | RIDER | Where the rider's shuttle is and when it reaches their stop |
 | POST | `/api/v1/shuttle/bookings` | RIDER | Book |
 | POST | `/api/v1/shuttle/bookings/{bookingId}/cancel` | RIDER | Cancel |
 | GET | `/api/v1/shuttle/passes/products` | RIDER | Products |

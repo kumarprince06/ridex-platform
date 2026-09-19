@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { expiringSoon, expiryTitle, listDocuments } from '../api/documents';
 import { reportLocation, setDuty } from '../api/driver';
-import { ApiError } from '../api/problem';
 import { useSession } from '../auth/session';
+import { ApiError } from '../api/problem';
 import { useOffers } from '../api/useOffers';
 import { currentPosition } from '../lib/location';
 import { DutyPill, DutyToggle } from '../components/DutyToggle';
@@ -29,6 +30,7 @@ export function DriveScreen({ navigation }: Props) {
   const { profile } = useSession();
   const [online, setOnline] = useState(profile?.onDuty ?? false);
   const [error, setError] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
   // What the ledger says is owed right now, and what has been earned in all. Nothing here is a
   // target the app invented.
   const { data: earnings } = useQuery(getEarnings);
@@ -36,13 +38,13 @@ export function DriveScreen({ navigation }: Props) {
   const owed = earnings ? balance(earnings.ledgerBalanceMinor, currency) : null;
   const lifetime = earnings ? money(earnings.lifetimeNetMinor, currency) : '--';
   const trips = earnings?.recent.length ?? 0;
-
-  const { offer } = useOffers(online);
   const midnight = new Date().setHours(0, 0, 0, 0);
   const today = (earnings?.recent ?? []).filter((line) => Date.parse(line.earnedAt) >= midnight);
   const todayNet = earnings ? money(today.reduce((total, line) => total + line.netAmountMinor, 0), currency) : '--';
   const { data: documents } = useQuery(listDocuments);
   const expiring = expiringSoon(documents ?? []);
+
+  const { offer } = useOffers(online);
 
   useEffect(() => {
     if (offer) {
@@ -66,6 +68,7 @@ export function DriveScreen({ navigation }: Props) {
 
   async function toggleDuty(next: boolean) {
     setError(null);
+    setSwitching(true);
     try {
       const position = next ? await currentPosition() : null;
       await setDuty(next, position?.latitude, position?.longitude);
@@ -135,7 +138,7 @@ export function DriveScreen({ navigation }: Props) {
 
               <View style={styles.searchingText}>
                 <Text style={styles.searchingTitle}>Looking for rides nearby</Text>
-                <Text style={styles.searchingNote}>Midtown · demand is high until 8 PM</Text>
+                <Text style={styles.searchingNote}>Keep the app open - offers appear here</Text>
               </View>
             </View>
 
@@ -150,13 +153,15 @@ export function DriveScreen({ navigation }: Props) {
           </View>
         ) : (
           <View style={styles.offlineBlock}>
-            <StatusBanner
-              icon="alert-circle"
-              title="Insurance expires in 12 days"
-              body="Upload a renewed certificate before it lapses, or you will stop receiving offers."
-              actionLabel="Update document"
-              onPress={() => navigation.navigate('Documents')}
-            />
+            {expiring ? (
+              <StatusBanner
+                icon="alert-circle"
+                title={expiryTitle(expiring)}
+                body="Upload a renewed copy before it lapses, or you will stop receiving offers."
+                actionLabel="Update document"
+                onPress={() => navigation.navigate('Documents')}
+              />
+            ) : null}
 
             <View style={styles.shiftRow}>
               <Shift value={owed?.amount ?? '--'} label={owed?.label ?? 'Owed to you'} />
@@ -187,6 +192,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  error: {
+    ...type.body,
+    color: colors.danger,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
   topBar: {
     position: 'absolute',
     left: 0,
@@ -199,12 +210,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  error: {
-    ...type.body,
-    color: colors.danger,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
   },
   topActions: {
     flexDirection: 'row',

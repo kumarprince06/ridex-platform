@@ -2,6 +2,8 @@ import { ActivityIndicator, Alert, StyleSheet, Text } from 'react-native';
 
 import {
   DOCUMENT_LABELS,
+  expiringSoon as findExpiringSoon,
+  expiryTitle,
   listDocuments,
   uploadDocument,
   type DocumentType,
@@ -28,19 +30,11 @@ const ALL_TYPES: DocumentType[] = [
   'BACKGROUND_CHECK',
 ];
 
-const DAY_MS = 86_400_000;
-
 export function DocumentsScreen({ navigation }: Props) {
   const { data, loading, error, refetch } = useQuery(listDocuments, []);
   const documents = data ?? [];
 
-  // The document closest to lapsing, if it lapses within a month. This is the one thing on the
-  // screen worth interrupting for: offers stop the moment it expires.
-  const expiringSoon = documents
-    .filter((doc) => doc.status === 'APPROVED' && doc.expiresAt)
-    .map((doc) => ({ doc, days: Math.ceil((Date.parse(doc.expiresAt!) - Date.now()) / DAY_MS) }))
-    .filter((entry) => entry.days > 0 && entry.days <= 30)
-    .sort((a, b) => a.days - b.days)[0];
+  const expiringSoon = findExpiringSoon(documents);
 
   async function upload(documentType: DocumentType) {
     try {
@@ -72,7 +66,7 @@ export function DocumentsScreen({ navigation }: Props) {
       {expiringSoon ? (
         <StatusBanner
           icon="alert-circle"
-          title={`${DOCUMENT_LABELS[expiringSoon.doc.documentType]} expires in ${expiringSoon.days} days`}
+          title={expiryTitle(expiringSoon)}
           body="Upload the renewed copy now so there is no gap in your driving."
           actionLabel="Upload renewal"
           onPress={() => upload(expiringSoon.doc.documentType)}

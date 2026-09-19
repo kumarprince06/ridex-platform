@@ -26,7 +26,7 @@ export function AccountScreen({ navigation }: Props) {
   // The car they are approved to drive today, not whichever was added first.
   const vehicle = (vehicles ?? []).find((candidate) => candidate.status === 'ACTIVE')
     ?? (vehicles ?? [])[0];
-  const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Your account';
+  const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || profile?.email?.split('@')[0] || 'Your account';
 
   return (
     <Screen title="Account">
@@ -56,11 +56,17 @@ export function AccountScreen({ navigation }: Props) {
         subtitle={vehicle ? `${vehicle.model} · ${vehicle.status}` : 'None added'}
         onPress={() => navigation.navigate('Vehicle')}
       />
-      <Row icon="document-text" title="Documents" subtitle="1 expiring soon" badge="1" onPress={() => navigation.navigate('Documents')} />
+      <Row
+        icon="document-text"
+        title="Documents"
+        subtitle={expiring ? `Expires in ${expiring.days} day${expiring.days === 1 ? '' : 's'}` : 'Licence, ID, vehicle papers'}
+        badge={expiring ? '1' : undefined}
+        onPress={() => navigation.navigate('Documents')}
+      />
       <Row icon="star" title="Ratings and stats" subtitle="Acceptance, cancellation, rating" onPress={() => navigation.navigate('Ratings')} />
 
       <SectionLabel>MONEY</SectionLabel>
-      <Row icon="cash" title="Payouts" subtitle="Weekly · HDFC ••4412" onPress={() => navigation.navigate('Payouts')} />
+      <Row icon="cash" title="Payouts" subtitle={payoutAccount?.set ? `Weekly · ${payoutAccount.accountNumberMasked}` : 'Weekly · add a bank account'} onPress={() => navigation.navigate('Payouts')} />
       <Row icon="card" title="Payout method" subtitle="Change where earnings are sent" onPress={() => navigation.navigate('PayoutMethod')} />
 
       <SectionLabel>ACCOUNT</SectionLabel>

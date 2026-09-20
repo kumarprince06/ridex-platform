@@ -231,13 +231,35 @@ class AuthServiceTest {
 
     @Test
     void registrationDoesNotRevealThatAnAddressIsTaken() {
-        when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
+        givenTaken("taken@example.com", UserStatus.ACTIVE);
 
         authService.register(new RegisterRequest("taken@example.com", PASSWORD, UserRole.RIDER));
 
         // No token, no account, no exception: the controller answers 202 either way.
         verify(userRepository, never()).save(any(User.class));
         verify(userTokenRepository, never()).save(any());
+    }
+
+    @Test
+    void registeringAgainOnAnUnverifiedAccountSendsAFreshCode() {
+        givenTaken("pending@example.com", UserStatus.PENDING);
+
+        authService.register(new RegisterRequest("pending@example.com", PASSWORD, UserRole.RIDER));
+
+        // The sign-up screen's resend is this same call, so answering it with "you already have an
+        // account" leaves anyone whose first code was lost unable to ever verify.
+        verify(userTokenRepository).save(any());
+        verify(notifier).enqueue(eq(DeliveryChannel.EMAIL), eq("pending@example.com"),
+                eq("VERIFY_ACCOUNT"), any());
+    }
+
+    private void givenTaken(String email, UserStatus status) {
+        User user = new User();
+        user.setId("01HZZZZZZZZZZZZZZZZZZZZZZY");
+        user.setEmail(email);
+        user.setStatus(status);
+        user.setRoles(EnumSet.of(UserRole.RIDER));
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
     }
 
     @Test
@@ -249,7 +271,7 @@ class AuthServiceTest {
                 jwtService, encoder, rateLimiter, mock(AuthEventRepository.class), notifier,
                 riderProfileService, driverProfileService);
         service.generateDecoyHash();
-        when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
+        givenTaken("taken@example.com", UserStatus.ACTIVE);
 
         service.register(new RegisterRequest("taken@example.com", PASSWORD, UserRole.RIDER));
 

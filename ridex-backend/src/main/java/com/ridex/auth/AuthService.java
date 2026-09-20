@@ -103,9 +103,18 @@ public class AuthService {
         // Unconditional: skipping this on the taken path is ~200ms faster and leaks by timing.
         String passwordHash = passwordEncoder.encode(request.password());
 
-        if (userRepository.existsByEmail(email)) {
-            // The owner is told, not the caller. Same 202 either way.
-            notifier.enqueue(DeliveryChannel.EMAIL, email, "ACCOUNT_EXISTS", null);
+        var existing = userRepository.findByEmail(email);
+        if (existing.isPresent()) {
+            User owner = existing.get();
+            // A PENDING account never got past its code, and registering again is the only resend
+            // the sign-up screen has. Telling that caller the account exists strands anyone whose
+            // first code was lost - they can neither verify nor register again.
+            if (owner.getStatus() == UserStatus.PENDING && owner.getRoles().contains(request.role())) {
+                issueOtp(owner, TokenPurpose.EMAIL_VERIFICATION, "VERIFY_ACCOUNT");
+            } else {
+                // The owner is told, not the caller. Same 202 either way.
+                notifier.enqueue(DeliveryChannel.EMAIL, email, "ACCOUNT_EXISTS", null);
+            }
             return;
         }
 

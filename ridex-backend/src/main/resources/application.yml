@@ -174,6 +174,22 @@ management:
     # check and, on a host that gates deploys on it, rolls back a release that was fine.
     redis:
       enabled: false
+  # Pushed out rather than scraped: a Render service has no private network for a scraper to reach
+  # it on, and a public /actuator/prometheus would publish the platform's internals. Off by default,
+  # so a dev box does not retry localhost:4318 every minute.
+  otlp:
+    metrics:
+      export:
+        enabled: ${RIDEX_OTLP_ENABLED:false}
+        url: ${RIDEX_OTLP_URL:http://localhost:4318/v1/metrics}
+        headers:
+          Authorization: ${RIDEX_OTLP_AUTH:}
+        step: 60s
+  metrics:
+    distribution:
+      # Buckets instead of a single average, so the dashboard can show p95 latency per endpoint.
+      percentiles-histogram:
+        http.server.requests: true
 
 springdoc:
   api-docs:

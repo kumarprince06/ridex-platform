@@ -35,6 +35,7 @@ The engineering blueprint for RideX, and the record of what was built from it.
 28. 27-Unique-Feature-Set.md
 29. 31-Deployment-and-CI-CD.md
 30. 32-Business-Readiness-and-New-Lines.md
+31. 35-Runtime-Flow.md
 
 ## What is planning and what is built
 
@@ -46,5 +47,9 @@ generated from the code instead, because they are the ones that drift the moment
 - [12-Notification-Matrix.md](12-Notification-Matrix.md) - from the templates and their call sites
 
 `java tools/DocGen.java erd|api|notifications` regenerates them.
+
+[35-Runtime-Flow.md](35-Runtime-Flow.md) traces how the built backend executes, with file and method
+references, and lists the defects found while tracing it. It is written by hand against one commit,
+so re-check its line numbers after the code moves.
 
 [34-Module-Task-Board.md](34-Module-Task-Board.md) is the plan of record for what is left.

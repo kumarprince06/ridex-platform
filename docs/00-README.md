@@ -42,33 +42,36 @@ Keep the reusable concepts: users, authentication, payments, notifications and a
 
 ## Documentation index
 
-1. Project overview
-2. Product requirements
-3. Use cases
-4. Business rules
-5. Functional requirements
-6. Non-functional requirements
-7. Roles and permissions
-8. Backend architecture
-9. ERD
-10. API contract
-11. State machines
-12. Notification matrix
-13. Payment architecture
-14. Security
-15. Phase-by-phase delivery plan
-16. Edge cases and error catalog
-17. Differentiating RideX ideas
-18. Future project ideas
-19. Technology stack
-20. ADRs
-21. Gap analysis and task list
-22. Partner app design
-23. Admin panel design
-24. High-level design (HLD)
-25. Low-level design (LLD)
-26. Build task list
-27. Unique feature set
+- 1 · [Project overview](01-Project-Overview.md)
+- 2 · [Product requirements](02-Project-Requirements.md)
+- 3 · [Use cases](03-Use-Cases.md)
+- 4 · [Business rules](04-Business-Rules.md)
+- 5 · [Functional requirements](05-Functional-Requirements.md)
+- 6 · [Non-functional requirements](06-Non-Functional-Requirements.md)
+- 7 · [Roles and permissions](07-Roles-and-Permissions.md)
+- 8 · [Backend architecture](08-Backend-Architecture.md)
+- 9 · [ERD](09-Project-ERD.md)
+- 10 · [API contract](10-API-Contract.md)
+- 11 · [State machines](11-State-Machines.md)
+- 12 · [Notification matrix](12-Notification-Matrix.md)
+- 13 · [Payment architecture](13-Payment-Architecture.md)
+- 14 · [Security](14-Security.md)
+- 15 · [Phase-by-phase delivery plan](15-Phase-Plan.md)
+- 16 · [Edge cases and error catalog](16-Edge-Cases-and-Errors.md)
+- 17 · [Differentiating RideX ideas](17-RideX-Differentiators.md)
+- 18 · [Future project ideas](18-Future-Project-Ideas.md)
+- 19 · [Technology stack](19-Technology-Stack.md)
+- 20 · [ADRs](20-ADRs.md)
+- 22 · [Partner app design](22-Partner-App-Design.md)
+- 23 · [Admin panel design](23-Admin-Panel-Design.md)
+- 24 · [High-level design (HLD)](24-HLD-High-Level-Design.md)
+- 25 · [Low-level design (LLD)](25-LLD-Low-Level-Design.md)
+- 26 · [Build task list](26-Build-Task-List.md)
+- 27 · [Unique feature set](27-Unique-Feature-Set.md)
+- 31 · [Deployment and CI/CD](31-Deployment-and-CI-CD.md)
+- 32 · [Business readiness and new lines](32-Business-Readiness-and-New-Lines.md)
+- 34 · [Module task board](34-Module-Task-Board.md)
+- 35 · [Runtime flow](35-Runtime-Flow.md)
 
 ## Where to start
 
@@ -77,5 +80,5 @@ Keep the reusable concepts: users, authentication, payments, notifications and a
 | Understand the product | 01, 02, 03 |
 | Understand the system | 24 (HLD), then 08 |
 | Build something | 26 (task list), then 25 (LLD) |
-| Know what is already done | 21 |
+| Know what is already done | 34 |
 | Know what makes RideX different | 27 |

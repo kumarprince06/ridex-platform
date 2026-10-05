@@ -33,10 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DispatchService {
 
-    // Long enough to read the card and decide, short enough that the rider is not left waiting on
-    // somebody who put their phone down.
-    private static final Duration OFFER_VALIDITY = Duration.ofSeconds(20);
-
     private final RideOfferRepository rideOfferRepository;
     private final RideRequestRepository rideRequestRepository;
     private final DriverProfileRepository driverProfileRepository;
@@ -50,6 +46,11 @@ public class DispatchService {
 
     @Value("${app.dispatch.wave-size:5}")
     private int waveSize;
+
+    // Long enough to read the card and decide, short enough that the rider is not left waiting on
+    // somebody who put their phone down. Longer on the demo, where a person drives both sides.
+    @Value("${app.dispatch.offer-validity:20s}")
+    private Duration offerValidity;
 
     /**
      * Offers a searching ride to the nearest eligible drivers.
@@ -88,7 +89,7 @@ public class DispatchService {
                 waveSize * wave + alreadyOffered.size());
 
         Instant now = Instant.now();
-        Instant expiresAt = now.plus(OFFER_VALIDITY);
+        Instant expiresAt = now.plus(offerValidity);
         List<RideOffer> created = new ArrayList<>();
 
         for (String driverId : candidates) {

@@ -1,5 +1,7 @@
 package com.ridex.wallet;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,6 +16,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Driver wallet")
 @RestController
 @RequestMapping("/api/v1/driver/wallet")
 @RequiredArgsConstructor
@@ -23,6 +26,7 @@ public class DriverWalletController {
     private final DriverWalletService walletService;
 
     /** The balance, the limit below which offers stop, and what clearing it would take. */
+    @Operation(summary = "Get the wallet balance and the limit below which offers stop")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public WalletResponse wallet(@AuthenticationPrincipal JwtPrincipal principal) {
@@ -30,6 +34,7 @@ public class DriverWalletController {
     }
 
     /** Opens checkout for everything owed. A repeated Idempotency-Key returns the same checkout. */
+    @Operation(summary = "Start a top-up to clear what is owed")
     @PostMapping("/top-ups")
     @ResponseStatus(HttpStatus.CREATED)
     public TopUpCheckout startTopUp(@AuthenticationPrincipal JwtPrincipal principal,
@@ -38,6 +43,7 @@ public class DriverWalletController {
     }
 
     /** Called after checkout closes; the gateway is asked whether the money arrived. */
+    @Operation(summary = "Confirm a top-up payment with the gateway")
     @PostMapping("/top-ups/{topUpId}/confirm")
     @ResponseStatus(HttpStatus.OK)
     public WalletResponse confirmTopUp(@AuthenticationPrincipal JwtPrincipal principal,

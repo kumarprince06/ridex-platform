@@ -1,5 +1,7 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -13,6 +15,7 @@ import com.ridex.wallet.dto.WalletEntryResponse;
 
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Admin: driver wallets")
 @RestController
 @RequestMapping("/api/v1/admin/wallets")
 @RequiredArgsConstructor
@@ -21,6 +24,7 @@ public class AdminWalletController {
 
     private final AdminWalletQueries wallets;
 
+    @Operation(summary = "List driver wallet balances")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<AdminWalletResponse> wallets(@RequestParam(defaultValue = "ALL") String filter,
@@ -29,6 +33,7 @@ public class AdminWalletController {
         return wallets.wallets(filter, q, page, size);
     }
 
+    @Operation(summary = "List one driver's wallet entries")
     @GetMapping("/{driverId}/entries")
     @ResponseStatus(HttpStatus.OK)
     public List<WalletEntryResponse> entries(@PathVariable String driverId) {

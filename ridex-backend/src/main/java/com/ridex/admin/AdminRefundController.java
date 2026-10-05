@@ -1,5 +1,7 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /** The two ways operations gives money back: one payment at a time, or a whole departure called off. */
+@Tag(name = "Admin: refunds")
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -26,6 +29,7 @@ public class AdminRefundController {
     private final RefundService refundService;
     private final ShuttleService shuttleService;
 
+    @Operation(summary = "Refund a payment")
     @PostMapping("/payments/{paymentId}/refund")
     @ResponseStatus(HttpStatus.CREATED)
     @Audited(action = "REFUNDED_AS_POINTS", targetType = "PAYMENT")
@@ -35,6 +39,7 @@ public class AdminRefundController {
         return Map.of("refundId", refund.getId(), "amountMinor", refund.getAmountMinor());
     }
 
+    @Operation(summary = "Cancel a shuttle departure and refund everyone booked on it")
     @PostMapping("/shuttle/departures/{shuttleTripId}/cancel")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "DEPARTURE_CANCELLED", targetType = "SHUTTLE_TRIP")

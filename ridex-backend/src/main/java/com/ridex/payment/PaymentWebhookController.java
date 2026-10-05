@@ -1,5 +1,7 @@
 package com.ridex.payment;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
  * It is checked before the body is parsed, because an unverified payload is attacker input.
  */
 @Slf4j
+@Tag(name = "Payment webhooks")
 @RestController
 @RequestMapping("/api/v1/payments/webhook")
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class PaymentWebhookController {
      *                the exact bytes sent, and letting Jackson parse and re-serialise it would
      *                change whitespace and key order and break every verification.
      */
+    @Operation(summary = "Receive a signed payment gateway webhook")
     @PostMapping
     public ResponseStatusOnly receive(
             @RequestBody String payload,

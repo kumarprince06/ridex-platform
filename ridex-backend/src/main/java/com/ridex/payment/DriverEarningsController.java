@@ -1,5 +1,7 @@
 package com.ridex.payment;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Currency;
 
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,7 @@ import lombok.RequiredArgsConstructor;
  * reconstruct their payout from their own trips has to take the platform's word for it, and that
  * is the single most common complaint on every competing platform.
  */
+@Tag(name = "Driver earnings")
 @RestController
 @RequestMapping("/api/v1/driver/earnings")
 @RequiredArgsConstructor
@@ -34,6 +37,7 @@ public class DriverEarningsController {
     private final PayoutService payoutService;
     private final DriverProfileRepository driverProfileRepository;
 
+    @Operation(summary = "Get the driver's earnings")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public EarningsResponse earnings(@AuthenticationPrincipal JwtPrincipal principal) {
@@ -45,6 +49,7 @@ public class DriverEarningsController {
     }
 
     /** What has actually been paid out, against what the earnings above say is owed. */
+    @Operation(summary = "List payouts made to the driver")
     @GetMapping("/payouts")
     @ResponseStatus(HttpStatus.OK)
     public List<PayoutResponse> payouts(@AuthenticationPrincipal JwtPrincipal principal) {

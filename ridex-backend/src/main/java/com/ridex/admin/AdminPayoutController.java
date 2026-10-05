@@ -1,5 +1,7 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.function.Function;
 
@@ -23,6 +25,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Operations cannot reach any of this. Approving a driver and moving money to them are separate
  * decisions on purpose (docs/07) - the same person doing both is how a platform gets robbed.
  */
+@Tag(name = "Admin: payouts")
 @RestController
 @RequestMapping("/api/v1/admin/payouts")
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class AdminPayoutController {
 
     private final PayoutService payoutService;
 
+    @Operation(summary = "List driver payouts")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<PayoutResponse> list(
@@ -42,6 +46,7 @@ public class AdminPayoutController {
     }
 
     /** One payout per driver with money owed. Safe to run twice - the second run finds nothing. */
+    @Operation(summary = "Create a payout for every driver with money owed")
     @PostMapping("/run")
     @ResponseStatus(HttpStatus.CREATED)
     @Audited(action = "PAYOUT_BATCH_RUN", targetType = "PAYOUT")
@@ -49,6 +54,7 @@ public class AdminPayoutController {
         return payoutService.runBatch();
     }
 
+    @Operation(summary = "Mark a payout as sent to the bank")
     @PostMapping("/{payoutId}/send")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "PAYOUT_SENT", targetType = "PAYOUT")
@@ -56,6 +62,7 @@ public class AdminPayoutController {
         return payoutService.markProcessing(payoutId);
     }
 
+    @Operation(summary = "Mark a payout as settled")
     @PostMapping("/{payoutId}/settle")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "PAYOUT_SETTLED", targetType = "PAYOUT")
@@ -64,6 +71,7 @@ public class AdminPayoutController {
         return payoutService.markPaid(payoutId, request.reference());
     }
 
+    @Operation(summary = "Mark a payout as failed")
     @PostMapping("/{payoutId}/fail")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "PAYOUT_FAILED", targetType = "PAYOUT")

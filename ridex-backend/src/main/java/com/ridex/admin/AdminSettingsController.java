@@ -1,5 +1,7 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -23,6 +25,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Every change is audited. These numbers decide what people earn and pay, so "who set the
  * commission to 40% last Tuesday" has to be answerable.
  */
+@Tag(name = "Admin: settings")
 @RestController
 @RequestMapping("/api/v1/admin/settings")
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class AdminSettingsController {
 
     private final SettingsService settingsService;
 
+    @Operation(summary = "List platform settings")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<SettingResponse> all() {
@@ -38,6 +42,7 @@ public class AdminSettingsController {
     }
 
     @Audited(action = "SETTING_CHANGED", targetType = "SETTING")
+    @Operation(summary = "Change a platform setting")
     @PutMapping("/{key}")
     @ResponseStatus(HttpStatus.OK)
     public SettingResponse update(@AuthenticationPrincipal JwtPrincipal principal,

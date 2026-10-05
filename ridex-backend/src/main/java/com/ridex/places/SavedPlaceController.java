@@ -1,5 +1,7 @@
 package com.ridex.places;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /** Home, work and anywhere else a rider goes often enough to name. */
+@Tag(name = "Saved places")
 @RestController
 @RequestMapping("/api/v1/rider/places")
 @RequiredArgsConstructor
@@ -30,12 +33,14 @@ public class SavedPlaceController {
 
     private final SavedPlaceService savedPlaceService;
 
+    @Operation(summary = "List the rider's saved places")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<SavedPlaceResponse> mine(@AuthenticationPrincipal JwtPrincipal principal) {
         return savedPlaceService.mine(principal.userId());
     }
 
+    @Operation(summary = "Save a place")
     @PostMapping
     @ResponseStatus(HttpStatus.OK)
     public SavedPlaceResponse save(@AuthenticationPrincipal JwtPrincipal principal,
@@ -43,6 +48,7 @@ public class SavedPlaceController {
         return savedPlaceService.save(principal.userId(), request);
     }
 
+    @Operation(summary = "Delete a saved place")
     @DeleteMapping("/{placeId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal JwtPrincipal principal,

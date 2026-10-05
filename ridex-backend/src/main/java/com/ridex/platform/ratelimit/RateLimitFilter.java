@@ -2,6 +2,7 @@ package com.ridex.platform.ratelimit;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -18,17 +19,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    // Only the auth calls a password or code can be guessed through. Refresh, sessions and logout
-    // need a token already, and counting them signed staff out for reloading pages quickly.
-    // Estimates are here because each one costs a billed maps call.
-    private static final String[] LIMITED_PREFIXES = {
-            "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/verify",
-            "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
-            "/api/v1/auth/change-password", "/api/v1/maps/", "/api/v1/rides/estimate"};
-
     private final RateLimiter rateLimiter;
     private final int limit;
     private final Duration window;
+    // Set in application.yml: the auth routes everywhere, the whole API on the public demo.
+    private final List<String> limitedPrefixes;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -51,12 +46,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        for (String prefix : LIMITED_PREFIXES) {
-            if (path.startsWith(prefix)) {
-                return false;
-            }
-        }
-        return true;
+        return limitedPrefixes.stream().noneMatch(path::startsWith);
     }
 
     // ponytail: trusts the first X-Forwarded-For hop, same as AuthController. Correct only behind a

@@ -1,5 +1,7 @@
 package com.ridex.rider;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +19,7 @@ import com.ridex.rider.dto.UpdateRiderProfileRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Rider profile")
 @RestController
 @RequestMapping("/api/v1/rider")
 @RequiredArgsConstructor
@@ -27,12 +30,14 @@ public class RiderController {
 
     private final RiderProfileService riderProfileService;
 
+    @Operation(summary = "Get the rider's profile")
     @GetMapping("/profile")
     @ResponseStatus(HttpStatus.OK)
     public RiderProfileResponse getProfile(@AuthenticationPrincipal JwtPrincipal principal) {
         return riderProfileService.get(principal.userId());
     }
 
+    @Operation(summary = "Update the rider's profile")
     @PutMapping("/profile")
     @ResponseStatus(HttpStatus.OK)
     public RiderProfileResponse updateProfile(@AuthenticationPrincipal JwtPrincipal principal,

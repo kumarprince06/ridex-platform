@@ -1,5 +1,7 @@
 package com.ridex.driver;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 import java.util.List;
 
@@ -16,6 +18,7 @@ import com.ridex.platform.security.JwtPrincipal;
 
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Driver documents")
 @RestController
 @RequestMapping("/api/v1/driver/documents")
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class DriverDocumentController {
 
     private final DriverDocumentService driverDocumentService;
 
+    @Operation(summary = "List the driver's documents and their review status")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<DriverDocumentResponse> mine(@AuthenticationPrincipal JwtPrincipal principal) {
@@ -31,6 +35,7 @@ public class DriverDocumentController {
     }
 
     /** Multipart, because the file is the point. Re-uploading a type replaces it and re-queues it. */
+    @Operation(summary = "Upload or replace a document for review")
     @PostMapping(consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
     public DriverDocumentResponse submit(

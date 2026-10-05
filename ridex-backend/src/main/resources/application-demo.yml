@@ -1,0 +1,23 @@
+# The public reviewer demo. Never activate it against data you want to keep: the nightly reset
+# drops the whole schema and re-seeds it.
+spring:
+  flyway:
+    # Off everywhere else, by Flyway's default. Only this profile's reset may drop the schema.
+    clean-disabled: false
+
+app:
+  demo:
+    # Published in the README, so it protects nothing; overridable so a private demo can change it.
+    password: ${RIDEX_DEMO_PASSWORD:RideX-demo-2026}
+    reset-cron: ${RIDEX_DEMO_RESET_CRON:0 0 3 * * *}
+
+  # The password above is public, so no account on the demo may hold a role that changes money or
+  # people. Blanking these stops a stray env var from creating a super admin.
+  bootstrap:
+    admin-email: ""
+    admin-password: ""
+
+  # Every API route, not just the auth ones: anyone can sign in here, so booking and accepting
+  # rides are as open to a flood as login is.
+  rate-limit:
+    ip-paths: /api/v1/

@@ -48,8 +48,36 @@ class OpenApiDocumentTest {
         assertThat(fetchDocument()).contains("bearerAuth").contains("JWT");
     }
 
+    @Test
+    void swaggerUiLoadsWithoutAToken() throws Exception {
+        // Reviewers arrive with no account: the page has to open before Authorize can be pressed.
+        mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+        // And its group dropdown lists the features, "all" first as the default view.
+        assertThat(fetchDocument("/v3/api-docs/swagger-config"))
+                .contains("\"name\":\"all\"").contains("\"name\":\"dispatch\"");
+    }
+
+    @Test
+    void aGroupCarriesItsOwnFeatureOnly() throws Exception {
+        // /api/v1/driver is shared by three features; grouping by package keeps them apart.
+        assertThat(fetchDocument("/v3/api-docs/dispatch"))
+                .contains("/api/v1/driver/offers")
+                .doesNotContain("/api/v1/driver/wallet")
+                .doesNotContain("/api/v1/driver/profile");
+    }
+
+    @Test
+    void theWalkthroughEndpointsSaySoInOneLine() throws Exception {
+        assertThat(fetchDocument("/v3/api-docs/trips"))
+                .contains("Start the trip with the rider's pickup code");
+    }
+
     private String fetchDocument() throws Exception {
-        return mockMvc.perform(get("/v3/api-docs"))
+        return fetchDocument("/v3/api-docs");
+    }
+
+    private String fetchDocument(String path) throws Exception {
+        return mockMvc.perform(get(path))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
     }

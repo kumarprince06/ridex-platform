@@ -23,7 +23,7 @@ Business operators, fleets and drivers are platform entities.
 
 ## Recommended stack
 
-- Backend: Java 21 + Spring Boot 3.x
+- Backend: Java 21 + Spring Boot 4.1
 - Database: PostgreSQL
 - Migrations: Flyway
 - Cache/queues: Redis + Spring/worker processing

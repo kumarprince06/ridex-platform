@@ -2,7 +2,7 @@
 
 ## Backend
 - Java 21
-- Spring Boot 3.x
+- Spring Boot 4.1
 - Spring Security
 - Spring Data JPA
 - Flyway

@@ -1,5 +1,6 @@
 package com.ridex.payment;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Currency;
 
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
  * reconstruct their payout from their own trips has to take the platform's word for it, and that
  * is the single most common complaint on every competing platform.
  */
+@Tag(name = "Driver earnings")
 @RestController
 @RequestMapping("/api/v1/driver/earnings")
 @RequiredArgsConstructor

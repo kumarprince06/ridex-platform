@@ -1,5 +1,6 @@
 package com.ridex.notification.push;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import com.ridex.platform.security.JwtPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Push devices")
 @RestController
 @RequestMapping("/api/v1/devices")
 @RequiredArgsConstructor

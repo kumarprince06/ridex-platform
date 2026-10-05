@@ -1,5 +1,6 @@
 package com.ridex.vehicle;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import com.ridex.vehicle.dto.VehicleResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Vehicles")
 @RestController
 @RequestMapping("/api/v1/driver/vehicles")
 @RequiredArgsConstructor

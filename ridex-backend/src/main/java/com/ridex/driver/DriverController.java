@@ -1,5 +1,6 @@
 package com.ridex.driver;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,6 +33,7 @@ import com.ridex.driver.dto.UpdateDriverProfileRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Driver profile")
 @RestController
 @RequestMapping("/api/v1/driver")
 @RequiredArgsConstructor

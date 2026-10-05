@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Support agents work here and nowhere else - they cannot approve drivers or move money, which
  * is the split docs/07 draws and the one that matters most in a marketplace.
  */
+@Tag(name = "Admin: support")
 @RestController
 @RequestMapping("/api/v1/admin/support")
 @RequiredArgsConstructor

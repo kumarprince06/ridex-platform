@@ -1,5 +1,6 @@
 package com.ridex.support;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Not role-restricted: both raise tickets, often about each other, and the role is taken from
  * the token rather than from the path.
  */
+@Tag(name = "Support tickets")
 @RestController
 @RequestMapping("/api/v1/support/tickets")
 @RequiredArgsConstructor

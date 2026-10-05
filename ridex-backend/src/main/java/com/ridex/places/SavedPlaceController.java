@@ -1,5 +1,6 @@
 package com.ridex.places;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /** Home, work and anywhere else a rider goes often enough to name. */
+@Tag(name = "Saved places")
 @RestController
 @RequestMapping("/api/v1/rider/places")
 @RequiredArgsConstructor

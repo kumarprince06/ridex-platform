@@ -1,5 +1,6 @@
 package com.ridex.points;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Not restricted to RIDER: a driver earns and redeems on their own rides too, and points belong
  * to the account rather than to a role.
  */
+@Tag(name = "Points")
 @RestController
 @RequestMapping("/api/v1/points")
 @RequiredArgsConstructor

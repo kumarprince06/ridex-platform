@@ -1,5 +1,7 @@
 package com.ridex.ride;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -25,6 +27,7 @@ import com.ridex.trip.dto.FareComparisonResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Rides")
 @RestController
 @RequestMapping("/api/v1/rides")
 @RequiredArgsConstructor
@@ -36,6 +39,7 @@ public class RideController {
     private final RatingService ratingService;
     private final PaymentService paymentService;
 
+    @Operation(summary = "Book a ride from a quote; dispatch starts when it commits")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public RideResponse create(@AuthenticationPrincipal JwtPrincipal principal,
@@ -49,6 +53,7 @@ public class RideController {
         return rideRequestService.list(principal.userId());
     }
 
+    @Operation(summary = "Get a ride: status, driver, vehicle and pickup code")
     @GetMapping("/{rideId}")
     @ResponseStatus(HttpStatus.OK)
     public RideResponse get(@AuthenticationPrincipal JwtPrincipal principal,
@@ -108,6 +113,7 @@ public class RideController {
     }
 
     /** The rider's receipt: what was quoted against what was charged, line for line. */
+    @Operation(summary = "Get the receipt comparing the quote with the charge")
     @GetMapping("/{rideId}/receipt")
     @ResponseStatus(HttpStatus.OK)
     public FareComparisonResponse receipt(
@@ -117,6 +123,7 @@ public class RideController {
         return tripService.receipt(rideId);
     }
 
+    @Operation(summary = "Cancel a ride, with any fee the timing incurs")
     @PostMapping("/{rideId}/cancel")
     @ResponseStatus(HttpStatus.OK)
     public RideResponse cancel(@AuthenticationPrincipal JwtPrincipal principal,

@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /** The two ways operations gives money back: one payment at a time, or a whole departure called off. */
+@Tag(name = "Admin: refunds")
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor

@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.Valid;
 import com.ridex.platform.security.JwtPrincipal;
@@ -29,6 +30,7 @@ import com.ridex.admin.dto.SearchHit;
  * driver or move money - docs/07 keeps case handling and financial authority apart, and one person
  * holding both is the standard internal-fraud pattern in a marketplace.
  */
+@Tag(name = "Admin: search and detail")
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor

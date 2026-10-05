@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Support cannot reach any of this: approving a driver is an operational decision with money
  * behind it, and docs/07 keeps that apart from case handling on purpose.
  */
+@Tag(name = "Admin: drivers")
 @RestController
 @RequestMapping("/api/v1/admin/drivers")
 @RequiredArgsConstructor

@@ -1,5 +1,6 @@
 package com.ridex.legal;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -8,6 +9,7 @@ import com.ridex.legal.dto.LegalDocumentResponse;
 import lombok.RequiredArgsConstructor;
 
 /** Public: the Welcome screen links to these before anybody has signed in. */
+@Tag(name = "Legal")
 @RestController
 @RequestMapping("/api/v1/legal")
 @RequiredArgsConstructor

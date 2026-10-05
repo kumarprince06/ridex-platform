@@ -1,5 +1,6 @@
 package com.ridex.wallet;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,6 +15,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Driver wallet")
 @RestController
 @RequestMapping("/api/v1/driver/wallet")
 @RequiredArgsConstructor

@@ -1,5 +1,6 @@
 package com.ridex.driver;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 import java.util.List;
 
@@ -16,6 +17,7 @@ import com.ridex.platform.security.JwtPrincipal;
 
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Driver documents")
 @RestController
 @RequestMapping("/api/v1/driver/documents")
 @RequiredArgsConstructor

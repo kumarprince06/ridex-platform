@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import com.ridex.wallet.dto.WalletEntryResponse;
 
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Admin: driver wallets")
 @RestController
 @RequestMapping("/api/v1/admin/wallets")
 @RequiredArgsConstructor

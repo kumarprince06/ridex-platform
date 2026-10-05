@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Every change is audited. These numbers decide what people earn and pay, so "who set the
  * commission to 40% last Tuesday" has to be answerable.
  */
+@Tag(name = "Admin: settings")
 @RestController
 @RequestMapping("/api/v1/admin/settings")
 @RequiredArgsConstructor

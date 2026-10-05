@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.ridex.shuttle.dto.ReturnRouteRequest;
 import java.time.LocalDate;
 import java.util.List;
@@ -32,6 +33,7 @@ import com.ridex.shuttle.dto.PassPricingResponse;
  * <p>Every write returns the whole route. A stop, a fare and a schedule are only meaningful next to
  * each other, and one response means the console never renders a half-updated route.
  */
+@Tag(name = "Admin: shuttle routes")
 @RestController
 @RequestMapping("/api/v1/admin/shuttle/routes")
 @RequiredArgsConstructor

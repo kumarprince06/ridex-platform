@@ -1,5 +1,6 @@
 package com.ridex.shuttle;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -18,6 +19,7 @@ import com.ridex.shuttle.dto.ShuttleLocationRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Shuttle (driver)")
 @RestController
 @RequestMapping("/api/v1/driver/shuttle")
 @RequiredArgsConstructor

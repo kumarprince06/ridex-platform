@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import com.ridex.shuttle.dto.RoutePassSummary;
 import lombok.RequiredArgsConstructor;
 
 /** Passes across every route: where each route stands, and every pass sold. Prices live on the route. */
+@Tag(name = "Admin: shuttle passes")
 @RestController
 @RequestMapping("/api/v1/admin/shuttle/passes")
 @RequiredArgsConstructor

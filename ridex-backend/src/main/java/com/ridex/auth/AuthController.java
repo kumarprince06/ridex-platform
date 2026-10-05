@@ -1,5 +1,7 @@
 package com.ridex.auth;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,6 +36,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "Auth")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -52,6 +55,7 @@ public class AuthController {
         return new RegisterResponse("Registration received. Check your email for a 6-digit code.");
     }
 
+    @Operation(summary = "Sign in and get an access token and a refresh token")
     @PostMapping("/login")
     @ResponseStatus(HttpStatus.OK)
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
@@ -61,6 +65,7 @@ public class AuthController {
                 clientIp(httpRequest));
     }
 
+    @Operation(summary = "Swap a refresh token for a new token pair")
     @PostMapping("/refresh")
     @ResponseStatus(HttpStatus.OK)
     public RefreshTokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {

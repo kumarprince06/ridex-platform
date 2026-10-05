@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.function.Function;
 
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Operations cannot reach any of this. Approving a driver and moving money to them are separate
  * decisions on purpose (docs/07) - the same person doing both is how a platform gets robbed.
  */
+@Tag(name = "Admin: payouts")
 @RestController
 @RequestMapping("/api/v1/admin/payouts")
 @RequiredArgsConstructor

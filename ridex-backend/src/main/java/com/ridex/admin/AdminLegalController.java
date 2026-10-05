@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /** Terms and privacy text. Audited: "what did the terms say when this rider signed up" matters. */
+@Tag(name = "Admin: legal")
 @RestController
 @RequestMapping("/api/v1/admin/legal")
 @RequiredArgsConstructor

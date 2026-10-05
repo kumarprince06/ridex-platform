@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Separate from the routes controller because it answers a different question: not "what do we
  * run" but "who is on the 08:15 tomorrow, and who is driving it".
  */
+@Tag(name = "Admin: shuttle departures")
 @RestController
 @RequestMapping("/api/v1/admin/shuttle/departures")
 @RequiredArgsConstructor

@@ -11,8 +11,7 @@ COPY pom.xml .
 RUN mvn --batch-mode dependency:go-offline
 
 COPY src ./src
-# Tests run in CI against a real Postgres and Redis; repeating them here would need both inside
-# the build and still prove less.
+# Tests run in CI on Testcontainers; repeating them here would need Docker inside the build.
 RUN mvn --batch-mode -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine
@@ -29,8 +28,9 @@ COPY --from=build --chown=ridex:ridex /build/target/*.jar app.jar
 # The container's own answer to "are you alive", so the platform restarts a wedged JVM rather than
 # leaving it listening and useless.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD wget -qO- http://localhost:8080/actuator/health | grep -q '"status":"UP"'
+    CMD wget -qO- "http://localhost:${PORT:-8080}/actuator/health" | grep -q '"status":"UP"'
 
+# Documentation only: a host that injects PORT is listened on instead.
 EXPOSE 8080
 
 # The timetable is Kolkata wall-clock time and Hibernate reads schedule times in the JVM's zone, so

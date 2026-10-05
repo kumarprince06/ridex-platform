@@ -11,6 +11,12 @@ app:
     password: ${RIDEX_DEMO_PASSWORD:RideX-demo-2026}
     reset-cron: ${RIDEX_DEMO_RESET_CRON:0 0 3 * * *}
 
+  # One reviewer plays rider and driver in Swagger, swapping tokens between steps. Twenty seconds
+  # to accept is a phone in a hand; here it would expire every offer before anyone could answer it.
+  dispatch:
+    offer-validity: 5m
+    search-timeout-seconds: 900
+
   # The password above is public, so no account on the demo may hold a role that changes money or
   # people. Blanking these stops a stray env var from creating a super admin.
   bootstrap:

@@ -12,7 +12,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
@@ -36,7 +36,7 @@ import com.ridex.shuttle.dto.RouteRequest;
 import com.ridex.shuttle.dto.ScheduleRequest;
 import com.ridex.shuttle.dto.StopRequest;
 
-@SpringBootTest
+@IntegrationTest
 class RefundsTest {
 
     @MockitoBean private PaymentProviders paymentProviders;

@@ -5,14 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 
 import com.ridex.admin.dto.InviteStaffRequest;
 import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.UserRole;
 import com.ridex.shared.exception.ConflictException;
 
-@SpringBootTest
+@IntegrationTest
 class StaffServiceTest {
 
     @Autowired private StaffService staff;

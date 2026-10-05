@@ -11,7 +11,7 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
@@ -33,7 +33,7 @@ import com.ridex.platform.security.JwtService;
  * <p>docs/07 splits case handling from financial and operational authority. One person holding
  * both is the standard internal-fraud pattern in a marketplace, so it is worth a test.
  */
-@SpringBootTest
+@IntegrationTest
 class AdminAccessTest {
 
     @Autowired private WebApplicationContext context;

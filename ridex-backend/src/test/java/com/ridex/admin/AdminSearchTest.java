@@ -6,7 +6,7 @@ import java.util.EnumSet;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 
 import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.User;
@@ -16,7 +16,7 @@ import com.ridex.rider.RiderProfileService;
 import com.ridex.shuttle.AdminShuttleService;
 import com.ridex.shuttle.dto.RouteRequest;
 
-@SpringBootTest
+@IntegrationTest
 class AdminSearchTest {
 
     @Autowired private AdminSearch search;

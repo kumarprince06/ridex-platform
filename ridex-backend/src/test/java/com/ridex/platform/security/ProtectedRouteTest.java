@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.junit.jupiter.api.BeforeEach;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,7 +16,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 // The Phase 0 exit gate: default-deny has to be demonstrated, not assumed. A misplaced permitAll
 // once left every payment endpoint publicly callable, and nothing failed.
-@SpringBootTest
+@IntegrationTest
 class ProtectedRouteTest {
 
     @Autowired

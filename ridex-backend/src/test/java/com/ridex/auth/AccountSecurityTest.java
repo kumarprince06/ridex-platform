@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.ridex.auth.domain.AppContext;
@@ -17,7 +17,7 @@ import com.ridex.shared.exception.ValidationException;
 
 // Not @Transactional: auth events are written in their own transaction, so a user this test never
 // committed does not exist by the time one is recorded against them.
-@SpringBootTest
+@IntegrationTest
 class AccountSecurityTest {
 
     @Autowired private AuthService authService;

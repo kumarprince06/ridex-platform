@@ -10,7 +10,7 @@ import java.util.concurrent.CountDownLatch;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.security.authentication.BadCredentialsException;
 
 import com.ridex.auth.domain.AppContext;
@@ -23,7 +23,7 @@ import com.ridex.auth.dto.RegisterRequest;
 import com.ridex.shared.util.VerificationTokenGenerator;
 
 // Real Postgres, not mocks: the race lives in row locking and commit order, which a mock cannot have.
-@SpringBootTest
+@IntegrationTest
 class RefreshRaceTest {
 
     @Autowired private AuthService authService;

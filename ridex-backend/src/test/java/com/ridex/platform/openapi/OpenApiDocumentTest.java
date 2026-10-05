@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -15,7 +15,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 // A generated contract that silently stops generating is worse than none: the clients keep
 // building against the last good copy.
-@SpringBootTest
+@IntegrationTest
 class OpenApiDocumentTest {
 
     @Autowired

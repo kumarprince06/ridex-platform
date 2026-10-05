@@ -5,10 +5,10 @@ import static org.assertj.core.api.Assertions.within;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 
 /** The pins the rider's map, the shuttle ticket and the ops map are all drawn from. */
-@SpringBootTest
+@IntegrationTest
 class DriverPresenceTest {
 
     @Autowired private DriverPresence driverPresence;

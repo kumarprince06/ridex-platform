@@ -13,7 +13,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -37,7 +37,7 @@ import com.ridex.ride.domain.RideStatus;
 import com.ridex.ride.dto.CreateRideRequest;
 import com.ridex.rider.RiderProfileService;
 
-@SpringBootTest
+@IntegrationTest
 class DispatchSweepTest {
 
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);

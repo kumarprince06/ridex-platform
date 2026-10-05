@@ -7,7 +7,7 @@ import java.util.EnumSet;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.auth.UserRepository;
@@ -18,7 +18,7 @@ import com.ridex.driver.dto.PayoutAccountRequest;
 import com.ridex.shared.exception.NotFoundException;
 
 /** Where a driver's money goes, and what the platform will say about it. */
-@SpringBootTest
+@IntegrationTest
 @Transactional
 class PayoutAccountTest {
 

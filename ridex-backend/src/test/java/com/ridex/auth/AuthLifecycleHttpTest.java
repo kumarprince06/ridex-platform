@@ -8,7 +8,7 @@ import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,7 +23,7 @@ import com.ridex.shared.util.VerificationTokenGenerator;
 
 // The whole account lifecycle through the real filter chain, controllers and Postgres - the path a
 // client actually takes, where the service tests stop at the method boundary.
-@SpringBootTest
+@IntegrationTest
 class AuthLifecycleHttpTest {
 
     private static final String PASSWORD = "Original@2026";

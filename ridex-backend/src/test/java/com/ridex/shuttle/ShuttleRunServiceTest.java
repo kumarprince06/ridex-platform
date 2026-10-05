@@ -12,7 +12,7 @@ import java.util.EnumSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
@@ -31,7 +31,7 @@ import com.ridex.shuttle.domain.RouteStop;
 import com.ridex.shuttle.domain.ShuttleSchedule;
 import com.ridex.shuttle.dto.BookSeatRequest;
 
-@SpringBootTest
+@IntegrationTest
 class ShuttleRunServiceTest {
 
     @Autowired private ShuttleRunService runService;

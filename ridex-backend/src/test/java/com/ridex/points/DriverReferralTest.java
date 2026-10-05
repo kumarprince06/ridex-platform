@@ -7,7 +7,7 @@ import java.util.EnumSet;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.auth.UserRepository;
@@ -23,7 +23,7 @@ import com.ridex.points.domain.ReferralStatus;
  * <p>A rider referral costs the platform a discount it sets the value of. A driver referral costs
  * real money, so it is the first thing anyone tries to farm.
  */
-@SpringBootTest
+@IntegrationTest
 @Transactional
 class DriverReferralTest {
 

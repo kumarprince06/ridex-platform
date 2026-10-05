@@ -8,9 +8,7 @@ build/
 .classpath
 .project
 
-# .vscode/settings.json is committed on purpose - it is one shared Java build setting.
-.vscode/*
-!.vscode/settings.json
+.vscode/
 
 .env
 .env.*

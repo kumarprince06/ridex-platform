@@ -127,7 +127,7 @@ flowchart LR
 ## Status
 
 **Architecture:** Modular monolith, one platform database
-**Backend:** Java 21 + Spring Boot 4.1 · 172 endpoints · 248 tests
+**Backend:** Java 21 + Spring Boot 4.1 · 172 endpoints · 249 tests
 **Database:** PostgreSQL + Flyway (44 migrations, 50 tables) · Redis for presence and rate limits
 **Clients:** two React Native apps and one React console, all on the same API
 
@@ -350,7 +350,7 @@ routes reject unauthenticated calls.
 
 ```bash
 cd ridex-backend
-./mvnw test          # 248 tests; needs only a running Docker daemon
+./mvnw test          # 249 tests; needs only a running Docker daemon
 ```
 
 Integration tests are annotated `@IntegrationTest`. That boots the application against one

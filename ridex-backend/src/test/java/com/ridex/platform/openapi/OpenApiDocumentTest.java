@@ -4,9 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.jayway.jsonpath.JsonPath;
 import com.ridex.IntegrationTest;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.web.servlet.MockMvc;
@@ -70,6 +74,16 @@ class OpenApiDocumentTest {
     void theWalkthroughEndpointsSaySoInOneLine() throws Exception {
         assertThat(fetchDocument("/v3/api-docs/trips"))
                 .contains("Start the trip with the rider's pickup code");
+    }
+
+    @Test
+    void everyOperationHasASummary() throws Exception {
+        // Swagger UI shows the summary beside each route; without one a reviewer reads method names.
+        List<Map<String, Object>> operations = JsonPath.read(fetchDocument(), "$.paths.*.*");
+
+        assertThat(operations).hasSizeGreaterThan(100);
+        assertThat(operations.stream().filter(op -> !op.containsKey("summary"))
+                .map(op -> op.get("operationId"))).isEmpty();
     }
 
     private String fetchDocument() throws Exception {

@@ -8,7 +8,7 @@ import java.util.EnumSet;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +26,7 @@ import com.ridex.vehicle.domain.VehicleType;
 import com.ridex.vehicle.dto.AddVehicleRequest;
 import com.ridex.shared.exception.ConflictException;
 
-@SpringBootTest
+@IntegrationTest
 @Transactional
 class DriverOnboardingServiceTest {
 

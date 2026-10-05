@@ -14,7 +14,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
@@ -35,7 +35,7 @@ import com.ridex.vehicle.domain.DriverVehicle;
 import com.ridex.vehicle.domain.VehicleStatus;
 import com.ridex.vehicle.domain.VehicleType;
 
-@SpringBootTest
+@IntegrationTest
 class RegularCrewTest {
 
     // Documents and approval are the eligibility service's own tests; here only the crew wiring is.

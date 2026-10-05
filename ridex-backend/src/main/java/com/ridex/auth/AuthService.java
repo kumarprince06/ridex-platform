@@ -80,6 +80,9 @@ public class AuthService {
     @Value("${app.rate-limit.login-window:15m}")
     private Duration loginWindow;
 
+    @Value("${app.jwt.refresh-reuse-grace:5s}")
+    private Duration refreshReuseGrace;
+
     @PostConstruct
     void generateDecoyHash() {
         absentUserHash = passwordEncoder.encode(UUID.randomUUID().toString());
@@ -261,14 +264,8 @@ public class AuthService {
         String presentedHash = VerificationTokenGenerator.hash(request.refreshToken().trim());
         Instant now = Instant.now();
 
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(presentedHash)
-                .orElseGet(() -> {
-                    // Not current: check whether it is the generation this row just replaced.
-                    refreshTokenRepository.findByPreviousTokenHash(presentedHash)
-                            .ifPresent(spent -> authSecurityService.respondToTokenReuse(
-                                    spent.getUser().getId(), now));
-                    throw new BadCredentialsException("Invalid refresh token");
-                });
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHashForUpdate(presentedHash)
+                .orElseGet(() -> forkIfJustRotated(presentedHash, now));
 
         if (!storedToken.isLiveAt(now)) {
             throw new BadCredentialsException("Refresh token expired or revoked");
@@ -308,6 +305,25 @@ public class AuthService {
                 granted,
                 app,
                 newRefreshToken);
+    }
+
+    /**
+     * Not current: check whether it is the generation a row just replaced. Moments ago it is the
+     * same client retrying or racing itself; later, two parties hold it and every session ends.
+     *
+     * ponytail: inside the grace window a stolen secret also gets a session undetected, and a
+     * sibling the client never kept lingers in the session list until expiry. Track a token family
+     * id if either matters.
+     */
+    private RefreshToken forkIfJustRotated(String presentedHash, Instant now) {
+        RefreshToken spent = refreshTokenRepository.findByPreviousTokenHash(presentedHash)
+                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
+
+        if (spent.isLiveAt(now) && spent.wasRotatedWithin(refreshReuseGrace, now)) {
+            return spent.fork();
+        }
+        authSecurityService.respondToTokenReuse(spent.getUser().getId(), now);
+        throw new BadCredentialsException("Invalid refresh token");
     }
 
     /** The caller's live devices, newest first. Scoped to the caller - never takes a user id. */

@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
@@ -48,7 +48,7 @@ import com.ridex.shared.exception.ConflictException;
  * <p>Not @Transactional: the threads need to see each other's committed work, which a rolled-back
  * test transaction would hide - and hiding it is precisely how this bug reaches production.
  */
-@SpringBootTest
+@IntegrationTest
 class DispatchConcurrencyTest {
 
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);

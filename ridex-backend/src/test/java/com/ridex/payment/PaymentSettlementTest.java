@@ -15,7 +15,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
@@ -48,7 +48,7 @@ import com.ridex.trip.dto.StartTripRequest;
  * The rule this file exists for: <b>a rider's discount comes out of the platform's share, never
  * the driver's.</b> Drivers notice when it does not, and they are right to.
  */
-@SpringBootTest
+@IntegrationTest
 class PaymentSettlementTest {
 
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);

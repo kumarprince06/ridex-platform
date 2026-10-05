@@ -19,7 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.payment.PaymentProviders;
@@ -42,7 +42,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 /** Seat inventory, and the race that decides who actually gets 4A. */
-@SpringBootTest
+@IntegrationTest
 class ShuttleBookingTest {
 
     /**

@@ -6,11 +6,11 @@ import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 
 import com.ridex.pricing.dto.RideTypeFareRequest;
 
-@SpringBootTest
+@IntegrationTest
 class RideFareServiceTest {
 
     @Autowired private RideFareService fares;

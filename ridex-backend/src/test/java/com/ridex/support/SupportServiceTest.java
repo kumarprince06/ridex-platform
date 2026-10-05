@@ -7,7 +7,7 @@ import java.util.EnumSet;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ridex.auth.UserRepository;
@@ -22,7 +22,7 @@ import com.ridex.support.dto.CreateTicketRequest;
 import com.ridex.support.dto.PostMessageRequest;
 import com.ridex.support.dto.ResolveTicketRequest;
 
-@SpringBootTest
+@IntegrationTest
 @Transactional
 class SupportServiceTest {
 

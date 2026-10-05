@@ -1,5 +1,7 @@
 # RideX
 
+[![CI](https://github.com/kumarprince06/ridex-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/kumarprince06/ridex-platform/actions/workflows/ci.yml)
+
 ### Consumer ride-hailing and mobility platform
 
 RideX is a B2C mobility platform: riders request transportation, drivers accept and complete
@@ -10,12 +12,39 @@ trips, and platform operations manage the marketplace. Built with Java 21 and Sp
 ## Status
 
 **Architecture:** Modular monolith, one platform database
-**Backend:** Java 21 + Spring Boot · 137 endpoints · 190 tests
+**Backend:** Java 21 + Spring Boot · 137 endpoints · 240 tests
 **Database:** PostgreSQL + Flyway (38 migrations, 47 tables) · Redis for presence and rate limits
 **Clients:** two React Native apps and one React console, all on the same API
 
 All sixteen modules on [the module board](docs/34-Module-Task-Board.md) are closed, including the
 demo deployment (M8). What is deliberately left out is listed at the bottom of that board.
+
+---
+
+## Features working today
+
+Each line below is implemented in `ridex-backend` and covered by tests in `src/test`.
+
+- **Accounts** — rider and driver sign-up with email verification, JWT login, rotating refresh
+  tokens, logout, password change that ends other sessions, account history
+- **Driver onboarding** — profile, documents, vehicles, approval states, payout account
+- **Fare estimates** — every active ride type priced from one route lookup, quote persisted
+- **Dispatch** — offers to nearby on-duty drivers (Redis presence), search widening and expiry,
+  one winner when two drivers accept the same ride
+- **Trips** — pickup-code start with an attempt cap, waiting charges, distance sanity cap,
+  receipt comparing quote to charge, every transition recorded with its actor
+- **Payments** — cash and Razorpay online payments, webhook confirmation, idempotent settlement,
+  driver paid on the gross fare
+- **Driver wallet** — cancellation and no-show fees, debt limit that blocks offers, top-ups
+- **Shuttle** — seat maps with one booking per seat, passes and pass plans, departure
+  cancellation refunds as points
+- **Points and referrals** — ledger-based balance, redemption, referral reward after the first ride
+- **Ratings** — two-way rating, one per side per ride
+- **Support** — tickets for riders and drivers, agent replies, internal notes, category priority
+- **Notifications** — in-app feed, invoice PDF, real-time offers over authenticated STOMP
+- **Admin** — permission-checked operations endpoints, search, staff management
+- **Platform** — default-deny security, CORS and security headers, rate limiting, OpenAPI document,
+  package boundaries enforced by ArchUnit
 
 ---
 
@@ -80,7 +109,7 @@ Redis, Maven
 
 **Mobile** — React Native, TypeScript, React Navigation, secure token storage
 
-**Testing** — JUnit 5, Mockito, Spring Boot Test, ArchUnit
+**Testing** — JUnit 5, Mockito, Spring Boot Test, Testcontainers, ArchUnit
 
 Deliberately **not** used: Kafka, Kubernetes, microservices, a general event bus. Start as a
 modular monolith with Redis; split only when scale or team boundaries justify it.
@@ -91,12 +120,19 @@ Full stack: [docs/19-Technology-Stack.md](docs/19-Technology-Stack.md).
 
 ## Getting started
 
-**Prerequisites:** Java 21, Docker, Maven (or the bundled wrapper).
+**Prerequisites:** Java 21 and Docker. Maven comes with the repository as `./mvnw`.
+
+On a fresh clone, Docker is the only service the tests need: no `.env` and no `docker compose`.
 
 ```bash
-git clone <repo-url>
-cd ridex-platform
+git clone https://github.com/kumarprince06/ridex-platform.git
+cd ridex-platform/ridex-backend
+./mvnw test                   # starts its own Postgres and Redis containers
+```
 
+To run the platform itself, from the repository root:
+
+```bash
 cp .env.example .env          # fill in the secrets; the app refuses to boot without a JWT key
 docker compose up -d          # Postgres, Redis, Mailpit
 ./run.sh                      # exports .env, picks the project's JDK, starts the backend
@@ -199,8 +235,14 @@ routes reject unauthenticated calls.
 
 ```bash
 cd ridex-backend
-./mvnw test          # 190 tests against a real Postgres and Redis
+./mvnw test          # 240 tests; needs only a running Docker daemon
 ```
+
+Integration tests are annotated `@IntegrationTest`. That boots the application against one
+Postgres 17 and one Redis 7 container, started by Testcontainers and wired in with
+`@ServiceConnection`. The containers are shared by the whole run and removed when it ends, so tests
+never touch the database the apps use. CI runs the same command, and Flyway applies every migration
+on each run.
 
 The three documents that describe the code are generated from it, so they cannot quietly drift:
 
@@ -246,12 +288,14 @@ java tools/DocGen.java notifications > docs/12-Notification-Matrix.md
 | 31 | [Deployment and CI/CD](docs/31-Deployment-and-CI-CD.md) |
 | 32 | [Business readiness and new lines](docs/32-Business-Readiness-and-New-Lines.md) |
 | 34 | [Module task board](docs/34-Module-Task-Board.md) — the plan of record |
+| 35 | [Runtime flow](docs/35-Runtime-Flow.md) |
+| — | [Full documentation index](docs/PROJECT-DOCUMENTATION-INDEX.md) |
 
 ---
 
 ## Delivery rule
 
-Finish and verify each phase before starting the next. A phase is complete only when its happy
-path, failure path and persistence behaviour work end-to-end.
+Phases were delivered one at a time: each was closed only once its happy path, failure path and
+persistence behaviour worked end-to-end.
 
 Phase breakdown: [docs/15-Phase-Plan.md](docs/15-Phase-Plan.md).

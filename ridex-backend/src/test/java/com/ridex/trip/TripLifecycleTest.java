@@ -13,7 +13,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
@@ -43,7 +43,7 @@ import com.ridex.trip.dto.StartTripRequest;
 
 // Not @Transactional: dispatch runs in REQUIRES_NEW and cannot see a ride the test transaction
 // never committed. The same reason DispatchConcurrencyTest commits its data.
-@SpringBootTest
+@IntegrationTest
 class TripLifecycleTest {
 
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);

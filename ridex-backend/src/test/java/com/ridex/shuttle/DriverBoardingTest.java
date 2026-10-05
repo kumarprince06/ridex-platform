@@ -11,7 +11,7 @@ import java.util.EnumSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.ridex.IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.ridex.auth.UserRepository;
@@ -45,7 +45,7 @@ import java.util.Map;
  * <p>The partner app is the only thing that calls these, so this is what stands behind "a seat
  * booked on the rider app can be boarded from the partner app".
  */
-@SpringBootTest
+@IntegrationTest
 class DriverBoardingTest {
 
     @Autowired private ShuttleService shuttleService;

@@ -79,6 +79,9 @@ app:
     # leaked one is useful - there is no revocation before expiry.
     access-expiration-ms: 900000
     refresh-expiration-ms: 604800000
+    # A just-spent refresh token replayed inside this window is a retry or a parallel refresh from
+    # the same client, not theft. Longer widens the gap a stolen token can slip through.
+    refresh-reuse-grace: 5s
 
   # Fixed windows, counted in Redis. Two dimensions: an IP cannot hammer the auth routes, and one
   # account cannot be brute forced from many IPs.

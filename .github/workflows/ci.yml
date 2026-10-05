@@ -13,37 +13,8 @@ jobs:
   backend:
     runs-on: ubuntu-latest
 
-    # The context test boots the real application, so Flyway runs V1 against this instance.
-    # A migration that does not apply cleanly fails the build here rather than on someone's laptop.
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: ridex_platform_test
-          POSTGRES_USER: ridex_app
-          POSTGRES_PASSWORD: ridex_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ridex_app -d ridex_platform_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      # Driver presence and rate limits live in Redis; without it the presence tests cannot connect.
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      RIDEX_APP_PASSWORD: ridex_ci
-      RIDEX_JWT_SECRET: ci-only-secret-key-long-enough-for-hmac-sha256-signing
-
+    # The tests start their own Postgres and Redis through Testcontainers on the runner's Docker,
+    # so Flyway applies every migration here and a broken one fails the build, not a laptop.
     steps:
       - uses: actions/checkout@v4
 

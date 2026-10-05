@@ -1,5 +1,6 @@
 package com.ridex.auth.domain;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import com.ridex.shared.util.UlidGenerator;
@@ -95,6 +96,26 @@ public class RefreshToken {
 
     public boolean isLiveAt(Instant now) {
         return revokedAt == null && expiresAt.isAfter(now);
+    }
+
+    // lastUsedAt is stamped only by login and rotateTo, so with a previous hash present it is the
+    // moment that hash was spent.
+    public boolean wasRotatedWithin(Duration grace, Instant now) {
+        return previousTokenHash != null && lastUsedAt != null && !lastUsedAt.plus(grace).isBefore(now);
+    }
+
+    /**
+     * A sibling session for a client that replayed the secret this row just spent. Rotating this
+     * row again would kill whichever secret the client did not keep; a sibling leaves both usable.
+     */
+    public RefreshToken fork() {
+        RefreshToken sibling = new RefreshToken();
+        sibling.user = user;
+        sibling.appContext = appContext;
+        sibling.userAgent = userAgent;
+        sibling.ipAddress = ipAddress;
+        sibling.expiresAt = expiresAt;
+        return sibling;
     }
 
     @PrePersist

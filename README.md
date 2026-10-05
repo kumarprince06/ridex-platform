@@ -12,7 +12,7 @@ trips, and platform operations manage the marketplace. Built with Java 21 and Sp
 ## Status
 
 **Architecture:** Modular monolith, one platform database
-**Backend:** Java 21 + Spring Boot · 137 endpoints · 239 tests
+**Backend:** Java 21 + Spring Boot · 137 endpoints · 240 tests
 **Database:** PostgreSQL + Flyway (38 migrations, 47 tables) · Redis for presence and rate limits
 **Clients:** two React Native apps and one React console, all on the same API
 
@@ -235,7 +235,7 @@ routes reject unauthenticated calls.
 
 ```bash
 cd ridex-backend
-./mvnw test          # 239 tests; needs only a running Docker daemon
+./mvnw test          # 240 tests; needs only a running Docker daemon
 ```
 
 Integration tests are annotated `@IntegrationTest`. That boots the application against one

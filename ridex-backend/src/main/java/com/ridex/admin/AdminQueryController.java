@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.Valid;
@@ -44,18 +45,21 @@ public class AdminQueryController {
     private final AdminSearch adminSearch;
     private final StaffService staffService;
 
+    @Operation(summary = "Get the operations dashboard figures")
     @GetMapping("/dashboard")
     @ResponseStatus(HttpStatus.OK)
     public DashboardResponse dashboard() {
         return overview.dashboard();
     }
 
+    @Operation(summary = "Get ride and revenue analytics")
     @GetMapping("/analytics")
     @ResponseStatus(HttpStatus.OK)
     public AnalyticsResponse analytics(@RequestParam(defaultValue = "14") int days) {
         return overview.analytics(days);
     }
 
+    @Operation(summary = "Search riders")
     @GetMapping("/riders")
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<AdminRiderResponse> riders(
@@ -65,6 +69,7 @@ public class AdminQueryController {
         return people.riders(q, page, size);
     }
 
+    @Operation(summary = "Search drivers")
     @GetMapping("/drivers")
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<AdminDriverResponse> drivers(
@@ -76,18 +81,21 @@ public class AdminQueryController {
     }
 
     /** The live map: who is on duty, where, and whether they are carrying somebody. */
+    @Operation(summary = "List on-duty drivers with their positions for the live map")
     @GetMapping("/drivers/live")
     @ResponseStatus(HttpStatus.OK)
     public List<LiveDriverResponse> liveDrivers() {
         return people.liveDrivers();
     }
 
+    @Operation(summary = "Get one driver's full record")
     @GetMapping("/drivers/{driverId}")
     @ResponseStatus(HttpStatus.OK)
     public AdminDriverResponse driver(@PathVariable String driverId) {
         return people.driver(driverId);
     }
 
+    @Operation(summary = "Get one payment's detail")
     @GetMapping("/payments/{paymentId}")
     @ResponseStatus(HttpStatus.OK)
     public AdminPaymentDetailResponse payment(
@@ -95,6 +103,7 @@ public class AdminQueryController {
         return money.payment(paymentId);
     }
 
+    @Operation(summary = "Get one ride's full record: timeline, fare and people")
     @GetMapping("/trips/{rideId}")
     @ResponseStatus(HttpStatus.OK)
     public AdminTripDetailResponse trip(
@@ -102,6 +111,7 @@ public class AdminQueryController {
         return rides.trip(rideId);
     }
 
+    @Operation(summary = "Get one rider's full record")
     @GetMapping("/riders/{riderId}")
     @ResponseStatus(HttpStatus.OK)
     public AdminRiderDetailResponse rider(
@@ -109,6 +119,7 @@ public class AdminQueryController {
         return people.rider(riderId);
     }
 
+    @Operation(summary = "Search rides")
     @GetMapping("/trips")
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<AdminTripResponse> trips(
@@ -120,6 +131,7 @@ public class AdminQueryController {
 
     // Finance and operations see money; support does not. One person holding both case handling
     // and financial authority is the standard internal-fraud pattern in a marketplace.
+    @Operation(summary = "Search payments")
     @GetMapping("/payments")
     @PreAuthorize("hasAnyRole('OPS_ADMIN', 'SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.OK)
@@ -130,6 +142,7 @@ public class AdminQueryController {
         return money.payments(status, page, size);
     }
 
+    @Operation(summary = "Invite a staff member")
     @PostMapping("/staff")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
@@ -138,6 +151,7 @@ public class AdminQueryController {
         return staffService.invite(request);
     }
 
+    @Operation(summary = "Change a staff member's role")
     @PutMapping("/staff/{userId}/role")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.OK)
@@ -147,6 +161,7 @@ public class AdminQueryController {
         return staffService.changeRole(principal.userId(), userId, request.role());
     }
 
+    @Operation(summary = "Enable or disable a staff account")
     @PutMapping("/staff/{userId}/enabled/{enabled}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.OK)
@@ -156,12 +171,14 @@ public class AdminQueryController {
         return staffService.setEnabled(principal.userId(), userId, enabled);
     }
 
+    @Operation(summary = "Search across people, rides, payments, routes and tickets")
     @GetMapping("/search")
     @ResponseStatus(HttpStatus.OK)
     public List<SearchHit> search(@RequestParam(defaultValue = "") String q) {
         return adminSearch.search(q);
     }
 
+    @Operation(summary = "List staff accounts")
     @GetMapping("/staff")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.OK)
@@ -171,6 +188,7 @@ public class AdminQueryController {
 
     // Super admin only: the audit log records what everyone else did, so it is not something an
     // ordinary operator should be reading over.
+    @Operation(summary = "Read the audit log")
     @GetMapping("/audit")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.OK)

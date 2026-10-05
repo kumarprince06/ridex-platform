@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,6 +33,7 @@ public class AdminSupportController {
 
     private final SupportService supportService;
 
+    @Operation(summary = "List the support ticket queue")
     @GetMapping("/tickets")
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<TicketResponse> queue(
@@ -43,12 +45,14 @@ public class AdminSupportController {
                 ticket -> supportService.viewAsAgent(ticket.getId()));
     }
 
+    @Operation(summary = "Get a ticket with its full thread")
     @GetMapping("/tickets/{ticketId}")
     @ResponseStatus(HttpStatus.OK)
     public TicketResponse get(@PathVariable String ticketId) {
         return supportService.viewAsAgent(ticketId);
     }
 
+    @Operation(summary = "Reply to a ticket or add an internal note")
     @PostMapping("/tickets/{ticketId}/messages")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "TICKET_REPLIED", targetType = "TICKET")
@@ -58,6 +62,7 @@ public class AdminSupportController {
     }
 
     @Audited(action = "TICKET_RESOLVED", targetType = "TICKET")
+    @Operation(summary = "Resolve a ticket with an explanation")
     @PostMapping("/tickets/{ticketId}/resolve")
     @ResponseStatus(HttpStatus.OK)
     public TicketResponse resolve(@AuthenticationPrincipal JwtPrincipal principal,

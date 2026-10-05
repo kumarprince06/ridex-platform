@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
@@ -40,6 +41,7 @@ public class AdminDriverController {
     private final DriverDocumentService driverDocumentService;
     private final VehicleService vehicleService;
 
+    @Operation(summary = "List drivers waiting for an onboarding decision")
     @GetMapping("/awaiting-review")
     @ResponseStatus(HttpStatus.OK)
     public List<OnboardingResponse> awaitingReview() {
@@ -48,6 +50,7 @@ public class AdminDriverController {
 
     // No reason required to approve: the decision speaks for itself and the reviewer is recorded.
     @Audited(action = "DRIVER_APPROVED", targetType = "DRIVER")
+    @Operation(summary = "Approve a driver to drive")
     @PostMapping("/{driverId}/approve")
     @ResponseStatus(HttpStatus.OK)
     public OnboardingResponse approve(@AuthenticationPrincipal JwtPrincipal principal,
@@ -58,6 +61,7 @@ public class AdminDriverController {
     // A reason is mandatory here, and on suspend: somebody loses their income over this, and
     // "rejected" with no explanation is not something a person can appeal.
     @Audited(action = "DRIVER_REJECTED", targetType = "DRIVER")
+    @Operation(summary = "Reject a driver's onboarding, with a reason")
     @PostMapping("/{driverId}/reject")
     @ResponseStatus(HttpStatus.OK)
     public OnboardingResponse reject(@AuthenticationPrincipal JwtPrincipal principal,
@@ -66,6 +70,7 @@ public class AdminDriverController {
     }
 
     @Audited(action = "DRIVER_SUSPENDED", targetType = "DRIVER")
+    @Operation(summary = "Suspend a driver, with a reason")
     @PostMapping("/{driverId}/suspend")
     @ResponseStatus(HttpStatus.OK)
     public OnboardingResponse suspend(@AuthenticationPrincipal JwtPrincipal principal,
@@ -75,12 +80,14 @@ public class AdminDriverController {
 
     /* ---------------------------------------------------------------- documents and vehicles */
 
+    @Operation(summary = "List driver documents waiting for review")
     @GetMapping("/documents/awaiting-review")
     @ResponseStatus(HttpStatus.OK)
     public List<DriverDocumentResponse> documentsAwaitingReview() {
         return driverDocumentService.awaitingReview();
     }
 
+    @Operation(summary = "List one driver's documents")
     @GetMapping("/{driverId}/documents")
     @ResponseStatus(HttpStatus.OK)
     public List<DriverDocumentResponse> documents(@PathVariable String driverId) {
@@ -93,6 +100,7 @@ public class AdminDriverController {
      * <p>Never a redirect to storage: a signed URL that leaks is a KYC document anybody can read
      * until it expires, and docs/14 does not allow that.
      */
+    @Operation(summary = "Stream a driver document's file")
     @GetMapping("/documents/{documentId}/file")
     public ResponseEntity<byte[]> documentFile(@PathVariable String documentId) {
         return ResponseEntity.ok()
@@ -103,6 +111,7 @@ public class AdminDriverController {
                 .body(driverDocumentService.contents(documentId));
     }
 
+    @Operation(summary = "Approve a driver document")
     @PostMapping("/documents/{documentId}/approve")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "DOCUMENT_APPROVED", targetType = "DRIVER")
@@ -111,6 +120,7 @@ public class AdminDriverController {
         return driverDocumentService.review(documentId, principal.userId(), true, null);
     }
 
+    @Operation(summary = "Reject a driver document, with a reason")
     @PostMapping("/documents/{documentId}/reject")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "DOCUMENT_REJECTED", targetType = "DRIVER")
@@ -119,12 +129,14 @@ public class AdminDriverController {
         return driverDocumentService.review(documentId, principal.userId(), false, request.reason());
     }
 
+    @Operation(summary = "List one driver's vehicles")
     @GetMapping("/{driverId}/vehicles")
     @ResponseStatus(HttpStatus.OK)
     public List<VehicleResponse> vehicles(@PathVariable String driverId) {
         return vehicleService.forDriver(driverId);
     }
 
+    @Operation(summary = "Approve a vehicle to carry passengers")
     @PostMapping("/vehicles/{vehicleId}/approve")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "VEHICLE_APPROVED", targetType = "DRIVER")
@@ -132,6 +144,7 @@ public class AdminDriverController {
         return vehicleService.review(vehicleId, true);
     }
 
+    @Operation(summary = "Reject a vehicle")
     @PostMapping("/vehicles/{vehicleId}/reject")
     @ResponseStatus(HttpStatus.OK)
     @Audited(action = "VEHICLE_REJECTED", targetType = "DRIVER")

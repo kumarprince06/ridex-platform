@@ -1,5 +1,6 @@
 package com.ridex.vehicle;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
@@ -24,6 +25,7 @@ public class VehicleController {
 
     private final VehicleService vehicleService;
 
+    @Operation(summary = "List the driver's vehicles")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<VehicleResponse> mine(@AuthenticationPrincipal JwtPrincipal principal) {
@@ -31,6 +33,7 @@ public class VehicleController {
     }
 
     /** Added as PENDING_REVIEW. Operations decides whether it may carry passengers. */
+    @Operation(summary = "Add a vehicle for review")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public VehicleResponse add(@AuthenticationPrincipal JwtPrincipal principal,
@@ -38,6 +41,7 @@ public class VehicleController {
         return vehicleService.add(principal.userId(), request);
     }
 
+    @Operation(summary = "Take a vehicle off the road")
     @PostMapping("/{vehicleId}/deactivate")
     @ResponseStatus(HttpStatus.OK)
     public VehicleResponse deactivate(@AuthenticationPrincipal JwtPrincipal principal,
@@ -46,6 +50,7 @@ public class VehicleController {
     }
 
     /** Puts a car the driver took off the road back on it, without a second review. */
+    @Operation(summary = "Put a vehicle back on the road")
     @PostMapping("/{vehicleId}/reactivate")
     @ResponseStatus(HttpStatus.OK)
     public VehicleResponse reactivate(@AuthenticationPrincipal JwtPrincipal principal,

@@ -1,5 +1,6 @@
 package com.ridex.notification.push;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 
@@ -29,6 +30,7 @@ public class DeviceTokenController {
      * <p>Upsert on the token, not insert: the same phone signed in as somebody else must move to
      * the new account rather than keep pushing that account's notices to the previous owner.
      */
+    @Operation(summary = "Register this device for push notifications")
     @PutMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
@@ -47,6 +49,7 @@ public class DeviceTokenController {
     }
 
     /** Called on sign-out. A token left behind pushes the last user's notices to whoever signs in. */
+    @Operation(summary = "Unregister a device from push notifications")
     @DeleteMapping("/{token}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional

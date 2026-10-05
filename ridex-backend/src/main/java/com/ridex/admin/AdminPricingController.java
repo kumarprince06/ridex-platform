@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
@@ -23,6 +24,7 @@ public class AdminPricingController {
 
     private final RideFareService rideFareService;
 
+    @Operation(summary = "List the fare rules for every ride type")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<RideTypeFareResponse> all() {
@@ -30,6 +32,7 @@ public class AdminPricingController {
     }
 
     @Audited(action = "RIDE_FARE_CHANGED", targetType = "RIDE_TYPE")
+    @Operation(summary = "Change a ride type's fares")
     @PutMapping("/{rideTypeId}")
     @ResponseStatus(HttpStatus.OK)
     public RideTypeFareResponse change(@PathVariable String rideTypeId, @Valid @RequestBody RideTypeFareRequest request) {

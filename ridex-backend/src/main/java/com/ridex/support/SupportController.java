@@ -1,5 +1,6 @@
 package com.ridex.support;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
@@ -30,6 +31,7 @@ public class SupportController {
 
     private final SupportService supportService;
 
+    @Operation(summary = "Raise a support ticket")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TicketResponse raise(@AuthenticationPrincipal JwtPrincipal principal,
@@ -38,18 +40,21 @@ public class SupportController {
     }
 
     /** What this person may raise a ticket about, in their own words, from one place. */
+    @Operation(summary = "List the ticket categories this caller may raise")
     @GetMapping("/categories")
     @ResponseStatus(HttpStatus.OK)
     public List<CategoryResponse> categories(@AuthenticationPrincipal JwtPrincipal principal) {
         return supportService.categoriesFor(SupportService.roleOf(principal.roles()));
     }
 
+    @Operation(summary = "List the caller's tickets")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<TicketResponse> mine(@AuthenticationPrincipal JwtPrincipal principal) {
         return supportService.mine(principal.userId());
     }
 
+    @Operation(summary = "Get one of the caller's tickets with its thread")
     @GetMapping("/{ticketId}")
     @ResponseStatus(HttpStatus.OK)
     public TicketResponse get(@AuthenticationPrincipal JwtPrincipal principal,
@@ -58,6 +63,7 @@ public class SupportController {
     }
 
     // The live chat: the ticket thread, posted into from either side.
+    @Operation(summary = "Reply on one of the caller's tickets")
     @PostMapping("/{ticketId}/messages")
     @ResponseStatus(HttpStatus.OK)
     public TicketResponse reply(@AuthenticationPrincipal JwtPrincipal principal,

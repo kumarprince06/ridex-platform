@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
@@ -27,6 +28,7 @@ public class AdminLegalController {
     private final LegalDocumentService legalDocumentService;
 
     /** Every document with its current text, for the console editor. */
+    @Operation(summary = "List every legal document with its current text")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<LegalDocumentResponse> all() {
@@ -35,6 +37,7 @@ public class AdminLegalController {
 
     /** Replaces a document's title and text; live on the next open in the apps. */
     @Audited(action = "LEGAL_DOCUMENT_CHANGED", targetType = "LEGAL_DOCUMENT")
+    @Operation(summary = "Replace a legal document's title and text")
     @PutMapping("/{slug}")
     @ResponseStatus(HttpStatus.OK)
     public LegalDocumentResponse update(@AuthenticationPrincipal JwtPrincipal principal,

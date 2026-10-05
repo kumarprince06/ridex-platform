@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
@@ -33,6 +34,7 @@ public class AdminSettingsController {
 
     private final SettingsService settingsService;
 
+    @Operation(summary = "List platform settings")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<SettingResponse> all() {
@@ -40,6 +42,7 @@ public class AdminSettingsController {
     }
 
     @Audited(action = "SETTING_CHANGED", targetType = "SETTING")
+    @Operation(summary = "Change a platform setting")
     @PutMapping("/{key}")
     @ResponseStatus(HttpStatus.OK)
     public SettingResponse update(@AuthenticationPrincipal JwtPrincipal principal,

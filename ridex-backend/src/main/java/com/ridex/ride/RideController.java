@@ -47,6 +47,7 @@ public class RideController {
         return rideRequestService.create(principal.userId(), request);
     }
 
+    @Operation(summary = "List the rider's rides")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<RideResponse> list(@AuthenticationPrincipal JwtPrincipal principal) {
@@ -67,6 +68,7 @@ public class RideController {
      * <p>Returns the gateway order to open checkout against. The amount comes from here, never
      * from the app - a client that names its own fare is a client that pays what it likes.
      */
+    @Operation(summary = "Get what is owed on a finished ride and how to pay it")
     @GetMapping("/{rideId}/payment")
     @ResponseStatus(HttpStatus.OK)
     public RidePaymentResponse payment(@AuthenticationPrincipal JwtPrincipal principal,
@@ -75,6 +77,7 @@ public class RideController {
     }
 
     /** The cancel screen's reason list, so the app never invents a code the server refuses. */
+    @Operation(summary = "List the reasons a rider may give for cancelling")
     @GetMapping("/cancellation-reasons")
     @ResponseStatus(HttpStatus.OK)
     public java.util.List<CancellationReasonResponse> cancellationReasons() {
@@ -82,6 +85,7 @@ public class RideController {
     }
 
     /** What an earlier cancellation left owing, added to the next fare. */
+    @Operation(summary = "Get dues left by an earlier cancellation")
     @GetMapping("/dues")
     @ResponseStatus(HttpStatus.OK)
     public CancellationQuote dues(@AuthenticationPrincipal JwtPrincipal principal) {
@@ -89,6 +93,7 @@ public class RideController {
     }
 
     /** Called after checkout closes. The gateway is asked; the app is not believed. */
+    @Operation(summary = "Confirm an online ride payment with the gateway")
     @PostMapping("/{rideId}/payment/confirm")
     @ResponseStatus(HttpStatus.OK)
     public RidePaymentResponse confirmPayment(@AuthenticationPrincipal JwtPrincipal principal,
@@ -97,6 +102,7 @@ public class RideController {
     }
 
     /** One rating per ride, and only after it completed. */
+    @Operation(summary = "Rate the driver of a finished ride")
     @PostMapping("/{rideId}/rating")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void rate(@AuthenticationPrincipal JwtPrincipal principal, @PathVariable String rideId,
@@ -105,6 +111,7 @@ public class RideController {
     }
 
     // Read-only, so the rider sees the fee before confirming rather than discovering it after.
+    @Operation(summary = "Preview what cancelling a ride would cost")
     @GetMapping("/{rideId}/cancellation-quote")
     @ResponseStatus(HttpStatus.OK)
     public CancellationQuote cancellationQuote(@AuthenticationPrincipal JwtPrincipal principal,

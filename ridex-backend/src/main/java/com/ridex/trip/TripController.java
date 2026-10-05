@@ -29,6 +29,7 @@ public class TripController {
     private final TripService tripService;
 
     /** This driver's own trips, newest first. */
+    @Operation(summary = "List the driver's trips, newest first")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<DriverTripSummary> history(@AuthenticationPrincipal JwtPrincipal principal) {
@@ -36,6 +37,7 @@ public class TripController {
     }
 
     /** The unfinished trip, or 204 when the driver has none. */
+    @Operation(summary = "Get the driver's unfinished trip, or 204 if none")
     @GetMapping("/current")
     public ResponseEntity<TripResponse> current(@AuthenticationPrincipal JwtPrincipal principal) {
         return tripService.currentForDriver(principal.userId())

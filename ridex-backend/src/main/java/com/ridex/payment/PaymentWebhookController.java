@@ -1,5 +1,6 @@
 package com.ridex.payment;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,6 +34,7 @@ public class PaymentWebhookController {
      *                the exact bytes sent, and letting Jackson parse and re-serialise it would
      *                change whitespace and key order and break every verification.
      */
+    @Operation(summary = "Receive a signed payment gateway webhook")
     @PostMapping
     public ResponseStatusOnly receive(
             @RequestBody String payload,

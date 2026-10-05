@@ -1,5 +1,6 @@
 package com.ridex.driver;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -47,12 +48,14 @@ public class DriverController {
     private final com.ridex.rating.RatingService ratingService;
     private final DriverOnboardingService driverOnboardingService;
 
+    @Operation(summary = "Get the driver's profile")
     @GetMapping("/profile")
     @ResponseStatus(HttpStatus.OK)
     public DriverProfileResponse getProfile(@AuthenticationPrincipal JwtPrincipal principal) {
         return driverProfileService.get(principal.userId());
     }
 
+    @Operation(summary = "Get the driver's onboarding status and what is missing")
     @GetMapping("/onboarding")
     @ResponseStatus(HttpStatus.OK)
     public com.ridex.driver.dto.OnboardingResponse onboarding(
@@ -60,6 +63,7 @@ public class DriverController {
         return driverOnboardingService.status(principal.userId());
     }
 
+    @Operation(summary = "Submit onboarding for review")
     @PostMapping("/onboarding/submit")
     @ResponseStatus(HttpStatus.OK)
     public com.ridex.driver.dto.OnboardingResponse submitForReview(
@@ -68,6 +72,7 @@ public class DriverController {
     }
 
     /** The stars riders have given this driver, with whatever they wrote. */
+    @Operation(summary = "List the ratings riders have given this driver")
     @GetMapping("/ratings")
     @ResponseStatus(HttpStatus.OK)
     public List<DriverRatingResponse> ratings(@AuthenticationPrincipal JwtPrincipal principal) {
@@ -75,6 +80,7 @@ public class DriverController {
     }
 
     /** The reasons a driver may give, from the server, so the app cannot invent one. */
+    @Operation(summary = "List the reasons a driver may give for cancelling")
     @GetMapping("/cancellation-reasons")
     @ResponseStatus(HttpStatus.OK)
     public List<CancellationReasonResponse> cancellationReasons() {
@@ -83,6 +89,7 @@ public class DriverController {
 
     /** Ends the rider's ride with a stated reason, rather than leaving them watching the map. */
     /** What cancelling now would cost for this reason, shown before the driver swipes. */
+    @Operation(summary = "Preview what cancelling a ride would cost the driver")
     @GetMapping("/rides/{rideId}/cancellation-quote")
     @ResponseStatus(HttpStatus.OK)
     public DriverCancellationQuote cancellationQuote(@AuthenticationPrincipal JwtPrincipal principal,
@@ -90,6 +97,7 @@ public class DriverController {
         return rideRequestService.quoteDriverCancellation(principal.userId(), rideId, reasonCode);
     }
 
+    @Operation(summary = "Cancel a ride as the driver, with a reason")
     @PostMapping("/rides/{rideId}/cancel")
     @ResponseStatus(HttpStatus.OK)
     public RideResponse cancelRide(@AuthenticationPrincipal JwtPrincipal principal,
@@ -98,6 +106,7 @@ public class DriverController {
     }
 
     /** What the rider was like to carry. One per ride, like the rider's own rating. */
+    @Operation(summary = "Rate the rider of a finished ride")
     @PostMapping("/rides/{rideId}/rate-rider")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void rateRider(@AuthenticationPrincipal JwtPrincipal principal,
@@ -105,12 +114,14 @@ public class DriverController {
         ratingService.rateRider(principal.userId(), rideId, request);
     }
 
+    @Operation(summary = "Get the driver's payout bank details")
     @GetMapping("/payout-account")
     @ResponseStatus(HttpStatus.OK)
     public PayoutAccountResponse payoutAccount(@AuthenticationPrincipal JwtPrincipal principal) {
         return driverProfileService.payoutAccount(principal.userId());
     }
 
+    @Operation(summary = "Set the driver's payout bank details")
     @PutMapping("/payout-account")
     @ResponseStatus(HttpStatus.OK)
     public PayoutAccountResponse setPayoutAccount(@AuthenticationPrincipal JwtPrincipal principal,
@@ -118,6 +129,7 @@ public class DriverController {
         return driverProfileService.setPayoutAccount(principal.userId(), request);
     }
 
+    @Operation(summary = "Update the driver's profile")
     @PutMapping("/profile")
     @ResponseStatus(HttpStatus.OK)
     public DriverProfileResponse updateProfile(@AuthenticationPrincipal JwtPrincipal principal,

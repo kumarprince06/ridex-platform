@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,6 +35,7 @@ public class AdminShuttleOpsController {
 
     private final AdminShuttleService adminShuttleService;
 
+    @Operation(summary = "List shuttle departures on a date")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<AdminDepartureResponse> departures(
@@ -41,6 +43,7 @@ public class AdminShuttleOpsController {
         return adminShuttleService.departures(date);
     }
 
+    @Operation(summary = "Get one shuttle departure with its bookings")
     @GetMapping("/{shuttleTripId}")
     @ResponseStatus(HttpStatus.OK)
     public AdminDepartureResponse departure(@PathVariable String shuttleTripId) {

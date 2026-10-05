@@ -1,5 +1,6 @@
 package com.ridex.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
@@ -24,12 +25,14 @@ public class AdminPassController {
 
     private final AdminShuttleService adminShuttleService;
 
+    @Operation(summary = "Summarise shuttle pass sales")
     @GetMapping("/overview")
     @ResponseStatus(HttpStatus.OK)
     public List<RoutePassSummary> overview() {
         return adminShuttleService.passOverview();
     }
 
+    @Operation(summary = "List shuttle passes sold")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public PageResponse<AdminPassResponse> sold(@RequestParam(defaultValue = "0") int page,

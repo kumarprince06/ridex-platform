@@ -1,5 +1,6 @@
 package com.ridex.notification;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
@@ -36,18 +37,21 @@ public class NotificationController {
 
     private final NotificationFeedService feed;
 
+    @Operation(summary = "List the caller's notifications")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<NotificationResponse> mine(@AuthenticationPrincipal JwtPrincipal principal) {
         return feed.mine(principal.userId());
     }
 
+    @Operation(summary = "Count unread notifications")
     @GetMapping("/unread-count")
     @ResponseStatus(HttpStatus.OK)
     public Map<String, Long> unread(@AuthenticationPrincipal JwtPrincipal principal) {
         return Map.of("unread", feed.unreadCount(principal.userId()));
     }
 
+    @Operation(summary = "Get notification preferences")
     @GetMapping("/preferences")
     @ResponseStatus(HttpStatus.OK)
     public NotificationPreferenceResponse preferences(
@@ -55,6 +59,7 @@ public class NotificationController {
         return feed.preferences(principal.userId());
     }
 
+    @Operation(summary = "Update notification preferences")
     @PutMapping("/preferences")
     @ResponseStatus(HttpStatus.OK)
     public NotificationPreferenceResponse updatePreferences(
@@ -63,6 +68,7 @@ public class NotificationController {
         return feed.updatePreferences(principal.userId(), request);
     }
 
+    @Operation(summary = "Mark notifications as read")
     @PostMapping("/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void markRead(@AuthenticationPrincipal JwtPrincipal principal) {

@@ -12,7 +12,7 @@ trips, and platform operations manage the marketplace. Built with Java 21 and Sp
 ## Status
 
 **Architecture:** Modular monolith, one platform database
-**Backend:** Java 21 + Spring Boot · 137 endpoints · 190 tests
+**Backend:** Java 21 + Spring Boot · 137 endpoints · 239 tests
 **Database:** PostgreSQL + Flyway (38 migrations, 47 tables) · Redis for presence and rate limits
 **Clients:** two React Native apps and one React console, all on the same API
 
@@ -109,7 +109,7 @@ Redis, Maven
 
 **Mobile** — React Native, TypeScript, React Navigation, secure token storage
 
-**Testing** — JUnit 5, Mockito, Spring Boot Test, ArchUnit
+**Testing** — JUnit 5, Mockito, Spring Boot Test, Testcontainers, ArchUnit
 
 Deliberately **not** used: Kafka, Kubernetes, microservices, a general event bus. Start as a
 modular monolith with Redis; split only when scale or team boundaries justify it.
@@ -120,12 +120,19 @@ Full stack: [docs/19-Technology-Stack.md](docs/19-Technology-Stack.md).
 
 ## Getting started
 
-**Prerequisites:** Java 21, Docker, Maven (or the bundled wrapper).
+**Prerequisites:** Java 21 and Docker. Maven comes with the repository as `./mvnw`.
+
+On a fresh clone, Docker is the only service the tests need: no `.env` and no `docker compose`.
 
 ```bash
 git clone https://github.com/kumarprince06/ridex-platform.git
-cd ridex-platform
+cd ridex-platform/ridex-backend
+./mvnw test                   # starts its own Postgres and Redis containers
+```
 
+To run the platform itself, from the repository root:
+
+```bash
 cp .env.example .env          # fill in the secrets; the app refuses to boot without a JWT key
 docker compose up -d          # Postgres, Redis, Mailpit
 ./run.sh                      # exports .env, picks the project's JDK, starts the backend
@@ -228,8 +235,14 @@ routes reject unauthenticated calls.
 
 ```bash
 cd ridex-backend
-./mvnw test          # 190 tests against a real Postgres and Redis
+./mvnw test          # 239 tests; needs only a running Docker daemon
 ```
+
+Integration tests are annotated `@IntegrationTest`. That boots the application against one
+Postgres 17 and one Redis 7 container, started by Testcontainers and wired in with
+`@ServiceConnection`. The containers are shared by the whole run and removed when it ends, so tests
+never touch the database the apps use. CI runs the same command, and Flyway applies every migration
+on each run.
 
 The three documents that describe the code are generated from it, so they cannot quietly drift:
 

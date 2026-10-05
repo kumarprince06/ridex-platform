@@ -312,7 +312,7 @@ class AuthServiceTest {
         session.setAppContext(AppContext.RIDER);
         session.setPreviousTokenHash(VerificationTokenGenerator.hash(spentToken));
 
-        when(refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(spentToken)))
+        when(refreshTokenRepository.findByTokenHashForUpdate(VerificationTokenGenerator.hash(spentToken)))
                 .thenReturn(Optional.empty());
         when(refreshTokenRepository.findByPreviousTokenHash(VerificationTokenGenerator.hash(spentToken)))
                 .thenReturn(Optional.of(session));
@@ -327,7 +327,7 @@ class AuthServiceTest {
     @Test
     void anUnknownRefreshTokenIsNotTreatedAsTheft() {
         String strangerToken = VerificationTokenGenerator.generateRawToken();
-        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
+        when(refreshTokenRepository.findByTokenHashForUpdate(any())).thenReturn(Optional.empty());
         when(refreshTokenRepository.findByPreviousTokenHash(any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(strangerToken)))
@@ -530,7 +530,7 @@ class AuthServiceTest {
         session.setTokenHash(VerificationTokenGenerator.hash(raw));
         session.setAppContext(AppContext.RIDER);
         session.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
-        when(refreshTokenRepository.findByTokenHash(VerificationTokenGenerator.hash(raw)))
+        when(refreshTokenRepository.findByTokenHashForUpdate(VerificationTokenGenerator.hash(raw)))
                 .thenReturn(Optional.of(session));
 
         var response = authService.refresh(new RefreshTokenRequest(raw));

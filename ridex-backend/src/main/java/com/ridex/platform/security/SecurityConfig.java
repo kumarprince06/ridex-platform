@@ -62,6 +62,9 @@ public class SecurityConfig {
     @Value("${app.rate-limit.ip-window:1m}")
     private Duration ipWindow;
 
+    @Value("${app.rate-limit.ip-paths}")
+    private List<String> rateLimitedPaths;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter, RateLimiter rateLimiter) throws Exception {
@@ -70,7 +73,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             // Ahead of authentication: an unauthenticated flood must be turned away before it
             // costs a BCrypt comparison each.
-            .addFilterBefore(new RateLimitFilter(rateLimiter, ipRequestLimit, ipWindow),
+            .addFilterBefore(new RateLimitFilter(rateLimiter, ipRequestLimit, ipWindow, rateLimitedPaths),
                     UsernamePasswordAuthenticationFilter.class)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

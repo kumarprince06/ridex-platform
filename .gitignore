@@ -17,3 +17,6 @@ build/
 *.log
 
 .DS_Store
+
+# Working business plan, kept out of the repository on purpose.
+docs/33-Business-Plan.md

@@ -59,6 +59,7 @@ Environment variables:
 | `SPRING_DATASOURCE_USERNAME` | The database user (Railway: `${{Postgres.PGUSER}}`) |
 | `RIDEX_APP_PASSWORD` | The database password (Railway: `${{Postgres.PGPASSWORD}}`) |
 | `SPRING_DATA_REDIS_URL` | The Redis URL as given, password included (Render: the internal Key Value URL; Railway: `${{Redis.REDIS_URL}}`) |
+| `GOOGLE_MAPS_API_KEY` or `ORS_API_KEY` | One of them. Every fare estimate needs a route, and the keyless provider only geocodes, so without a key no ride can be quoted or booked. OpenRouteService has a free tier |
 
 Optional:
 
@@ -68,7 +69,6 @@ Optional:
 | `RIDEX_DEMO_RESET_CRON` | To move the nightly reset from 03:00 IST |
 | `RIDEX_MAIL_HOST`, `RIDEX_MAIL_PORT`, `RIDEX_MAIL_USERNAME`, `RIDEX_MAIL_PASSWORD`, `RIDEX_MAIL_FROM` | So public signup can deliver its verification code, for example through Brevo's SMTP relay. Without them signup cannot complete, and queued mail is retried and then dropped |
 | `RIDEX_CORS_ALLOWED_ORIGINS` | Only if the admin console is hosted; Swagger UI is same-origin |
-| `GOOGLE_MAPS_API_KEY` or `ORS_API_KEY` | Real routes for estimates |
 
 Never set `RIDEX_BOOTSTRAP_ADMIN_*` on the demo; the demo profile ignores them anyway, because the
 demo password is public.

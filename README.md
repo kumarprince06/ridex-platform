@@ -2,18 +2,133 @@
 
 [![CI](https://github.com/kumarprince06/ridex-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/kumarprince06/ridex-platform/actions/workflows/ci.yml)
 
-### Consumer ride-hailing and mobility platform
+### Ride-hailing backend in Java 21 and Spring Boot 4.1
 
-RideX is a B2C mobility platform: riders request transportation, drivers accept and complete
-trips, and platform operations manage the marketplace. Built with Java 21 and Spring Boot.
+RideX is the backend of a consumer ride-hailing platform: a rider books, the nearest available
+driver is offered the ride, the trip runs through a validated state machine, and the fare is priced
+from the distance actually driven. Payments, driver wallets, a shuttle line, support tickets and an
+operations console sit on the same API. It is a modular monolith with one PostgreSQL database and
+Redis, tested against real containers.
+
+| | |
+|---|---|
+| **Live demo** | _Coming soon_ (`https://<demo-host>/swagger-ui.html`) |
+| **API docs** | Swagger UI at `/swagger-ui.html` on any running instance; locally <http://localhost:8080/swagger-ui.html> |
+| **Run it locally** | [Getting started](#getting-started) |
+
+---
+
+## Try it
+
+### Demo accounts
+
+The public demo runs with the `demo` profile, which seeds these accounts. All three use the
+password **`RideX-demo-2026`**.
+
+| Email | Role | Sign in with `"app"` |
+|---|---|---|
+| `rider@ridex.example` | Rider | `RIDER` |
+| `driver@ridex.example` | Driver, approved and with a vehicle | `DRIVER` |
+| `support@ridex.example` | Support agent | `ADMIN` |
+
+- **Admin roles.** RideX also has `OPS_ADMIN` and `SUPER_ADMIN`, which approve drivers, change
+  fares and issue refunds. They are not available on the public demo because its password is
+  published; the support account can look at people, trips and tickets but change nothing that
+  matters.
+- **Sign-up.** The walkthrough below uses only the seeded accounts. Public sign-up sends a
+  verification code by email, so on a demo without a mail provider configured, **a new account
+  cannot be verified and cannot sign in**.
+- **Resets.** All demo data goes back to the seeded state every night at 03:00 IST.
+
+### Try the ride flow in 5 steps
+
+Everything happens in Swagger UI. To act as someone, call `POST /api/v1/auth/login`, copy
+`accessToken` from the response, press **Authorize** and paste it (without `Bearer`). Swagger holds
+one token at a time, so you switch between the rider and the driver as you go.
+
+**1. Rider: sign in and get a quote.** Log in as the rider and authorize, then call
+`POST /api/v1/rides/estimate`:
+
+```json
+{ "pickupLat": 26.9239, "pickupLng": 75.8267, "destinationLat": 26.9196, "destinationLng": 75.7878 }
+```
+
+You get a price for every ride type. Copy one `estimateId`.
+
+**2. Driver: go on duty at the pickup.** Log in as the driver and authorize, then call
+`PUT /api/v1/driver/duty`:
+
+```json
+{ "onDuty": true, "latitude": 26.9239, "longitude": 75.8267 }
+```
+
+**3. Rider: book, within two minutes of step 2.** Switch back to the rider and call
+`POST /api/v1/rides`. A driver's position counts as current for two minutes; if you take longer,
+repeat step 2.
+
+```json
+{ "estimateId": "<from step 1>", "pickupAddress": "Hawa Mahal", "destinationAddress": "Jaipur Junction" }
+```
+
+The ride comes back `SEARCHING`; dispatch has already offered it to nearby drivers. Copy its `id`.
+
+**4. Driver: accept the offer.** Switch to the driver, call `GET /api/v1/driver/offers`, then
+`POST /api/v1/driver/offers/{offerId}/accept`. The response carries the `tripId`. On the demo an
+offer stays open for five minutes.
+
+**5. Driver: drive it; rider: read the receipt.** As the driver, call in order:
+
+- `POST /api/v1/trips/{tripId}/arrive`
+- `POST /api/v1/trips/{tripId}/start` with `{ "pickupCode": "<from the rider's ride>" }` (as the rider, `GET /api/v1/rides/{rideId}` shows it)
+- `POST /api/v1/trips/{tripId}/complete` with `{ "distanceMeters": 4921, "durationSeconds": 1140 }`
+
+Then, as the rider, `GET /api/v1/rides/{rideId}/receipt` compares the quote with the charge, line
+by line. Report a longer distance at `complete` and the charge rises above the quote.
+
+### How it fits together
+
+```mermaid
+flowchart LR
+    subgraph Clients
+        RA[Rider app<br/>React Native]
+        PA[Partner app<br/>React Native]
+        AC[Admin console<br/>React]
+        SW[Swagger UI]
+    end
+
+    subgraph Backend["Spring Boot 4.1 modular monolith"]
+        direction TB
+        AUTH[auth<br/>JWT + rotating refresh]
+        RIDE[ride + pricing<br/>quotes, bookings]
+        DISP[dispatch<br/>waves of offers]
+        TRIP[trip<br/>state machine, fare]
+        PAY[payment + wallet]
+        NOTI[notification<br/>outbox]
+    end
+
+    PG[(PostgreSQL<br/>Flyway)]
+    RD[(Redis<br/>presence, rate limits)]
+    MAPS[Maps<br/>Google / ORS]
+    RZP[Razorpay]
+    MAIL[Mail and push]
+
+    RA & PA & AC & SW -->|REST + JWT| AUTH
+    PA <-->|STOMP offers| DISP
+    RIDE --> DISP --> TRIP --> PAY
+    RIDE --> MAPS
+    DISP --> RD
+    Backend --> PG
+    PAY <-->|webhooks| RZP
+    NOTI --> MAIL
+```
 
 ---
 
 ## Status
 
 **Architecture:** Modular monolith, one platform database
-**Backend:** Java 21 + Spring Boot · 137 endpoints · 240 tests
-**Database:** PostgreSQL + Flyway (38 migrations, 47 tables) · Redis for presence and rate limits
+**Backend:** Java 21 + Spring Boot 4.1 · 172 endpoints · 248 tests
+**Database:** PostgreSQL + Flyway (44 migrations, 50 tables) · Redis for presence and rate limits
 **Clients:** two React Native apps and one React console, all on the same API
 
 All sixteen modules on [the module board](docs/34-Module-Task-Board.md) are closed, including the
@@ -235,7 +350,7 @@ routes reject unauthenticated calls.
 
 ```bash
 cd ridex-backend
-./mvnw test          # 240 tests; needs only a running Docker daemon
+./mvnw test          # 248 tests; needs only a running Docker daemon
 ```
 
 Integration tests are annotated `@IntegrationTest`. That boots the application against one

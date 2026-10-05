@@ -22,6 +22,8 @@ services:
       RIDEX_APP_PASSWORD: ${RIDEX_APP_PASSWORD:?set it in .env.production}
       RIDEX_JWT_SECRET: ${RIDEX_JWT_SECRET:?set it in .env.production}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ridex_platform
+      # "demo" for the public reviewer demo (seeded accounts, nightly reset). Empty for real data.
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
       SPRING_DATA_REDIS_HOST: redis
       RIDEX_CORS_ALLOWED_ORIGINS: ${RIDEX_CORS_ALLOWED_ORIGINS}
       RIDEX_BOOTSTRAP_ADMIN_EMAIL: ${RIDEX_BOOTSTRAP_ADMIN_EMAIL}

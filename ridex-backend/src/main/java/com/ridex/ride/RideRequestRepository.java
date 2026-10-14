@@ -35,9 +35,22 @@ public interface RideRequestRepository extends JpaRepository<RideRequest, String
 
     boolean existsByFareEstimateId(String fareEstimateId);
 
-    // The sweep's queue: rides still looking for a driver, oldest first so nobody is starved.
-    @Query("SELECT r FROM RideRequest r WHERE r.status = :searching ORDER BY r.requestedAt")
-    List<RideRequest> findSearching(@Param("searching") RideStatus searching);
+    // The sweep's queue: rides still looking for a driver, oldest first so nobody is starved. Ids
+    // only, read without locks; each ride is locked on its own in lockIfSearching.
+    @Query("SELECT r.id FROM RideRequest r WHERE r.status = :searching ORDER BY r.requestedAt")
+    List<String> findSearchingIds(@Param("searching") RideStatus searching);
+
+    /**
+     * Locks one searching ride for the sweep, or nothing if it moved on or somebody holds it.
+     *
+     * <p>SKIP LOCKED: a ride an accept is holding is about to stop searching, and another node's
+     * sweep already has it - waiting would only queue behind a decision already being made. NO KEY
+     * UPDATE rather than UPDATE: the sweep inserts offers in a REQUIRES_NEW transaction, and their
+     * foreign key check takes a KEY SHARE lock that plain FOR UPDATE would block forever.
+     */
+    @Query(value = "SELECT * FROM ride_requests WHERE id = :id AND status = 'SEARCHING' "
+            + "FOR NO KEY UPDATE SKIP LOCKED", nativeQuery = true)
+    Optional<RideRequest> lockIfSearching(@Param("id") String id);
 
     @Query("SELECT r FROM RideRequest r WHERE :status IS NULL OR r.status = :status")
     Page<RideRequest> searchByStatus(@Param("status") RideStatus status, Pageable pageable);

@@ -22,6 +22,8 @@ import com.ridex.payment.domain.PaymentStatus;
 import com.ridex.shared.exception.ProviderUnavailableException;
 import com.ridex.shared.money.Money;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -53,13 +55,18 @@ public class PaymentOrderWorker {
     private int batchSize;
 
     public PaymentOrderWorker(PaymentRepository paymentRepository, PaymentProviders providers,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager, MeterRegistry meterRegistry) {
         this.paymentRepository = paymentRepository;
         this.providers = providers;
         // REQUIRES_NEW: one payment per transaction, and a real one even when called from afterCommit,
         // where joining the finished transaction would silently discard every write.
         this.perPayment = new TransactionTemplate(transactionManager);
         this.perPayment.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        // Read when metrics are published, not on every drain. A queue that only grows means the
+        // gateway is down or the worker is not running.
+        Gauge.builder("ridex.payments.orders.pending", this, PaymentOrderWorker::pendingOrders)
+                .description("Online trip payments still waiting for their gateway order")
+                .register(meterRegistry);
     }
 
     @Scheduled(fixedDelayString = "${app.payments.dispatch-ms:2000}")
@@ -177,6 +184,16 @@ public class PaymentOrderWorker {
                     .ifPresent(payment -> recordFailure(payment, cause, true)));
         } catch (RuntimeException ex) {
             log.error("Payment {} could not be deferred either; the next poll retries it", paymentId, ex);
+        }
+    }
+
+    // NaN rather than a throw: a database blip must not break every other metric in the publish.
+    private double pendingOrders() {
+        try {
+            return paymentRepository.countByStatusAndNextAttemptAtIsNotNull(PaymentStatus.CREATED);
+        } catch (RuntimeException ex) {
+            log.warn("Could not count pending payment orders: {}", ex.getMessage());
+            return Double.NaN;
         }
     }
 

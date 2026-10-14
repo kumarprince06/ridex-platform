@@ -59,6 +59,41 @@ class StompAuthInterceptorTest {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    void aClientMaySendToTheApplication() {
+        Message<?> ping = frame(StompCommand.SEND, "/app/driver/location", rider);
+
+        assertThat(interceptor.preSend(ping, channel)).isSameAs(ping);
+    }
+
+    @Test
+    void aClientCannotSendStraightToABrokerTopic() {
+        // Otherwise any socket could post a fake car position into another rider's feed.
+        assertThatThrownBy(() -> interceptor.preSend(
+                frame(StompCommand.SEND, "/topic/trips/abc/location", rider), channel))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void anUnauthenticatedSendIsRefused() {
+        assertThatThrownBy(() -> interceptor.preSend(
+                frame(StompCommand.SEND, "/app/driver/location", null), channel))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void aWildcardSubscriptionIsRefusedBeforeAnyGuardIsAsked() {
+        // The broker matches patterns, so these would receive topics no guard recognises.
+        when(guards.orderedStream()).thenReturn(Stream.empty());
+
+        assertThatThrownBy(() -> interceptor.preSend(
+                frame(StompCommand.SUBSCRIBE, "/topic/**", rider), channel))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> interceptor.preSend(
+                frame(StompCommand.SUBSCRIBE, "/topic/trips/*/location", rider), channel))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
     private static Message<?> frame(StompCommand command, String destination, JwtPrincipal user) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
         if (destination != null) {

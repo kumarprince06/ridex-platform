@@ -15,6 +15,8 @@ import com.ridex.shuttle.ShuttleBookingRepository;
 import com.ridex.shuttle.ShuttleService;
 import com.ridex.wallet.DriverWalletService;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import java.time.Instant;
@@ -41,6 +43,7 @@ public class PaymentWebhookService {
     private final ShuttleBookingRepository shuttleBookingRepository;
     private final PassService passService;
     private final DriverWalletService walletService;
+    private final MeterRegistry meterRegistry;
 
     /**
      * Records one verified webhook and applies it.
@@ -48,6 +51,20 @@ public class PaymentWebhookService {
      * @return false when the event has been seen before, which is a normal gateway retry and not
      *         an error - the caller still answers 200, or the gateway keeps redelivering forever.
      */
+    /**
+     * Counts a webhook that could not be applied, by why.
+     *
+     * <p>A rise in invalid signatures is a rotated secret or somebody probing the endpoint; a rise
+     * in unparseable ones is the gateway changing its payload. Either way, payments stop settling.
+     */
+    public void failed(String reason) {
+        Counter.builder("ridex.payments.webhooks.failed")
+                .description("Razorpay webhooks rejected or not applied")
+                .tag("reason", reason)
+                .register(meterRegistry)
+                .increment();
+    }
+
     @Transactional
     public boolean handle(String payload, String eventId) {
         // The insert is the lock. Checking first and inserting after would let two concurrent
@@ -64,6 +81,7 @@ public class PaymentWebhookService {
             // Signed but unreadable. Recorded rather than dropped: a payload we cannot parse is a
             // contract change, and losing it means losing the evidence of one.
             record(eventId, "unparseable", null, payload);
+            failed("unparseable");
             log.warn("Razorpay event {} could not be parsed", eventId, ex);
             return true;
         }

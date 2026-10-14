@@ -422,6 +422,7 @@ flowchart TD
   Code: `location/DriverPresence.java`
 - **No fallback.** `DriverPresence` has no try/catch. When Redis is down, going on duty, location updates and ride responses throw. The first dispatch wave's error is caught in `DispatchTrigger`, and the sweep catches its own per-ride errors.
 - **Consistency.** `on_duty` in PostgreSQL and membership in the Redis GEO set are written by separate systems with no shared transaction. If `setDuty` commits but the Redis write fails, the driver shows as on duty but is never found. Since `report` runs inside the transaction and throws first, the more likely outcome is a rollback. *[not verified]*
+- **Live trip feed.** While the driver is on a trip (DRIVER_ASSIGNED to TRIP_STARTED), each ping is also pushed to `/topic/trips/{tripId}/location` by `trip/TripLocationBroadcaster`. Pings arrive over HTTP or as a STOMP SEND to `/app/driver/location` (`dispatch/DriverLocationSocket`); both go through `DriverDutyService#reportLocation`.
 - **Shuttles differ.** Shuttle positions go through `ShuttleRunService#reportPosition` to `ShuttleLiveStore` and *are* pushed to riders on `/topic/shuttle-trips/{tripId}` ([section 16](#16-websocket--stomp-runtime-flow)).
 
 ## 8. Ride state machine
@@ -601,6 +602,7 @@ Redis is **not a cache** here. It holds short-lived coordination state that is f
 | `drivers:seen` | sorted set, member = DriverProfile id, score = last ping (epoch ms) | none (evicted by sweep) | ZADD, ZMSCORE, ZRANGEBYSCORE, ZREM | `DriverPresence`, `StaleLocationEvictionSweep` | Same |
 | `rl:ip:{ip}:{uri}` | counter | 1 min | INCR, EXPIRE on first hit | `platform/ratelimit/RateLimiter#tryConsume` from `RateLimitFilter` | **Fails open**: WARN logged, request allowed |
 | `rl:login:{email}` | counter (every attempt, reset on success) | 15 min | INCR, EXPIRE, DEL | `AuthService#login` :189, `#resetPassword` | Fails open |
+| `maps:route:{pLat},{pLng}:{dLat},{dLng}` | JSON `RouteEstimate`, coordinates to 4 decimals | 5 min | GET, SET EX | `maps/RouteCache` from `MapsService#route` | Treated as a miss; the provider is called |
 | `maps:calls:google-maps:{yyyy-MM-dd}` | counter | 2 days | INCR, EXPIRE | `maps/DailyCallBudget#tryConsume` from `GoogleMapsProvider#requireBudget` | Exception propagates out of `MapsService`; no fallback to ORS **[risk]** |
 | `shuttle:live:{tripId}` | hash lat, lng, heading, at | 2 min (refreshed) | HSET, EXPIRE, HGETALL, DEL | `shuttle/ShuttleLiveStore` from `ShuttleRunService` | Exception propagates |
 | `shuttle:broadcast:{tripId}` | string "1" | 5 s | SET NX EX | `ShuttleLiveStore#claimBroadcast` | Exception propagates |
@@ -698,7 +700,7 @@ flowchart TD
 
 | Transaction | External call | Worst-case hold | Consequence |
 |---|---|---|---|
-| `FareEstimateService#estimate` | Google Distance Matrix, then ORS | ~5 s + 8 s | A DB connection is held idle. With a pool of 5, a few slow estimates starve other requests. |
+| `FareEstimateService#estimate` | Google Distance Matrix, then ORS | ~5 s + 8 s | A DB connection is held idle. With a pool of 5, a few slow estimates starve other requests. The same trip (coordinates to 4 decimals) is answered from `maps:route:*` in Redis for 5 min (`maps/RouteCache`). |
 | `ShuttleService#book`, `PassService#buy`, `DriverWalletService#startTopUp` | Razorpay `POST /v1/orders` | 15 s | A later rollback orphans the order. |
 | `*#confirm*` (ride, shuttle, pass, top-up) | Razorpay `GET /v1/payments/{id}` | 15 s | If the DB write fails after capture, the webhook is the recovery path. |
 | `OutboxDispatcher#dispatchPending` | SMTP and Expo for up to 50 rows | 50 × (5 s SMTP timeouts) | Row locks and a connection are held for the whole batch. |
@@ -772,7 +774,7 @@ Most jobs are `@Transactional`, so each run is one database transaction. The dis
 - the simple in-memory broker on `/topic` and `/queue`;
 - application prefix `/app` and user prefix `/user`.
 
-The HTTP handshake is `permitAll`. Authentication happens on the STOMP `CONNECT` frame. Clients never send application messages; the server only pushes.
+The HTTP handshake is `permitAll`. Authentication happens on the STOMP `CONNECT` frame. `StompAuthInterceptor` then requires a signed-in user on every SEND and SUBSCRIBE, accepts SEND only to `/app/...` (never straight to a broker topic), and refuses wildcard subscriptions such as `/topic/**`, which the simple broker would otherwise match against every topic. The only inbound application message is `/app/driver/location`; errors go back on `/user/queue/errors`.
 
 **Diagram: Connect, subscribe, receive**
 
@@ -803,6 +805,7 @@ sequenceDiagram
 |---|---|---|---|---|
 | `/user/{name}/queue/offers` | `OfferResponse` | `StompOfferNotifier#offered` | Each new offer; sent before commit | User destination, but addressed with the wrong id **[defect]** |
 | `/topic/rides/{rideId}` | `OfferTaken("OFFER_TAKEN", ...)` / `("SEARCH_EXPIRED", ...)` | `StompOfferNotifier#taken`, `#searchGaveUp` | Accept (before commit), sweep give-up | No **[defect]** |
+| `/topic/trips/{tripId}/location` | `TripLocation(tripId, latitude, longitude, at)` | `TripLocationBroadcaster#driverMoved` | Every driver ping during a live trip | Yes, `TripTopicGuard`: the trip's rider or driver, while it is live |
 | `/topic/shuttle-trips/{tripId}` | `ShuttleLiveResponse` event STARTED, POSITION, STOP_REACHED, FINISHED | `ShuttleRunService#publish` :187 | **afterCommit**; POSITION at most every 5 s (`claimBroadcast`) | Yes, `ShuttleTopicGuard` |
 
 **Scaling limit:** the simple broker lives in memory in one JVM. With two instances, a message published on one never reaches sockets on the other. The comment in `WebSocketConfig` says a broker relay is needed before scaling out.
@@ -890,7 +893,8 @@ flowchart LR
 - **What exists.**
   - Boot's automatic metrics: `http.server.requests` with percentile histograms (`management.metrics.distribution.percentiles-histogram`), JVM memory, GC and threads, `hikaricp_*`, Tomcat, and process CPU.
   - The resource attribute `service.name=ridex-backend` (from `spring.application.name`), which Grafana shows as `job="ridex-backend"`.
-- **What doesn't exist.** No custom metrics (`MeterRegistry`, `@Timed` and `Observation` are unused). No tracing dependency (no micrometer-tracing, Brave or Zipkin). No log shipping. Whether `spring-boot-opentelemetry` alone exports anything besides metrics: *[not verified]*. No trace export was seen in the local test.
+- **Custom metrics.** `ridex.dispatch.sweep` (timer, one per sweep) and `ridex.dispatch.sweep.failures` (counter) in `DispatchSweep`; `ridex.payments.orders.pending` (gauge, read at publish) in `PaymentOrderWorker`; `ridex.payments.webhooks.failed` (counter, tag `reason` = invalid_signature, missing_event_id, unparseable, error) in `PaymentWebhookService`.
+- **What doesn't exist.** No tracing dependency (no micrometer-tracing, Brave or Zipkin). No log shipping. Whether `spring-boot-opentelemetry` alone exports anything besides metrics: *[not verified]*. No trace export was seen in the local test.
 - **Configuration.** `management.otlp.metrics.export.{enabled,url,headers.Authorization,step}`, from `RIDEX_OTLP_ENABLED`, `RIDEX_OTLP_URL` (must end in `/v1/metrics`), and `RIDEX_OTLP_AUTH` (`Basic` + base64 of `instanceId:token`).
 - **Why push, not scrape.** A Render service has no private network a scraper could reach, and a public `/actuator/prometheus` would publish internals (comment in `application.yml`).
 - **Startup signal.** `Publishing metrics for OtlpMeterRegistry every 1m to ...` in the log. If this line is missing, the exporter is not running.

@@ -14,6 +14,7 @@ import com.ridex.location.DriverPresence;
 import com.ridex.shared.exception.ConflictException;
 import com.ridex.shared.exception.NotFoundException;
 import com.ridex.shared.exception.ValidationException;
+import com.ridex.trip.TripLocationBroadcaster;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +25,7 @@ public class DriverDutyService {
     private final DriverProfileRepository driverProfileRepository;
     private final DriverPresence driverPresence;
     private final DriverEligibility driverEligibility;
+    private final TripLocationBroadcaster tripLocationBroadcaster;
 
     @Transactional
     public void setDuty(String driverUserId, DutyRequest request) {
@@ -51,8 +53,8 @@ public class DriverDutyService {
     }
 
     /**
-     * Redis only, and no transaction: this runs every few seconds per on-duty driver, and the
-     * value is worthless within a minute.
+     * No transaction: this runs every few seconds per on-duty driver, and the value is worthless
+     * within a minute. Reached over HTTP or the socket - both land here.
      */
     public void reportLocation(String driverUserId, LocationRequest request) {
         DriverProfile driver = requireDriver(driverUserId);
@@ -61,6 +63,8 @@ public class DriverDutyService {
             return;
         }
         driverPresence.report(driver.getId(), request.latitude(), request.longitude());
+        // A rider waiting on this car sees it move now, not at their next poll.
+        tripLocationBroadcaster.driverMoved(driver.getId(), request.latitude(), request.longitude());
     }
 
     private DriverProfile requireDriver(String driverUserId) {

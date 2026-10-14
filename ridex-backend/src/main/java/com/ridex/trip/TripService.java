@@ -373,9 +373,23 @@ public class TripService {
                         .orElse(null));
     }
 
-    private static final Set<RideStatus> IN_PROGRESS = EnumSet.of(
+    // Package-visible: the live location feed follows a trip for exactly these states.
+    static final Set<RideStatus> IN_PROGRESS = EnumSet.of(
             RideStatus.DRIVER_ASSIGNED, RideStatus.DRIVER_ARRIVING,
             RideStatus.DRIVER_AT_PICKUP, RideStatus.TRIP_STARTED);
+
+    /**
+     * Whether this user may follow the trip's live location: its rider or its driver, and only
+     * while it is under way. A finished trip's route is history, not something to keep watching.
+     */
+    @Transactional(readOnly = true)
+    public boolean canWatch(String userId, String tripId) {
+        return tripRepository.findById(tripId)
+                .filter(trip -> IN_PROGRESS.contains(trip.getRideRequest().getStatus()))
+                .map(trip -> userId.equals(trip.getRideRequest().getRider().getUser().getId())
+                        || userId.equals(trip.getDriver().getUser().getId()))
+                .orElse(false);
+    }
 
     /** The driver's unfinished trip, if any: an app killed mid-trip must reopen on it. */
     @Transactional(readOnly = true)

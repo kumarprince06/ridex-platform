@@ -24,6 +24,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class StompAuthInterceptor implements ChannelInterceptor {
 
+    static final String APP_PREFIX = "/app/";
+
     private final JwtService jwtService;
     // Looked up per subscribe: the guards need the messaging template, which is built after this.
     private final ObjectProvider<SubscriptionGuard> guards;
@@ -47,12 +49,30 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             }
         }
 
+        if (accessor.getCommand() == StompCommand.SEND) {
+            if (!(accessor.getUser() instanceof Authentication auth)
+                    || !(auth.getPrincipal() instanceof JwtPrincipal)) {
+                throw new AccessDeniedException("Sign in to send.");
+            }
+            // Clients talk to the application, never straight to the broker: a SEND to /topic/...
+            // would let any socket put words - or a fake car position - in another rider's feed.
+            String destination = accessor.getDestination();
+            if (destination == null || !destination.startsWith(APP_PREFIX)) {
+                throw new AccessDeniedException("You can't send to that.");
+            }
+        }
+
         if (accessor.getCommand() == StompCommand.SUBSCRIBE) {
             if (!(accessor.getUser() instanceof Authentication auth)
                     || !(auth.getPrincipal() instanceof JwtPrincipal principal)) {
                 throw new AccessDeniedException("Sign in to subscribe.");
             }
             String destination = accessor.getDestination();
+            // The simple broker matches patterns, so "/topic/**" would receive every topic while no
+            // guard recognises it as theirs. Only exact destinations can be checked.
+            if (destination == null || destination.contains("*") || destination.contains("{")) {
+                throw new AccessDeniedException("You can't follow that.");
+            }
             boolean refused = guards.orderedStream()
                     .map(guard -> guard.allows(principal.userId(), destination))
                     .anyMatch(Boolean.FALSE::equals);

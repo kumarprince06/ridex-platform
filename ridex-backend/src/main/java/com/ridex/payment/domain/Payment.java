@@ -76,6 +76,16 @@ public class Payment {
     @Column(name = "failure_reason", length = 255)
     private String failureReason;
 
+    // Opening the gateway order is retried off the request path (PaymentOrderWorker, V45).
+    @Column(name = "attempts", nullable = false)
+    private short attempts;
+
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    @Column(name = "last_error", length = 500)
+    private String lastError;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

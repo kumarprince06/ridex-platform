@@ -58,4 +58,28 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
             """)
     List<Payment> findOutstanding(
             @Param("riderId") String riderId);
+
+    /**
+     * Claims the oldest online payment whose gateway order is due to be opened.
+     *
+     * <p>SKIP LOCKED, so every node can run the worker and no two open the same order. NO KEY UPDATE,
+     * not UPDATE: the key never changes, and a webhook inserting a payment_events row must not
+     * queue behind a gateway call for its foreign key check.
+     */
+    @Query(value = """
+            SELECT * FROM payments
+            WHERE status = 'CREATED' AND next_attempt_at <= :now
+            ORDER BY next_attempt_at
+            LIMIT 1
+            FOR NO KEY UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    Optional<Payment> claimNextDue(@Param("now") Instant now);
+
+    /** The same claim for one payment, so a trip that just ended does not wait for the next poll. */
+    @Query(value = """
+            SELECT * FROM payments
+            WHERE id = :id AND status = 'CREATED' AND next_attempt_at IS NOT NULL
+            FOR NO KEY UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    Optional<Payment> claimIfDue(@Param("id") String id);
 }

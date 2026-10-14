@@ -52,6 +52,7 @@ public class PaymentService {
     private final SettingsService settings;
     private final PaymentProviders providers;
     private final DriverProfileRepository driverProfileRepository;
+    private final PaymentOrderWorker paymentOrderWorker;
 
     /**
      * Settles a completed trip: one payment, one earnings record, and the ledger entries for both.
@@ -87,10 +88,7 @@ public class PaymentService {
 
         PaymentProvider provider = providers.forMethod(method);
         String idempotencyKey = "trip-payment:" + tripId;
-
-        var intent = collect.amountMinor() > 0
-                ? provider.createPaymentIntent(collect, tripId, idempotencyKey)
-                : new PaymentProvider.ProviderPayment(null, "SUCCEEDED", null);
+        boolean viaGateway = collect.amountMinor() > 0 && method != PaymentMethod.CASH;
 
         Payment payment = new Payment();
         payment.setTrip(trip);
@@ -101,17 +99,29 @@ public class PaymentService {
         payment.setGrossAmountMinor(gross.amountMinor());
         payment.setDiscountAmountMinor(discount.amountMinor());
         payment.setNetAmountMinor(collect.amountMinor());
-        payment.setProviderPaymentId(intent.providerPaymentId());
         payment.setIdempotencyKey(idempotencyKey);
-        payment.setStatus("SUCCEEDED".equals(intent.status())
-                ? PaymentStatus.SUCCEEDED : PaymentStatus.PROCESSING);
-        if (payment.getStatus() == PaymentStatus.SUCCEEDED) {
+
+        if (viaGateway) {
+            // No network call in here: the order is opened once this commits (PaymentOrderWorker).
+            // A gateway outage now leaves a payment to retry, not a trip the driver cannot end.
+            payment.setStatus(PaymentStatus.CREATED);
+            payment.setNextAttemptAt(Instant.now());
+        } else {
+            // Cash and free rides settle on the spot. The cash provider is local, not a gateway.
+            var intent = collect.amountMinor() > 0
+                    ? provider.createPaymentIntent(collect, tripId, idempotencyKey)
+                    : new PaymentProvider.ProviderPayment(null, "SUCCEEDED", null);
+            payment.setProviderPaymentId(intent.providerPaymentId());
+            payment.setStatus(PaymentStatus.SUCCEEDED);
             payment.setPaidAt(Instant.now());
         }
         paymentRepository.save(payment);
 
         recordEarnings(trip, gross, discount, payment);
         settleDues(dues, payment, currency);
+        if (viaGateway) {
+            paymentOrderWorker.openAfterCommit(payment.getId());
+        }
         return toResponse(payment);
     }
 

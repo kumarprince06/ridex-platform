@@ -222,6 +222,8 @@
 						<app.dispatch.sweep-enabled>false</app.dispatch.sweep-enabled>
 						<!-- No mail server or push credentials in the build: sends would only retry and die. -->
 						<app.outbox.enabled>false</app.outbox.enabled>
+						<!-- Payment and presence pollers: tests call them directly instead. -->
+						<app.payments.dispatch-enabled>false</app.payments.dispatch-enabled>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

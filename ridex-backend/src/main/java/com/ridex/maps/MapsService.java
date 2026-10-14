@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MapsService {
 
     private final List<MapsProvider> providers;
+    private final RouteCache routeCache;
 
     public List<GeoLocation> search(String query, int limit) {
         return dedupe(attempt("search", MapsProvider::canGeocode,
@@ -70,10 +71,20 @@ public class MapsService {
         return attempt("geocode", MapsProvider::canGeocode, provider -> provider.geocode(query));
     }
 
+    /**
+     * Road distance and time, from the cache when the same trip was asked in the last five minutes.
+     *
+     * <p>Only answers are cached: a provider failure is never stored, so the next ask tries again.
+     */
     public RouteEstimate route(double pickupLat, double pickupLng,
             double destinationLat, double destinationLng) {
-        return attempt("route", MapsProvider::canRoute,
-                provider -> provider.route(pickupLat, pickupLng, destinationLat, destinationLng));
+        String key = RouteCache.key(pickupLat, pickupLng, destinationLat, destinationLng);
+        return routeCache.get(key).orElseGet(() -> {
+            RouteEstimate fresh = attempt("route", MapsProvider::canRoute,
+                    provider -> provider.route(pickupLat, pickupLng, destinationLat, destinationLng));
+            routeCache.put(key, fresh);
+            return fresh;
+        });
     }
 
     /**

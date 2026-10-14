@@ -60,6 +60,7 @@ class DispatchSweepTest {
     @Autowired private UserRepository userRepository;
     // The test class is not @Transactional on purpose, so a modifying query needs its own.
     @Autowired private org.springframework.transaction.support.TransactionTemplate transactions;
+    @Autowired private io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
     private String riderUserId;
 
@@ -129,7 +130,15 @@ class DispatchSweepTest {
         when(driverPresence.nearby(eq(OTHER_ROUTE.pickupLat()), anyDouble(), anyDouble(), anyInt()))
                 .thenThrow(new IllegalStateException("presence is down"));
 
+        double failuresBefore = meterRegistry.get("ridex.dispatch.sweep.failures").counter().count();
+        long sweepsBefore = meterRegistry.get("ridex.dispatch.sweep").timer().count();
+
         dispatchSweep.sweep();
+
+        // Timed once, and the failure counted where an alert can see it.
+        assertThat(meterRegistry.get("ridex.dispatch.sweep").timer().count()).isEqualTo(sweepsBefore + 1);
+        assertThat(meterRegistry.get("ridex.dispatch.sweep.failures").counter().count())
+                .isGreaterThanOrEqualTo(failuresBefore + 1);
 
         // The failing ride rolled back alone; the other still widened in the same sweep.
         assertThat(rideRequestRepository.findById(poisoned).orElseThrow().getSearchWave())

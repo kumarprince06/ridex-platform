@@ -25,6 +25,9 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
 
     long countByStatusAndCreatedAtAfter(PaymentStatus status, Instant since);
 
+    // The worker's queue depth. next_attempt_at is only set on trip payments it owns.
+    long countByStatusAndNextAttemptAtIsNotNull(PaymentStatus status);
+
     Page<Payment> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<Payment> findByStatusOrderByCreatedAtDesc(PaymentStatus status, Pageable pageable);

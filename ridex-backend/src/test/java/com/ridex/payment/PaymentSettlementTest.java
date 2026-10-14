@@ -77,6 +77,7 @@ class PaymentSettlementTest {
 
     @Autowired private PaymentService paymentService;
     @Autowired private PaymentOrderWorker paymentOrderWorker;
+    @Autowired private io.micrometer.core.instrument.MeterRegistry meterRegistry;
     @Autowired private PaymentRepository paymentRepository;
     @Autowired private DriverEarningRepository driverEarningRepository;
     @Autowired private LedgerService ledger;
@@ -218,6 +219,22 @@ class PaymentSettlementTest {
     }
 
     @Test
+    void thePendingQueueGaugeFollowsTheOutboxRows() {
+        gatewayIsDown();
+        String tripId = runTripToCompletion(book(0, PaymentMethod.UPI));
+
+        // Other tests leave their own rows, so this checks movement rather than a total.
+        double queued = pendingGauge();
+        assertThat(queued).isGreaterThanOrEqualTo(1);
+
+        gatewayIsUp(0);
+        makeDue(tripId, 1);
+        paymentOrderWorker.drain();
+
+        assertThat(pendingGauge()).isLessThanOrEqualTo(queued - 1);
+    }
+
+    @Test
     void aPaymentGivesUpAfterItsLastAttempt() {
         gatewayIsDown();
         String tripId = runTripToCompletion(book(0, PaymentMethod.UPI));
@@ -297,6 +314,10 @@ class PaymentSettlementTest {
             Thread.sleep(latencyMillis);
             return new PaymentProvider.ProviderPayment("order_" + call.getArgument(1), "REQUIRES_ACTION", null);
         }).when(gateway).createPaymentIntent(any(), anyString(), anyString());
+    }
+
+    private double pendingGauge() {
+        return meterRegistry.get("ridex.payments.orders.pending").gauge().value();
     }
 
     // Backdates the retry rather than waiting out the backoff.

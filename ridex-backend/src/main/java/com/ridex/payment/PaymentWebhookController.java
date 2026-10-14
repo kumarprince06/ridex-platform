@@ -42,6 +42,7 @@ public class PaymentWebhookController {
             @RequestHeader(value = "X-Razorpay-Event-Id", required = false) String eventId) {
 
         if (!razorpay.verifyWebhook(payload, signature)) {
+            paymentWebhookService.failed("invalid_signature");
             log.warn("Rejected a Razorpay webhook with an invalid signature");
             throw new org.springframework.web.server.ResponseStatusException(
                     HttpStatus.UNAUTHORIZED, "Invalid signature");
@@ -50,11 +51,20 @@ public class PaymentWebhookController {
         if (eventId == null || eventId.isBlank()) {
             // Without it there is nothing to deduplicate on, and a redelivery would be applied
             // twice. Refusing is safer than guessing an id from the body.
+            paymentWebhookService.failed("missing_event_id");
             throw new org.springframework.web.server.ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Missing X-Razorpay-Event-Id");
         }
 
-        boolean applied = paymentWebhookService.handle(payload, eventId);
+        boolean applied;
+        try {
+            applied = paymentWebhookService.handle(payload, eventId);
+        } catch (RuntimeException ex) {
+            // Rethrown so the gateway gets a 5xx and redelivers; counted so somebody notices.
+            paymentWebhookService.failed("error");
+            log.error("Razorpay event {} could not be applied", eventId, ex);
+            throw ex;
+        }
 
         // 200 either way. A duplicate is a normal retry, and answering anything else makes the
         // gateway redeliver it until it gives up.

@@ -15,6 +15,9 @@ import com.ridex.ride.RideRequestRepository;
 import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -39,6 +42,8 @@ public class DispatchSweep {
     private final DispatchService dispatchService;
     private final OfferNotifier offerNotifier;
     private final TransactionTemplate perRide;
+    private final Timer sweepTimer;
+    private final Counter failedRides;
 
     @Value("${app.dispatch.search-timeout-seconds:180}")
     private long searchTimeoutSeconds;
@@ -48,7 +53,8 @@ public class DispatchSweep {
 
     public DispatchSweep(RideRequestRepository rideRequestRepository,
             RideOfferRepository rideOfferRepository, DispatchService dispatchService,
-            OfferNotifier offerNotifier, PlatformTransactionManager transactionManager) {
+            OfferNotifier offerNotifier, PlatformTransactionManager transactionManager,
+            MeterRegistry meterRegistry) {
         this.rideRequestRepository = rideRequestRepository;
         this.rideOfferRepository = rideOfferRepository;
         this.dispatchService = dispatchService;
@@ -56,6 +62,13 @@ public class DispatchSweep {
         // REQUIRES_NEW: each ride commits or rolls back alone, even if a caller is in a transaction.
         this.perRide = new TransactionTemplate(transactionManager);
         this.perRide.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        // A sweep creeping towards its 5 s interval is the first sign dispatch is falling behind.
+        this.sweepTimer = Timer.builder("ridex.dispatch.sweep")
+                .description("Time for one full dispatch sweep over every searching ride")
+                .register(meterRegistry);
+        this.failedRides = Counter.builder("ridex.dispatch.sweep.failures")
+                .description("Rides whose sweep step threw and rolled back")
+                .register(meterRegistry);
     }
 
     /**
@@ -70,16 +83,19 @@ public class DispatchSweep {
     }
 
     public void sweep() {
-        Instant now = Instant.now();
+        sweepTimer.record(() -> {
+            Instant now = Instant.now();
 
-        for (String rideId : rideRequestRepository.findSearchingIds(RideStatus.SEARCHING)) {
-            try {
-                sweepRide(rideId, now);
-            } catch (RuntimeException ex) {
-                // Its own transaction already rolled back; every other rider still gets their turn.
-                log.error("Sweep failed for ride {}", rideId, ex);
+            for (String rideId : rideRequestRepository.findSearchingIds(RideStatus.SEARCHING)) {
+                try {
+                    sweepRide(rideId, now);
+                } catch (RuntimeException ex) {
+                    // Its own transaction already rolled back; every other rider still gets their turn.
+                    failedRides.increment();
+                    log.error("Sweep failed for ride {}", rideId, ex);
+                }
             }
-        }
+        });
     }
 
     /**

@@ -224,6 +224,7 @@
 						<app.outbox.enabled>false</app.outbox.enabled>
 						<!-- Payment and presence pollers: tests call them directly instead. -->
 						<app.payments.dispatch-enabled>false</app.payments.dispatch-enabled>
+						<app.location.eviction-enabled>false</app.location.eviction-enabled>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

@@ -71,8 +71,11 @@ public interface RideOfferRepository extends JpaRepository<RideOffer, String> {
     long countLive(@Param("rideId") String rideId,
             @Param("now") Instant now, @Param("offered") OfferStatus offered);
 
+    // One ride at a time, under that ride's lock: the same ride-then-offer order accept() takes,
+    // so the two can never deadlock. Not clearAutomatically - the locked ride must stay managed.
     @Modifying
-    @Query("UPDATE RideOffer o SET o.status = :expired WHERE o.status = :offered AND o.expiresAt <= :now")
-    int expireOverdue(@Param("now") Instant now,
+    @Query("UPDATE RideOffer o SET o.status = :expired WHERE o.rideRequest.id = :rideId "
+            + "AND o.status = :offered AND o.expiresAt <= :now")
+    int expireOverdue(@Param("rideId") String rideId, @Param("now") Instant now,
             @Param("offered") OfferStatus offered, @Param("expired") OfferStatus expired);
 }

@@ -6,14 +6,15 @@ import java.time.Instant;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.ridex.dispatch.domain.OfferStatus;
 import com.ridex.ride.RideRequestRepository;
 import com.ridex.ride.domain.RideRequest;
 import com.ridex.ride.domain.RideStatus;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -22,10 +23,12 @@ import lombok.extern.slf4j.Slf4j;
  * <p>Without this a ride nobody accepted sits in SEARCHING forever: the first wave expires and
  * nothing widens the search or tells the rider. The rider stares at a spinner and the ride is
  * never resolved either way.
+ *
+ * <p>One transaction per ride. A single one for the whole sweep let one bad ride - or one ride
+ * another node had already advanced - roll back the expiry and widening of every other ride.
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class DispatchSweep {
 
     // Widen, then give up. Four waves at 3km each reaches well beyond any sensible pickup radius.
@@ -35,6 +38,7 @@ public class DispatchSweep {
     private final RideOfferRepository rideOfferRepository;
     private final DispatchService dispatchService;
     private final OfferNotifier offerNotifier;
+    private final TransactionTemplate perRide;
 
     @Value("${app.dispatch.search-timeout-seconds:180}")
     private long searchTimeoutSeconds;
@@ -42,37 +46,55 @@ public class DispatchSweep {
     @Value("${app.dispatch.sweep-enabled:true}")
     private boolean sweepEnabled;
 
+    public DispatchSweep(RideRequestRepository rideRequestRepository,
+            RideOfferRepository rideOfferRepository, DispatchService dispatchService,
+            OfferNotifier offerNotifier, PlatformTransactionManager transactionManager) {
+        this.rideRequestRepository = rideRequestRepository;
+        this.rideOfferRepository = rideOfferRepository;
+        this.dispatchService = dispatchService;
+        this.offerNotifier = offerNotifier;
+        // REQUIRES_NEW: each ride commits or rolls back alone, even if a caller is in a transaction.
+        this.perRide = new TransactionTemplate(transactionManager);
+        this.perRide.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
+
     /**
      * The timer entry point. Off in tests, where background work firing inside every integration
      * test races the context shutdown and eventually fails something unrelated.
-     *
-     * <p>Transactional here as well as on sweep(): calling sweep() from inside this class goes
-     * straight to the method and never through the proxy, so without this the scheduled run had
-     * no transaction at all and every modifying query in it failed.
      */
     @Scheduled(fixedDelayString = "${app.dispatch.sweep-ms:5000}")
-    @Transactional
     public void scheduledSweep() {
         if (sweepEnabled) {
             sweep();
         }
     }
 
-    @Transactional
     public void sweep() {
         Instant now = Instant.now();
 
-        // Offers whose countdown ran out. Marked before re-offering, or the ride still looks busy.
-        rideOfferRepository.expireOverdue(now, OfferStatus.OFFERED, OfferStatus.EXPIRED);
-
-        for (RideRequest ride : rideRequestRepository.findSearching(RideStatus.SEARCHING)) {
+        for (String rideId : rideRequestRepository.findSearchingIds(RideStatus.SEARCHING)) {
             try {
-                advance(ride, now);
+                sweepRide(rideId, now);
             } catch (RuntimeException ex) {
-                // One bad ride must not stop the sweep for every other rider waiting.
-                log.error("Sweep failed for ride {}", ride.getId(), ex);
+                // Its own transaction already rolled back; every other rider still gets their turn.
+                log.error("Sweep failed for ride {}", rideId, ex);
             }
         }
+    }
+
+    /**
+     * Expires one ride's overdue offers and moves its search on, under that ride's row lock.
+     *
+     * <p>The ride is locked before any offer is touched - the order accept() takes - so the two
+     * queue on one row instead of deadlocking across two tables.
+     */
+    void sweepRide(String rideId, Instant now) {
+        perRide.executeWithoutResult(status ->
+                rideRequestRepository.lockIfSearching(rideId).ifPresent(ride -> {
+                    // Marked before re-offering, or the ride still looks busy.
+                    rideOfferRepository.expireOverdue(rideId, now, OfferStatus.OFFERED, OfferStatus.EXPIRED);
+                    advance(ride, now);
+                }));
     }
 
     private void advance(RideRequest ride, Instant now) {

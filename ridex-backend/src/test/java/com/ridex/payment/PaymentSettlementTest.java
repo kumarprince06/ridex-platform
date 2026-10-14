@@ -5,12 +5,23 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.Currency;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,13 +43,16 @@ import com.ridex.location.DriverPresence;
 import com.ridex.maps.MapsService;
 import com.ridex.maps.domain.RouteEstimate;
 import com.ridex.payment.domain.LedgerAccountType;
+import com.ridex.payment.domain.Payment;
 import com.ridex.payment.domain.PaymentMethod;
+import com.ridex.payment.domain.PaymentStatus;
 import com.ridex.points.PointsService;
 import com.ridex.pricing.FareEstimateService;
 import com.ridex.pricing.dto.EstimateRequest;
 import com.ridex.ride.RideRequestService;
 import com.ridex.ride.dto.CreateRideRequest;
 import com.ridex.rider.RiderProfileService;
+import com.ridex.shared.exception.ProviderUnavailableException;
 import com.ridex.trip.TripRepository;
 import com.ridex.trip.TripService;
 import com.ridex.trip.dto.CompleteTripRequest;
@@ -62,6 +76,7 @@ class PaymentSettlementTest {
     @Autowired private CashPaymentProvider cashProvider;
 
     @Autowired private PaymentService paymentService;
+    @Autowired private PaymentOrderWorker paymentOrderWorker;
     @Autowired private PaymentRepository paymentRepository;
     @Autowired private DriverEarningRepository driverEarningRepository;
     @Autowired private LedgerService ledger;
@@ -79,10 +94,11 @@ class PaymentSettlementTest {
     private String riderUserId;
     private String driverUserId;
     private String driverProfileId;
+    private PaymentProvider gateway;
 
     @BeforeEach
     void setUp() {
-        PaymentProvider gateway = mock(PaymentProvider.class);
+        gateway = mock(PaymentProvider.class);
         when(gateway.name()).thenReturn("RAZORPAY");
         when(gateway.createPaymentIntent(any(), anyString(), anyString()))
                 .thenAnswer(call -> new PaymentProvider.ProviderPayment(
@@ -165,6 +181,84 @@ class PaymentSettlementTest {
         assertThat(owed.method()).isEqualTo(PaymentMethod.UPI);
         assertThat(owed.settled()).isFalse();
         assertThat(owed.amountMinor()).isPositive();
+        // Opened the moment the trip committed, not one poll later.
+        assertThat(owed.gatewayOrderId()).isNotNull();
+    }
+
+    @Test
+    void aGatewayOutageAtCompletionStillEndsTheTripAndQueuesThePayment() {
+        gatewayIsDown();
+        String tripId = runTripToCompletion(book(0, PaymentMethod.UPI));
+
+        // The driver could end the trip: the outage cost a retry, not the completion.
+        assertThat(tripRepository.findById(tripId).orElseThrow().getCompletedAt()).isNotNull();
+
+        Payment payment = paymentRepository.findByTripId(tripId).orElseThrow();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CREATED);
+        assertThat(payment.getProviderPaymentId()).isNull();
+        assertThat(payment.getAttempts()).isEqualTo((short) 1);
+        assertThat(payment.getLastError()).contains("timed out");
+        assertThat(payment.getNextAttemptAt()).isAfter(Instant.now());
+    }
+
+    @Test
+    void aQueuedOrderOpensOnceTheGatewayRecovers() {
+        gatewayIsDown();
+        String tripId = runTripToCompletion(book(0, PaymentMethod.UPI));
+        gatewayIsUp(0);
+        makeDue(tripId, 1);
+
+        paymentOrderWorker.drain();
+
+        Payment payment = paymentRepository.findByTripId(tripId).orElseThrow();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PROCESSING);
+        assertThat(payment.getProviderPaymentId()).isEqualTo("order_" + tripId);
+        assertThat(payment.getNextAttemptAt()).isNull();
+        assertThat(payment.getLastError()).isNull();
+    }
+
+    @Test
+    void aPaymentGivesUpAfterItsLastAttempt() {
+        gatewayIsDown();
+        String tripId = runTripToCompletion(book(0, PaymentMethod.UPI));
+        makeDue(tripId, PaymentOrderWorker.MAX_ATTEMPTS - 1);
+
+        paymentOrderWorker.drain();
+
+        // Failed, not deleted: the rider still owes the fare, and somebody has to see that.
+        Payment payment = paymentRepository.findByTripId(tripId).orElseThrow();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(payment.getAttempts()).isEqualTo(PaymentOrderWorker.MAX_ATTEMPTS);
+        assertThat(payment.getFailureReason()).contains("timed out");
+        assertThat(payment.getNextAttemptAt()).isNull();
+    }
+
+    @Test
+    void twoWorkersDrainingAtOnceOpenTheOrderOnce() throws Exception {
+        gatewayIsDown();
+        String tripId = runTripToCompletion(book(0, PaymentMethod.UPI));
+        // Slow enough that the second worker arrives while the first still holds the row.
+        gatewayIsUp(300);
+        makeDue(tripId, 1);
+
+        CountDownLatch startTogether = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Integer>> drains = List.of(
+                    pool.submit(() -> { startTogether.await(); return paymentOrderWorker.drain(); }),
+                    pool.submit(() -> { startTogether.await(); return paymentOrderWorker.drain(); }));
+            startTogether.countDown();
+            for (Future<Integer> drain : drains) {
+                drain.get(20, TimeUnit.SECONDS);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        // Once when the trip completed (the outage), once by whichever worker claimed the row.
+        verify(gateway, times(2)).createPaymentIntent(any(), eq(tripId), anyString());
+        assertThat(paymentRepository.findByTripId(tripId).orElseThrow().getStatus())
+                .isEqualTo(PaymentStatus.PROCESSING);
     }
 
     @Test
@@ -191,6 +285,26 @@ class PaymentSettlementTest {
                 .filter(payment -> payment.getTrip() != null)
                 .filter(payment -> payment.getTrip().getId().equals(tripId))
                 .count()).isEqualTo(1);
+    }
+
+    private void gatewayIsDown() {
+        doThrow(new ProviderUnavailableException("Razorpay timed out"))
+                .when(gateway).createPaymentIntent(any(), anyString(), anyString());
+    }
+
+    private void gatewayIsUp(long latencyMillis) {
+        doAnswer(call -> {
+            Thread.sleep(latencyMillis);
+            return new PaymentProvider.ProviderPayment("order_" + call.getArgument(1), "REQUIRES_ACTION", null);
+        }).when(gateway).createPaymentIntent(any(), anyString(), anyString());
+    }
+
+    // Backdates the retry rather than waiting out the backoff.
+    private void makeDue(String tripId, int attempts) {
+        Payment payment = paymentRepository.findByTripId(tripId).orElseThrow();
+        payment.setAttempts((short) attempts);
+        payment.setNextAttemptAt(Instant.now().minusSeconds(1));
+        paymentRepository.save(payment);
     }
 
     private void giveRiderPoints(int points) {

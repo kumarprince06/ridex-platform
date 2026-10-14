@@ -146,8 +146,15 @@ public class DispatchService {
             throw new ConflictException("That ride has already been taken.");
         }
 
-        rideOfferRepository.claim(
+        // The ride can still be SEARCHING while this offer is gone: the sweep expired it at the
+        // deadline and committed while we queued on the ride. Throwing rolls the assignment back,
+        // or the ride would go to a driver whose offer says EXPIRED.
+        int claimed = rideOfferRepository.claim(
                 offerId, driver.getId(), now, OfferStatus.OFFERED, OfferStatus.ACCEPTED);
+        if (claimed == 0) {
+            log.info("Offer {} expired as driver {} accepted it", offerId, driver.getId());
+            throw new ConflictException("That ride has already been taken.");
+        }
         rideOfferRepository.supersedeOthers(
                 offer.getRideRequest().getId(), offerId, now,
                 OfferStatus.OFFERED, OfferStatus.SUPERSEDED);

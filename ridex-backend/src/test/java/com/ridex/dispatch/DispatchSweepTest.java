@@ -3,6 +3,7 @@ package com.ridex.dispatch;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +42,8 @@ import com.ridex.rider.RiderProfileService;
 class DispatchSweepTest {
 
     private static final EstimateRequest ROUTE = new EstimateRequest(12.9352, 77.6245, 12.9784, 77.6408);
+    // A second pickup, so a stub can fail one ride's search and not the other's.
+    private static final EstimateRequest OTHER_ROUTE = new EstimateRequest(12.9411, 77.6302, 12.9784, 77.6408);
 
     @MockitoBean private MapsService mapsProvider;
     @MockitoBean private DriverPresence driverPresence;
@@ -117,6 +120,24 @@ class DispatchSweepTest {
                 .isEqualTo(waveBefore);
     }
 
+    @Test
+    void oneRideThatFailsDoesNotHoldUpTheRest() {
+        when(driverPresence.nearby(anyDouble(), anyDouble(), anyDouble(), anyInt()))
+                .thenReturn(List.of());
+        String poisoned = book(OTHER_ROUTE);
+        String healthy = book(ROUTE);
+        when(driverPresence.nearby(eq(OTHER_ROUTE.pickupLat()), anyDouble(), anyDouble(), anyInt()))
+                .thenThrow(new IllegalStateException("presence is down"));
+
+        dispatchSweep.sweep();
+
+        // The failing ride rolled back alone; the other still widened in the same sweep.
+        assertThat(rideRequestRepository.findById(poisoned).orElseThrow().getSearchWave())
+                .isEqualTo((short) 1);
+        assertThat(rideRequestRepository.findById(healthy).orElseThrow().getSearchWave())
+                .isEqualTo((short) 2);
+    }
+
     /**
      * Ages the offers out by asking the sweep query to look from the future, rather than
      * backdating expires_at - which ck_ride_offers_window correctly refuses, since an offer that
@@ -132,12 +153,16 @@ class DispatchSweepTest {
 
         transactions.executeWithoutResult(status ->
                 rideOfferRepository.expireOverdue(
-                        afterEverything, OfferStatus.OFFERED, OfferStatus.EXPIRED));
+                        rideId, afterEverything, OfferStatus.OFFERED, OfferStatus.EXPIRED));
     }
 
     private String book() {
+        return book(ROUTE);
+    }
+
+    private String book(EstimateRequest route) {
         return rideRequestService.create(riderUserId, new CreateRideRequest(
-                fareEstimateService.estimate(riderUserId, ROUTE).get(0).estimateId(), null, null, null, null)).id();
+                fareEstimateService.estimate(riderUserId, route).get(0).estimateId(), null, null, null, null)).id();
     }
 
     private String newRider() {

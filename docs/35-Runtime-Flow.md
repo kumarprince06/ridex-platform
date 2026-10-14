@@ -23,7 +23,7 @@ What the RideX backend actually does at runtime, traced from the source: startup
 
 RideX is one Spring Boot process (a modular monolith). Each feature is a package under `com.ridex`: `auth`, `ride`, `dispatch`, `trip`, `payment`, `shuttle` and so on. They share one PostgreSQL schema and one Redis. There are no message brokers and no other services. All asynchronous work happens in one of three ways:
 
-- **Five `@Scheduled` jobs** on Spring's default single scheduler thread (the dispatch sweep, the outbox, shuttle hold expiry, document expiry, and refresh-token cleanup).
+- **Seven `@Scheduled` jobs** on Spring's default single scheduler thread (the dispatch sweep, the outbox, the payment order worker, stale-pin eviction, shuttle hold expiry, document expiry, and refresh-token cleanup).
 - **Two manual `TransactionSynchronization.afterCommit` hooks**: `dispatch/DispatchTrigger#afterCommit` and `shuttle/ShuttleRunService#publish`.
 - **STOMP server push** through Spring's in-memory simple broker.
 
@@ -348,7 +348,7 @@ sequenceDiagram
   participant D2 as Driver B
   DT->>DS: offerFirstWave(rideId) REQUIRES_NEW
   DS->>DB: searchWave = 1
-  DS->>P: GEORADIUS drivers:online within 3 km
+  DS->>P: GEOSEARCH drivers:online within 3 km
   P-->>DS: nearest driver ids (fresh only)
   DS->>DB: isEligible: onDuty, APPROVED, wallet not blocked
   DS->>DB: insert RideOffer x N (expires +20 s)
@@ -368,13 +368,13 @@ sequenceDiagram
 
 | Step | Code | Detail |
 |---|---|---|
-| Find candidates | `dispatch/DispatchService#offerRide` :73 (`REQUIRES_NEW`) | Returns if the ride is not SEARCHING. `DriverPresence#nearby` runs GEORADIUS, then drops members whose `drivers:seen:*` key has expired. Skips drivers already offered this ride. |
+| Find candidates | `dispatch/DispatchService#offerRide` :73 (`REQUIRES_NEW`) | Returns if the ride is not SEARCHING. `DriverPresence#nearby` runs one GEOSEARCH for twice the limit, then one ZMSCORE on `drivers:seen` and drops anything older than 2 min. Skips drivers already offered this ride. |
 | Eligibility | `DispatchService#isEligible` ~:185 | On duty, onboarding APPROVED, `DriverWalletService#blockedReason == null`. Documents and vehicle are checked earlier, when the driver goes on duty (`DriverEligibility#blockedReason`). |
 | Offer row | `RideOffer` → `ride_offers` | `OfferStatus`: OFFERED, ACCEPTED, REJECTED, EXPIRED, SUPERSEDED. `uk_ride_offers_ride_driver` allows one offer per ride per driver. |
 | Deliver | `platform/realtime/StompOfferNotifier#offered` | `convertAndSendToUser(driverId, "/queue/offers", offer)`, sent before the `REQUIRES_NEW` transaction commits. Also readable via `GET /api/v1/driver/offers`, which is the reconnect path. |
-| Accept | `DispatchService#accept` :123 | The winner is decided by `RideRequestRepository#assignDriver`, a conditional UPDATE. Then `RideOfferRepository#claim`, `#supersedeOthers`, `TripService#createForAssignedRide`, and `taken` on `/topic/rides/{rideId}`. |
+| Accept | `DispatchService#accept` :123 | The winner is decided by `RideRequestRepository#assignDriver`, a conditional UPDATE. Then `RideOfferRepository#claim`, which must update one row or the accept throws 409 and rolls back (the sweep may have expired the offer while the accept queued on the ride), `#supersedeOthers`, `TripService#createForAssignedRide`, and `taken` on `/topic/rides/{rideId}`. |
 | Reject | `DispatchService#reject` :164 | Conditional UPDATE to REJECTED. Silent if the offer is no longer OFFERED. |
-| Next wave / give up | `dispatch/DispatchSweep#sweep` :61 | Every 5 s: bulk `expireOverdue`. Then for each SEARCHING ride with no live offers: past 180 s or wave 4, set EXPIRED and send `SEARCH_EXPIRED`; otherwise `offerRide(nextWave)`. |
+| Next wave / give up | `dispatch/DispatchSweep#sweep` | Every 5 s, one transaction per SEARCHING ride: lock the ride (`FOR NO KEY UPDATE SKIP LOCKED`), `expireOverdue` its offers, then if none are live: past 180 s or wave 4, set EXPIRED and send `SEARCH_EXPIRED`; otherwise `offerRide(nextWave)`. A ride that throws rolls back alone. |
 
 ### Concurrency controls
 
@@ -391,7 +391,6 @@ sequenceDiagram
 >   - The STOMP user name is `JwtPrincipal#getName()`, which is the **user id**.
 >   - So `/user/queue/offers` never matches the driver's session. Drivers only see offers by polling `GET /api/v1/driver/offers`. No client in the repo subscribes to `/queue/offers`.
 > - **`/topic/rides/{rideId}` has no `SubscriptionGuard`.** Any authenticated socket can subscribe to any ride. **[defect]**
-> - **A sweep tick is one outer transaction.** An optimistic-lock failure at the final commit would roll back every ride's changes in that tick, including `expireOverdue`. The per-ride try/catch cannot catch a commit-time failure. *[not verified]*
 > - **EXPIRED keeps redeemed points.** `DispatchSweep#advance` never calls `PointsService#returnRidePoints`, so points redeemed at booking are lost when the search times out. **[defect]**
 
 ## 7. Driver location runtime flow
@@ -412,14 +411,14 @@ flowchart TD
   A -->|"POST /api/v1/driver/location<br/>every few seconds"| I["DriverDutyService.reportLocation<br/>no transaction"]
   I -- "off duty" --> J["ignored"]
   I -- "on duty" --> G
-  G --> K[("Redis GEOADD drivers:online<br/>SET drivers:seen:id EX 120")]
-  K --> L["DispatchService.offerRide<br/>GEORADIUS + seen filter"]
+  G --> K[("Redis, one pipeline:<br/>GEOADD drivers:online<br/>ZADD drivers:seen now")]
+  K --> L["DispatchService.offerRide<br/>GEOSEARCH + one ZMSCORE"]
   K --> M["RideRequestService.driverFor<br/>GEOPOS"]
   M --> N["GET /api/v1/rides/id<br/>RideResponse.driver.lat/lng"]
   N --> O["Rider app polls"]
 ```
 
-- **Why two keys.** GEO set members have no per-member TTL. `drivers:seen:{driverId}` expires after 2 minutes (`STALE_AFTER`). A driver whose app dies stops appearing in `nearby` within 2 minutes, even though the GEO member stays until they go off duty.<br>
+- **Why two keys.** GEO set members have no per-member TTL, so `drivers:seen` (a sorted set scored by last ping, epoch ms) sits beside the pins. Reads drop anything older than 2 minutes (`STALE_AFTER`). `StaleLocationEvictionSweep` removes stale and orphaned pins from both sets every 30 s, in one Lua script.<br>
   Code: `location/DriverPresence.java`
 - **No fallback.** `DriverPresence` has no try/catch. When Redis is down, going on duty, location updates and ride responses throw. The first dispatch wave's error is caught in `DispatchTrigger`, and the sweep catches its own per-ride errors.
 - **Consistency.** `on_duty` in PostgreSQL and membership in the Redis GEO set are written by separate systems with no shared transaction. If `setDuty` commits but the Redis write fails, the driver shows as on duty but is never found. Since `report` runs inside the transaction and throws first, the more likely outcome is a rollback. *[not verified]*
@@ -530,7 +529,7 @@ sequenceDiagram
 
 | Product | Payment created | Confirmed by | Idempotency |
 |---|---|---|---|
-| On-demand ride | At `TripService#complete` → `PaymentService#settleTrip` :62. Net = gross − discount + pending dues. Cash is SUCCEEDED at once; online is PROCESSING. | `POST /api/v1/rides/{id}/payment/confirm` → `#confirmForRider` :288, or the webhook | Returns the existing row per trip; `uk_payments_trip`; key `trip-payment:{tripId}` |
+| On-demand ride | At `TripService#complete` → `PaymentService#settleTrip` :62. Net = gross − discount + pending dues. Cash is SUCCEEDED at once. Online is written CREATED with no gateway call; `PaymentOrderWorker` opens the Razorpay order after commit (and retries from its poll), moving it to PROCESSING. | `POST /api/v1/rides/{id}/payment/confirm` → `#confirmForRider` :288, or the webhook | Returns the existing row per trip; `uk_payments_trip`; key `trip-payment:{tripId}` |
 | Shuttle seat | At `ShuttleService#book` :192 → `ShuttlePaymentService#startShuttlePayment`. Online only; 10-minute hold. | `POST /api/v1/shuttle/bookings/{id}/payment/confirm` or the webhook → `settlePaid` | `uk_payments_shuttle_booking`; key `shuttle-payment:{bookingId}` |
 | Shuttle pass | `PassService#buy` :187 → `startPassPayment`; pass is PENDING_PAYMENT | `POST /api/v1/shuttle/passes/{id}/payment/confirm` or the webhook → `activatePaid` | `uk_payments_pass`; key `pass-payment:{passId}` |
 | Driver wallet top-up | `DriverWalletService#startTopUp` :69 (optional `Idempotency-Key` header) | `POST /api/v1/driver/wallet/top-ups/{id}/confirm` or a `payment.captured` webhook with no matching Payment → `settleFromWebhook` | `uk_driver_wallet_topups_idempotency`, `uk_driver_wallet_topups_payment`, ledger key `wallet-topup:{id}` |
@@ -598,8 +597,8 @@ Redis is **not a cache** here. It holds short-lived coordination state that is f
 
 | Key | Type / value | TTL | Commands | Written / read by | If Redis is down |
 |---|---|---|---|---|---|
-| `drivers:online` | GEO set, member = DriverProfile id | none | GEOADD, GEORADIUS, GEOPOS, ZREM | `location/DriverPresence` via `DriverDutyService`, `DispatchService`, `RideRequestService`, `ShuttleCrew`, `AdminPeopleQueries` | Exception propagates (no try/catch) |
-| `drivers:seen:{driverId}` | string "1" | 2 min | SET EX, EXISTS, DEL | `DriverPresence` | Same |
+| `drivers:online` | GEO set, member = DriverProfile id | none (evicted by sweep) | GEOADD, GEOSEARCH, GEOPOS, ZREM | `location/DriverPresence` via `DriverDutyService`, `DispatchService`, `RideRequestService`, `ShuttleCrew`, `AdminPeopleQueries` | Exception propagates (no try/catch) |
+| `drivers:seen` | sorted set, member = DriverProfile id, score = last ping (epoch ms) | none (evicted by sweep) | ZADD, ZMSCORE, ZRANGEBYSCORE, ZREM | `DriverPresence`, `StaleLocationEvictionSweep` | Same |
 | `rl:ip:{ip}:{uri}` | counter | 1 min | INCR, EXPIRE on first hit | `platform/ratelimit/RateLimiter#tryConsume` from `RateLimitFilter` | **Fails open**: WARN logged, request allowed |
 | `rl:login:{email}` | counter (every attempt, reset on success) | 15 min | INCR, EXPIRE, DEL | `AuthService#login` :189, `#resetPassword` | Fails open |
 | `maps:calls:google-maps:{yyyy-MM-dd}` | counter | 2 days | INCR, EXPIRE | `maps/DailyCallBudget#tryConsume` from `GoogleMapsProvider#requireBudget` | Exception propagates out of `MapsService`; no fallback to ORS **[risk]** |
@@ -700,7 +699,6 @@ flowchart TD
 | Transaction | External call | Worst-case hold | Consequence |
 |---|---|---|---|
 | `FareEstimateService#estimate` | Google Distance Matrix, then ORS | ~5 s + 8 s | A DB connection is held idle. With a pool of 5, a few slow estimates starve other requests. |
-| `TripService#complete` → `settleTrip` | Razorpay `POST /v1/orders` | 5 s + 10 s | A Razorpay outage makes online rides impossible to complete (503 and full rollback). |
 | `ShuttleService#book`, `PassService#buy`, `DriverWalletService#startTopUp` | Razorpay `POST /v1/orders` | 15 s | A later rollback orphans the order. |
 | `*#confirm*` (ride, shuttle, pass, top-up) | Razorpay `GET /v1/payments/{id}` | 15 s | If the DB write fails after capture, the webhook is the recovery path. |
 | `OutboxDispatcher#dispatchPending` | SMTP and Expo for up to 50 rows | 50 × (5 s SMTP timeouts) | Row locks and a connection are held for the whole batch. |
@@ -752,17 +750,19 @@ sequenceDiagram
 
 ## 15. Scheduled / background jobs
 
-All five jobs share Boot's default scheduler, which has **one thread**. A slow outbox batch (SMTP timeouts) therefore delays the dispatch sweep and hold expiry. `fixedDelay` means the next run is scheduled from the end of the previous one, so a job never overlaps itself. *[framework]*
+All seven jobs share Boot's default scheduler, which has **one thread**. A slow outbox batch (SMTP timeouts) therefore delays the dispatch sweep and hold expiry. `fixedDelay` means the next run is scheduled from the end of the previous one, so a job never overlaps itself. *[framework]*
 
 | Job | Trigger | Switch | What it does | Touches |
 |---|---|---|---|---|
 | `dispatch/DispatchSweep#scheduledSweep` :53 | fixedDelay `app.dispatch.sweep-ms` = 5000 | `app.dispatch.sweep-enabled` (off in tests) | Expires overdue offers, advances waves, expires stale searches | PostgreSQL, Redis GEO, STOMP |
+| `payment/PaymentOrderWorker#scheduledDrain` | fixedDelay `app.payments.dispatch-ms` = 2000 | `app.payments.dispatch-enabled` (off in tests) | Opens Razorpay orders for CREATED trip payments, one row per transaction; backoff 2^n s + jitter, FAILED after 8 attempts | PostgreSQL, Razorpay |
+| `location/StaleLocationEvictionSweep#evict` | fixedDelay `app.location.eviction-ms` = 30000 | `app.location.eviction-enabled` (off in tests) | Removes pins with no ping for 2 min from `drivers:online` and `drivers:seen` | Redis |
 | `notification/OutboxDispatcher#dispatchPending` :46 | fixedDelay `app.outbox.poll-ms` = 5000 | `app.outbox.enabled` (off in tests) | Sends up to 50 outbox rows | PostgreSQL, SMTP, Expo |
 | `shuttle/ShuttleService#releaseExpiredHolds` :521 | fixedDelay `app.shuttle.hold-sweep-ms` = 60000 | none | Unpaid seats past their 10-minute hold become CANCELLED / EXPIRED; the payment is voided | PostgreSQL |
 | `driver/DriverDocumentService#expireLapsedDocuments` :165 | fixedDelay `app.documents.expiry-sweep-ms` = 3600000 | none | APPROVED documents past `expiresAt` become EXPIRED | PostgreSQL |
 | `auth/ExpiredTokenCleanup#deleteExpiredRefreshTokens` | cron `0 30 3 * * *` (03:30 in the JVM zone, Asia/Kolkata) | none | Deletes refresh tokens that expired more than 7 days ago | PostgreSQL |
 
-Each job is also `@Transactional`, so each run is one database transaction. The only work that runs off both the request thread and the scheduler is the `afterCommit` callback, and that runs on the request thread after the commit.
+Most jobs are `@Transactional`, so each run is one database transaction. The dispatch sweep and the payment worker instead open one transaction per ride or payment. The only work that runs off both the request thread and the scheduler is the `afterCommit` callback, and that runs on the request thread after the commit.
 
 ## 16. WebSocket / STOMP runtime flow
 
@@ -1027,8 +1027,8 @@ The edges were derived from the service calls traced above; imports were not exh
 | Razorpay down or unconfigured | 503 on online completion, booking and confirm | Whole transaction rolls back | `ProviderUnavailableException` |
 | Maps down / over budget | Estimate falls back Google → ORS; geocoding → Nominatim | A Redis error in the budget is not a fallback trigger | `maps/MapsService#attempt` |
 | SMTP / Expo down | Notifications delayed; after 6 tries DEAD | Outbox retries with backoff; holds its transaction during sends | `notification_outbox.last_error`, `status='DEAD'` |
-| Slow scheduler job | Dispatch waves and hold expiry lag | All five jobs share one thread | Log timestamps of each job |
-| Two app instances | STOMP messages lost across instances | In-memory broker; outbox is multi-instance safe; sweep is not coordinated | `WebSocketConfig` comment |
+| Slow scheduler job | Dispatch waves and hold expiry lag | All seven jobs share one thread | Log timestamps of each job |
+| Two app instances | STOMP messages lost across instances | In-memory broker; outbox, dispatch sweep and payment worker are multi-instance safe (`SKIP LOCKED`) | `WebSocketConfig` comment |
 | Driver never sees offers live | Offers only appear after polling | User destination is addressed with the DriverProfile id instead of the user id | `DispatchService.java:115` |
 | Late `payment.failed` webhook | A paid payment shows FAILED | No guard in `apply` | `PaymentWebhookService#apply` :108 |
 | Supabase bucket hang | Document upload hangs | No explicit timeout on the bucket `RestClient` | `driver/DocumentStorage` |

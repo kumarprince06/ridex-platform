@@ -1,0 +1,64 @@
+# Isolated stores for the driver-location load test. Nothing here touches the dev databases:
+# different ports, no volumes (tmpfs), and a password that only exists for this run.
+#
+# Run, from ridex-backend/:
+#   export RIDEX_JWT_SECRET=$(openssl rand -base64 48)
+#   docker compose -f src/test/performance/docker-compose.perf.yml up -d postgres redis
+#   ./mvnw -q -DskipTests package
+#   SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/ridex_platform \
+#   RIDEX_APP_PASSWORD=ridex_perf RIDEX_REDIS_PORT=6380 \
+#   SPRING_THREADS_VIRTUAL_ENABLED=true \
+#   LOGGING_LEVEL_COM_ZAXXER_HIKARI_POOL_HIKARIPOOL=DEBUG \
+#   java -jar target/ridex-backend-*.jar
+#   docker compose -f src/test/performance/docker-compose.perf.yml exec postgres \
+#     psql -U ridex_app -d ridex_platform -f /perf/seed-drivers.sql
+#   docker compose -f src/test/performance/docker-compose.perf.yml run --rm k6
+#
+# Run it a second time with SPRING_THREADS_VIRTUAL_ENABLED=false to see what virtual threads
+# change. Hikari's DEBUG line ("Pool stats (total=10, active=.., idle=.., waiting=..)") every
+# 30 s is the exhaustion signal: waiting above 0 means requests are queueing for a connection.
+# Tear down with: docker compose -f src/test/performance/docker-compose.perf.yml down
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    command: ["postgres", "-c", "max_connections=200"]
+    environment:
+      POSTGRES_DB: ridex_platform
+      POSTGRES_USER: ridex_app
+      POSTGRES_PASSWORD: ridex_perf
+    ports:
+      - "5433:5432"
+    # Fresh every run: results from a database bloated by the last run are not comparable.
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./seed-drivers.sql:/perf/seed-drivers.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ridex_app -d ridex_platform"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # Production's eviction policy: only keys with a TTL may be evicted, so the presence sets
+    # (no TTL) are never dropped to make room. No persistence - presence is disposable.
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru",
+              "--save", "", "--appendonly", "no"]
+    ports:
+      - "6380:6379"
+
+  k6:
+    # Pinned, so a threshold that starts failing is the app's doing and not a new k6 release.
+    image: grafana/k6:1.0.0
+    # Host networking reaches the app on localhost:8080 (Linux; Docker Desktop needs BASE_URL
+    # set to http://host.docker.internal:8080 instead).
+    network_mode: host
+    profiles: ["run"]
+    environment:
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      # The same value the app runs with. The script stops with a clear message if it is missing.
+      RIDEX_JWT_SECRET: ${RIDEX_JWT_SECRET:-}
+    volumes:
+      - ./location-stress.js:/scripts/location-stress.js:ro
+    command: ["run", "/scripts/location-stress.js"]

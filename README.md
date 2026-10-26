@@ -23,18 +23,13 @@ Redis, tested against real containers.
 ### Demo accounts
 
 The public demo runs with the `demo` profile, which seeds these accounts. All three use the
-password **`RideX-demo-2026`**.
+password **`Ridex@123`**.
 
 | Email | Role | Sign in with `"app"` |
 |---|---|---|
-| `rider@ridex.example` | Rider | `RIDER` |
-| `driver@ridex.example` | Driver, approved and with a vehicle | `DRIVER` |
-| `support@ridex.example` | Support agent | `ADMIN` |
-
-- **Admin roles.** RideX also has `OPS_ADMIN` and `SUPER_ADMIN`, which approve drivers, change
-  fares and issue refunds. They are not available on the public demo because its password is
-  published; the support account can look at people, trips and tickets but change nothing that
-  matters.
+| `ridexrider@yopmail.com` | Rider | `RIDER` |
+| `ridexdriver@yopmail.com` | Driver, approved and with a vehicle | `DRIVER` |
+| `kumarprince.s0611@gmail.com` | Super admin | `ADMIN` |
 - **Sign-up.** The walkthrough below uses only the seeded accounts. Public sign-up sends a
   verification code by email, so on a demo without a mail provider configured, **a new account
   cannot be verified and cannot sign in**.

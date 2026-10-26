@@ -2,8 +2,11 @@ package com.ridex.demo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,21 +26,20 @@ import com.ridex.auth.UserRepository;
 import com.ridex.auth.domain.AppContext;
 import com.ridex.auth.domain.UserRole;
 import com.ridex.auth.dto.LoginRequest;
-import com.ridex.auth.dto.RegisterRequest;
 import com.ridex.dispatch.DriverDutyService;
 import com.ridex.dispatch.dto.DutyRequest;
 
-// Its own Postgres and Redis, not the shared @IntegrationTest pair: the reset drops the whole
-// schema, and every other test class would lose its data mid-run.
+// Its own Postgres and Redis, not the shared @IntegrationTest pair: the seeded accounts would
+// collide with other test classes' fixtures.
 @SpringBootTest
 @ActiveProfiles("demo")
 @Import(DemoProfileTest.Containers.class)
 class DemoProfileTest {
 
-    private static final String PASSWORD = "RideX-demo-2026";
+    private static final String PASSWORD = "Ridex@123";
 
     @Autowired private DemoSeeder seeder;
-    @Autowired private DemoReset reset;
+    @Autowired private Flyway flyway;
     @Autowired private AuthService authService;
     @Autowired private UserRepository userRepository;
     @Autowired private DriverDutyService driverDutyService;
@@ -47,8 +49,7 @@ class DemoProfileTest {
     void eachSeededAccountSignsIntoItsOwnApp() {
         assertThat(login(DemoSeeder.RIDER_EMAIL, AppContext.RIDER).roles()).containsExactly(UserRole.RIDER);
         assertThat(login(DemoSeeder.DRIVER_EMAIL, AppContext.DRIVER).roles()).containsExactly(UserRole.DRIVER);
-        // The password is public, so the console account can look but not change money or people.
-        assertThat(login(DemoSeeder.SUPPORT_EMAIL, AppContext.ADMIN).roles()).containsExactly(UserRole.SUPPORT);
+        assertThat(login(DemoSeeder.ADMIN_EMAIL, AppContext.ADMIN).roles()).containsExactly(UserRole.SUPER_ADMIN);
     }
 
     @Test
@@ -71,14 +72,8 @@ class DemoProfileTest {
     }
 
     @Test
-    void theResetLeavesOnlyTheSeededState() {
-        authService.register(new RegisterRequest("visitor@example.com", "Visitor@2026", UserRole.RIDER));
-
-        reset.reset();
-
-        assertThat(userRepository.findByEmail("visitor@example.com")).isEmpty();
-        assertThat(userRepository.count()).isEqualTo(3);
-        assertThat(login(DemoSeeder.RIDER_EMAIL, AppContext.RIDER).accessToken()).isNotBlank();
+    void theDemoCanNeverDropTheSchema() {
+        assertThatThrownBy(flyway::clean).isInstanceOf(FlywayException.class);
     }
 
     @Test

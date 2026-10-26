@@ -66,12 +66,10 @@ Optional:
 | Variable | When |
 |---|---|
 | `RIDEX_DEMO_PASSWORD` | To change the published demo password |
-| `RIDEX_DEMO_RESET_CRON` | To move the nightly reset from 03:00 IST |
 | `RIDEX_MAIL_HOST`, `RIDEX_MAIL_PORT`, `RIDEX_MAIL_USERNAME`, `RIDEX_MAIL_PASSWORD`, `RIDEX_MAIL_FROM` | So public signup can deliver its verification code, for example through Brevo's SMTP relay. Without them signup cannot complete, and queued mail is retried and then dropped |
 | `RIDEX_CORS_ALLOWED_ORIGINS` | Only if the admin console is hosted; Swagger UI is same-origin |
 
-Never set `RIDEX_BOOTSTRAP_ADMIN_*` on the demo; the demo profile ignores them anyway, because the
-demo password is public.
+`RIDEX_BOOTSTRAP_ADMIN_*` is ignored on the demo; the demo seeds its own super admin.
 
 The disk on both platforms is wiped on every deploy, so uploaded driver documents do not survive
 one. Nothing on the demo needs them; a real deployment sets the document bucket variables.
@@ -118,7 +116,7 @@ Flyway runs at boot, so the schema arrives with the code. The bootstrap admin is
 start from `RIDEX_BOOTSTRAP_ADMIN_*`.
 
 **5. Nothing else is seeded,** unless `SPRING_PROFILES_ACTIVE=demo` is set in `.env.production`:
-then the reviewer accounts are seeded and everything resets nightly. Otherwise the admin is the only
+then the reviewer accounts are seeded if missing. No data is ever reset. Otherwise the admin is the only
 account; routes, fares, drivers and legal text are all set up from the console.
 
 ### Every deployment after that

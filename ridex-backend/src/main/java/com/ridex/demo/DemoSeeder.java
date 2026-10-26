@@ -40,10 +40,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DemoSeeder implements ApplicationRunner {
 
-    // .example is reserved (RFC 2606): mail queued for these can never reach a real inbox.
-    static final String RIDER_EMAIL = "rider@ridex.example";
-    static final String DRIVER_EMAIL = "driver@ridex.example";
-    static final String SUPPORT_EMAIL = "support@ridex.example";
+    static final String RIDER_EMAIL = "ridexrider@yopmail.com";
+    static final String DRIVER_EMAIL = "ridexdriver@yopmail.com";
+    static final String ADMIN_EMAIL = "kumarprince.s0611@gmail.com";
 
     // No such user, so the approval is stamped with no reviewer rather than a fake one.
     private static final String SEEDED = "demo-seed";
@@ -65,18 +64,24 @@ public class DemoSeeder implements ApplicationRunner {
         seed();
     }
 
-    // One transaction, so the rider existing means everything does: a restart seeds nothing twice.
+    // Each account only if missing: data is never wiped, so a restart must neither duplicate
+    // an account nor fail on one that was created by hand.
     @Transactional
     public void seed() {
-        if (userRepository.existsByEmail(RIDER_EMAIL)) {
-            return;
+        if (!userRepository.existsByEmail(RIDER_EMAIL)) {
+            riderProfileService.createFor(account(RIDER_EMAIL, "Asha", "Rider", UserRole.RIDER));
         }
+        if (!userRepository.existsByEmail(ADMIN_EMAIL)) {
+            account(ADMIN_EMAIL, "RideX", "Admin", UserRole.SUPER_ADMIN);
+        }
+        if (!userRepository.existsByEmail(DRIVER_EMAIL)) {
+            seedDriver();
+        }
+    }
 
-        riderProfileService.createFor(account(RIDER_EMAIL, "Asha", "Rider", UserRole.RIDER));
-        account(SUPPORT_EMAIL, "Sam", "Support", UserRole.SUPPORT);
-
-        // Through the real onboarding and vehicle review, so the demo driver passes the same
-        // eligibility check as anyone else. Location is not seeded: presence goes stale in minutes.
+    // Through the real onboarding and vehicle review, so the demo driver passes the same
+    // eligibility check as anyone else. Location is not seeded: presence goes stale in minutes.
+    private void seedDriver() {
         User driver = account(DRIVER_EMAIL, "Dev", "Driver", UserRole.DRIVER);
         DriverProfile profile = driverProfileService.createFor(driver);
         approvedDocuments(profile);
@@ -84,10 +89,10 @@ public class DemoSeeder implements ApplicationRunner {
         onboardingService.approve(profile.getId(), SEEDED);
 
         var car = vehicleService.add(driver.getId(), new AddVehicleRequest(
-                VehicleType.SEDAN, "Maruti", "Dzire", 2023, "White", 4, "RJ14DM0001"));
+                VehicleType.SEDAN, "Maruti", "Dzire", 2023, "White", 4, "RJ14DM0002"));
         vehicleService.review(car.id(), true);
 
-        log.warn("Seeded the demo accounts. This profile resets all data nightly; never use it for real data.");
+        log.info("Seeded the demo driver.");
     }
 
     private User account(String email, String firstName, String lastName, UserRole role) {
